@@ -25,20 +25,18 @@ RUN pnpm --filter @musicserver/shared build
 # --- Build server ---
 FROM deps AS build-server
 COPY tsconfig.base.json ./
-COPY --from=build-shared /app/packages/shared/dist ./packages/shared/dist
-COPY --from=build-shared /app/packages/shared/src ./packages/shared/src
-COPY apps/server/ ./apps/server/
 COPY packages/shared/ ./packages/shared/
+COPY apps/server/ ./apps/server/
+COPY --from=build-shared /app/packages/shared/dist ./packages/shared/dist
 RUN pnpm --filter @musicserver/server prisma:generate
 RUN pnpm --filter @musicserver/server build
 
 # --- Build web ---
 FROM deps AS build-web
 COPY tsconfig.base.json ./
-COPY --from=build-shared /app/packages/shared/dist ./packages/shared/dist
-COPY --from=build-shared /app/packages/shared/src ./packages/shared/src
-COPY apps/web/ ./apps/web/
 COPY packages/shared/ ./packages/shared/
+COPY apps/web/ ./apps/web/
+COPY --from=build-shared /app/packages/shared/dist ./packages/shared/dist
 RUN pnpm --filter @musicserver/web build
 
 # --- Production ---
