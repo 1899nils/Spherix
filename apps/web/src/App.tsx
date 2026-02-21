@@ -1,25 +1,36 @@
-import type { Track } from '@musicserver/shared';
-import { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MainLayout } from '@/components/layout/MainLayout';
+import { Home } from '@/pages/Home';
+import { Library } from '@/pages/Library';
+import { Artists } from '@/pages/Artists';
+import { Playlists } from '@/pages/Playlists';
+import { Settings } from '@/pages/Settings';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 2,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 export function App() {
-  const [status, setStatus] = useState<string>('Verbinde...');
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then((res) => res.json())
-      .then((data) => setStatus(data.status === 'ok' ? 'Verbunden' : 'Fehler'))
-      .catch(() => setStatus('Server nicht erreichbar'));
-  }, []);
-
   return (
-    <div style={{ padding: '2rem' }}>
-      <h1>MusicServer</h1>
-      <p>
-        Status: <strong>{status}</strong>
-      </p>
-      <p style={{ color: 'var(--text-secondary)', marginTop: '1rem' }}>
-        Selbst gehosteter Music Server
-      </p>
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/library" element={<Library />} />
+            <Route path="/artists" element={<Artists />} />
+            <Route path="/playlists" element={<Playlists />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
