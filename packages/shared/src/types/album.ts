@@ -1,11 +1,17 @@
 export interface Album {
   id: string;
   title: string;
-  year: number | null;
-  coverPath: string | null;
   artistId: string;
+  year: number | null;
+  releaseDate: string | null;
+  genre: string | null;
+  coverUrl: string | null;
+  musicbrainzId: string | null;
+  totalTracks: number | null;
+  totalDiscs: number | null;
+  label: string | null;
+  country: string | null;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface AlbumWithRelations extends Album {

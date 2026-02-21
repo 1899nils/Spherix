@@ -4,3 +4,6 @@ export * from './types/artist';
 export * from './types/playlist';
 export * from './types/user';
 export * from './types/api';
+export * from './types/library';
+export * from './types/starred';
+export * from './types/playHistory';

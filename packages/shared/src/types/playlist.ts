@@ -1,10 +1,9 @@
 export interface Playlist {
   id: string;
   name: string;
-  description: string | null;
   userId: string;
+  isPublic: boolean;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface PlaylistWithTracks extends Playlist {
