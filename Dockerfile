@@ -18,11 +18,13 @@ RUN pnpm install --frozen-lockfile
 
 # --- Build shared ---
 FROM deps AS build-shared
+COPY tsconfig.base.json ./
 COPY packages/shared/ ./packages/shared/
 RUN pnpm --filter @musicserver/shared build
 
 # --- Build server ---
 FROM deps AS build-server
+COPY tsconfig.base.json ./
 COPY --from=build-shared /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build-shared /app/packages/shared/src ./packages/shared/src
 COPY apps/server/ ./apps/server/
@@ -32,6 +34,7 @@ RUN pnpm --filter @musicserver/server build
 
 # --- Build web ---
 FROM deps AS build-web
+COPY tsconfig.base.json ./
 COPY --from=build-shared /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build-shared /app/packages/shared/src ./packages/shared/src
 COPY apps/web/ ./apps/web/
