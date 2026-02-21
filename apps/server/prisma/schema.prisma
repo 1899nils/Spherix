@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  playlists Playlist[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Artist {
+  id        String   @id @default(uuid())
+  name      String
+  albums    Album[]
+  tracks    Track[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("artists")
+}
+
+model Album {
+  id        String   @id @default(uuid())
+  title     String
+  year      Int?
+  coverPath String?  @map("cover_path")
+  artist    Artist   @relation(fields: [artistId], references: [id])
+  artistId  String   @map("artist_id")
+  tracks    Track[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("albums")
+}
+
+model Track {
+  id          String   @id @default(uuid())
+  title       String
+  duration    Float
+  trackNumber Int      @default(1) @map("track_number")
+  discNumber  Int      @default(1) @map("disc_number")
+  filePath    String   @map("file_path")
+  mimeType    String   @map("mime_type")
+  bitrate     Int?
+  sampleRate  Int?     @map("sample_rate")
+  artist      Artist   @relation(fields: [artistId], references: [id])
+  artistId    String   @map("artist_id")
+  album       Album?   @relation(fields: [albumId], references: [id])
+  albumId     String?  @map("album_id")
+  playlists   PlaylistTrack[]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("tracks")
+}
+
+model Playlist {
+  id          String          @id @default(uuid())
+  name        String
+  description String?
+  user        User            @relation(fields: [userId], references: [id])
+  userId      String          @map("user_id")
+  tracks      PlaylistTrack[]
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  @@map("playlists")
+}
+
+model PlaylistTrack {
+  id         String   @id @default(uuid())
+  position   Int
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  playlistId String   @map("playlist_id")
+  track      Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  trackId    String   @map("track_id")
+
+  @@unique([playlistId, trackId])
+  @@map("playlist_tracks")
+}
