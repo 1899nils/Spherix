@@ -16,7 +16,7 @@ router.get('/', async (req, res, next) => {
         take: pageSize,
         include: {
           artist: { select: { id: true, name: true } },
-          album: { select: { id: true, title: true, coverPath: true } },
+          album: { select: { id: true, title: true, coverUrl: true } },
         },
         orderBy: { title: 'asc' },
       }),
@@ -43,7 +43,7 @@ router.get('/:id', async (req, res, next) => {
       where: { id: req.params.id },
       include: {
         artist: { select: { id: true, name: true } },
-        album: { select: { id: true, title: true, coverPath: true } },
+        album: { select: { id: true, title: true, coverUrl: true } },
       },
     });
 

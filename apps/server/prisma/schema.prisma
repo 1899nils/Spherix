@@ -117,6 +117,7 @@ model Track {
   channels      Int?
   musicbrainzId String?  @unique @map("musicbrainz_id")
   lyrics        String?
+  missing       Boolean  @default(false)
   createdAt     DateTime @default(now()) @map("created_at")
 
   artist         Artist          @relation(fields: [artistId], references: [id], onDelete: Cascade)

@@ -5,9 +5,12 @@ import RedisStore from 'connect-redis';
 import { env } from './config/env.js';
 import { redis } from './config/redis.js';
 import { connectDatabase } from './config/database.js';
+import { logger } from './config/logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { startScanWorker, stopScanWorker } from './services/scanner/index.js';
 import healthRouter from './routes/health.js';
 import tracksRouter from './routes/tracks.js';
+import librariesRouter from './routes/libraries.js';
 
 const app = express();
 
@@ -31,6 +34,7 @@ app.use(
 // Routes
 app.use('/api/health', healthRouter);
 app.use('/api/tracks', tracksRouter);
+app.use('/api/libraries', librariesRouter);
 
 // Error handling
 app.use(errorHandler);
@@ -38,13 +42,25 @@ app.use(errorHandler);
 // Start server
 async function main() {
   await connectDatabase();
+  startScanWorker();
 
-  app.listen(env.port, () => {
-    console.log(`Server running on port ${env.port} [${env.nodeEnv}]`);
+  const server = app.listen(env.port, () => {
+    logger.info(`Server running on port ${env.port} [${env.nodeEnv}]`);
   });
+
+  // Graceful shutdown
+  const shutdown = async () => {
+    logger.info('Shutting down...');
+    await stopScanWorker();
+    server.close();
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 main().catch((err) => {
-  console.error('Failed to start server:', err);
+  logger.error('Failed to start server:', err);
   process.exit(1);
 });
