@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../config/database.js';
 import type { PaginatedResponse, TrackWithRelations } from '@musicserver/shared';
 
-const router = Router();
+const router: Router = Router();
 
 router.get('/', async (req, res, next) => {
   try {

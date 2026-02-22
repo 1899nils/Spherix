@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../config/database.js';
 import { redis } from '../config/redis.js';
 
-const router = Router();
+const router: Router = Router();
 
 router.get('/', async (_req, res) => {
   try {

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../config/database.js';
 import { enqueueScan, scanQueue } from '../services/scanner/index.js';
 
-const router = Router();
+const router: Router = Router();
 
 /** List all libraries */
 router.get('/', async (_req, res, next) => {

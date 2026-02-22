@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
-import RedisStore from 'connect-redis';
+import { RedisStore } from 'connect-redis';
 import { env } from './config/env.js';
 import { redis } from './config/redis.js';
 import { connectDatabase } from './config/database.js';
