@@ -16,22 +16,16 @@ COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
 RUN pnpm install --frozen-lockfile
 
-# --- Build shared ---
-FROM deps AS build-shared
+# --- Build everything in one stage ---
+FROM deps AS build
 COPY tsconfig.base.json ./
 COPY packages/shared/ ./packages/shared/
-RUN pnpm --filter @musicserver/shared build
-
-# --- Build server ---
-FROM build-shared AS build-server
 COPY apps/server/ ./apps/server/
+COPY apps/web/ ./apps/web/
+RUN pnpm --filter @musicserver/shared build
 RUN pnpm --filter @musicserver/server prisma:generate
 RUN pnpm --filter @musicserver/server build
-
-# --- Build web ---
-FROM build-shared AS build-web
-COPY apps/web/ ./apps/web/
-RUN ls packages/shared/dist/index.d.ts && pnpm --filter @musicserver/web build
+RUN cd apps/web && npx vite build
 
 # --- Production ---
 FROM node:20-alpine AS production
@@ -41,16 +35,16 @@ RUN apk add --no-cache nginx supervisor
 WORKDIR /app
 
 # Copy server
-COPY --from=build-server /app/node_modules ./node_modules
-COPY --from=build-server /app/apps/server/node_modules ./apps/server/node_modules
-COPY --from=build-server /app/apps/server/dist ./apps/server/dist
-COPY --from=build-server /app/apps/server/prisma ./apps/server/prisma
-COPY --from=build-server /app/apps/server/package.json ./apps/server/
-COPY --from=build-server /app/packages/shared/dist ./packages/shared/dist
-COPY --from=build-server /app/packages/shared/package.json ./packages/shared/
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/apps/server/node_modules ./apps/server/node_modules
+COPY --from=build /app/apps/server/dist ./apps/server/dist
+COPY --from=build /app/apps/server/prisma ./apps/server/prisma
+COPY --from=build /app/apps/server/package.json ./apps/server/
+COPY --from=build /app/packages/shared/dist ./packages/shared/dist
+COPY --from=build /app/packages/shared/package.json ./packages/shared/
 
 # Copy web static files
-COPY --from=build-web /app/apps/web/dist /usr/share/nginx/html
+COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 
 # Nginx config: proxy /api to localhost:3000
 RUN cat > /etc/nginx/http.d/default.conf <<'NGINX'
