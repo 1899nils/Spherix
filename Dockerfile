@@ -31,7 +31,7 @@ RUN pnpm --filter @musicserver/server build
 # --- Build web ---
 FROM build-shared AS build-web
 COPY apps/web/ ./apps/web/
-RUN pnpm --filter @musicserver/web build
+RUN ls packages/shared/dist/index.d.ts && pnpm --filter @musicserver/web build
 
 # --- Production ---
 FROM node:20-alpine AS production

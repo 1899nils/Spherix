@@ -7,7 +7,8 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@musicserver/shared": ["../../packages/shared/dist"]
     }
   },
   "include": ["src", "vite-env.d.ts"],
