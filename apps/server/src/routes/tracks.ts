@@ -2,6 +2,9 @@ import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { prisma } from '../config/database.js';
+import { requireAdmin } from '../middleware/requireAdmin.js';
+import { trackMetadataSchema } from './schemas/metadata.schemas.js';
+import { writeTags } from '../services/metadata/tagwriter.service.js';
 import type { PaginatedResponse, TrackWithRelations } from '@musicserver/shared';
 
 const router: Router = Router();
@@ -42,7 +45,7 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const track = await prisma.track.findUnique({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       include: {
         artist: { select: { id: true, name: true } },
         album: { select: { id: true, title: true, coverUrl: true } },
@@ -66,7 +69,7 @@ router.patch('/:id', async (req, res, next) => {
     const { title, trackNumber, discNumber, lyrics } = req.body;
 
     const track = await prisma.track.update({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       data: {
         ...(title !== undefined ? { title } : {}),
         ...(trackNumber !== undefined ? { trackNumber } : {}),
@@ -85,11 +88,106 @@ router.patch('/:id', async (req, res, next) => {
   }
 });
 
+/** Update track metadata (admin only) — writes tags back to file */
+router.put('/:id/metadata', requireAdmin, async (req, res, next) => {
+  try {
+    const parsed = trackMetadataSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+      return;
+    }
+
+    const track = await prisma.track.findUnique({
+      where: { id: String(req.params.id) },
+      include: { artist: true, album: true },
+    });
+    if (!track) {
+      res.status(404).json({ error: 'Track not found' });
+      return;
+    }
+
+    const input = parsed.data;
+
+    // Resolve artist — find or create if artistName changed
+    let artistId = track.artistId;
+    if (input.artistName && input.artistName !== track.artist.name) {
+      const existing = await prisma.artist.findFirst({
+        where: { name: input.artistName },
+        select: { id: true },
+      });
+      if (existing) {
+        artistId = existing.id;
+      } else {
+        const created = await prisma.artist.create({
+          data: { name: input.artistName },
+          select: { id: true },
+        });
+        artistId = created.id;
+      }
+    }
+
+    // Resolve album — find or create if albumName changed
+    let albumId = track.albumId;
+    if (input.albumName !== undefined) {
+      if (input.albumName) {
+        const existing = await prisma.album.findFirst({
+          where: { title: input.albumName, artistId },
+          select: { id: true },
+        });
+        if (existing) {
+          albumId = existing.id;
+        } else {
+          const created = await prisma.album.create({
+            data: { title: input.albumName, artistId },
+            select: { id: true },
+          });
+          albumId = created.id;
+        }
+      } else {
+        albumId = null;
+      }
+    }
+
+    // Update database
+    const updated = await prisma.track.update({
+      where: { id: track.id },
+      data: {
+        ...(input.title ? { title: input.title } : {}),
+        ...(input.trackNumber ? { trackNumber: input.trackNumber } : {}),
+        ...(input.discNumber ? { discNumber: input.discNumber } : {}),
+        ...(input.lyrics !== undefined ? { lyrics: input.lyrics } : {}),
+        artistId,
+        albumId,
+      },
+      include: {
+        artist: { select: { id: true, name: true } },
+        album: { select: { id: true, title: true, coverUrl: true } },
+      },
+    });
+
+    // Write tags to audio file
+    await writeTags(track.filePath, {
+      title: input.title,
+      artist: input.artistName,
+      album: input.albumName,
+      trackNumber: input.trackNumber,
+      discNumber: input.discNumber,
+      year: input.year,
+      genre: input.genre,
+      lyrics: input.lyrics,
+    });
+
+    res.json({ data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
 /** Stream audio file */
 router.get('/:id/stream', async (req, res, next) => {
   try {
     const track = await prisma.track.findUnique({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       select: { filePath: true, format: true, fileSize: true },
     });
 

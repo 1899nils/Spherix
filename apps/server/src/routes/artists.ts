@@ -23,7 +23,7 @@ router.get('/', async (req, res, next) => {
       prisma.artist.count(),
     ]);
 
-    const data: ArtistWithRelations[] = artists.map((a) => ({
+    const data: ArtistWithRelations[] = artists.map((a: typeof artists[number]) => ({
       id: a.id,
       name: a.name,
       sortName: a.sortName,
@@ -53,7 +53,7 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const artist = await prisma.artist.findUnique({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       include: {
         _count: { select: { albums: true, tracks: true } },
         albums: {
@@ -70,7 +70,7 @@ router.get('/:id', async (req, res, next) => {
       return;
     }
 
-    const albums: AlbumWithRelations[] = artist.albums.map((a) => ({
+    const albums: AlbumWithRelations[] = artist.albums.map((a: typeof artist.albums[number]) => ({
       id: a.id,
       title: a.title,
       artistId: a.artistId,
@@ -113,7 +113,7 @@ router.patch('/:id', async (req, res, next) => {
     const { name, biography, imageUrl } = req.body;
 
     const artist = await prisma.artist.update({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       data: {
         ...(name !== undefined ? { name } : {}),
         ...(biography !== undefined ? { biography } : {}),

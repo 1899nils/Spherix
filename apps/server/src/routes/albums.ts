@@ -1,8 +1,22 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { prisma } from '../config/database.js';
+import { requireAdmin } from '../middleware/requireAdmin.js';
+import {
+  albumMetadataSchema,
+  matchMusicbrainzSchema,
+} from './schemas/metadata.schemas.js';
+import { writeTags } from '../services/metadata/tagwriter.service.js';
+import { processAndSaveCover } from '../services/metadata/cover-processing.service.js';
+import {
+  getReleaseById,
+  getCoverArtUrl,
+  matchAlbum,
+} from '../services/musicbrainz/index.js';
 import type { AlbumWithRelations, PaginatedResponse } from '@musicserver/shared';
 
 const router: Router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 /** List all albums with pagination */
 router.get('/', async (req, res, next) => {
@@ -36,7 +50,7 @@ router.get('/', async (req, res, next) => {
       prisma.album.count({ where }),
     ]);
 
-    const data: AlbumWithRelations[] = albums.map((a) => ({
+    const data: AlbumWithRelations[] = albums.map((a: typeof albums[number]) => ({
       id: a.id,
       title: a.title,
       artistId: a.artistId,
@@ -72,7 +86,7 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const album = await prisma.album.findUnique({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       include: {
         artist: { select: { id: true, name: true } },
         tracks: {
@@ -89,7 +103,7 @@ router.get('/:id', async (req, res, next) => {
       return;
     }
 
-    const tracks = album.tracks.map((t) => ({
+    const tracks = album.tracks.map((t: typeof album.tracks[number]) => ({
       ...t,
       fileSize: t.fileSize.toString(),
       createdAt: t.createdAt.toISOString(),
@@ -127,7 +141,7 @@ router.patch('/:id', async (req, res, next) => {
     const { title, year, genre, label, country } = req.body;
 
     const album = await prisma.album.update({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       data: {
         ...(title !== undefined ? { title } : {}),
         ...(year !== undefined ? { year } : {}),
@@ -149,6 +163,300 @@ router.patch('/:id', async (req, res, next) => {
         trackCount: album._count.tracks,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── PUT /api/albums/:id/metadata (Admin) ──────────────────────────────────
+
+router.put('/:id/metadata', requireAdmin, async (req, res, next) => {
+  try {
+    const parsed = albumMetadataSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+      return;
+    }
+
+    const album = await prisma.album.findUnique({
+      where: { id: String(req.params.id) },
+      include: {
+        artist: true,
+        tracks: { select: { id: true, filePath: true } },
+      },
+    });
+    if (!album) {
+      res.status(404).json({ error: 'Album not found' });
+      return;
+    }
+
+    const input = parsed.data;
+
+    // Resolve artist if name changed
+    let artistId = album.artistId;
+    if (input.artistName && input.artistName !== album.artist.name) {
+      const existing = await prisma.artist.findFirst({
+        where: { name: input.artistName },
+        select: { id: true },
+      });
+      if (existing) {
+        artistId = existing.id;
+      } else {
+        const created = await prisma.artist.create({
+          data: { name: input.artistName },
+          select: { id: true },
+        });
+        artistId = created.id;
+      }
+    }
+
+    // Update album in DB
+    const updated = await prisma.album.update({
+      where: { id: album.id },
+      data: {
+        ...(input.title ? { title: input.title } : {}),
+        ...(input.year !== undefined ? { year: input.year } : {}),
+        ...(input.genre !== undefined ? { genre: input.genre } : {}),
+        ...(input.label !== undefined ? { label: input.label } : {}),
+        ...(input.country !== undefined ? { country: input.country } : {}),
+        ...(input.musicbrainzId ? { musicbrainzId: input.musicbrainzId } : {}),
+        artistId,
+      },
+      include: {
+        artist: { select: { id: true, name: true } },
+        _count: { select: { tracks: true } },
+      },
+    });
+
+    // Update all tracks in album: write artist/album/year/genre tags to files
+    const tagFields = {
+      artist: input.artistName,
+      album: input.title,
+      year: input.year,
+      genre: input.genre,
+    };
+    const tagUpdates = Object.fromEntries(
+      Object.entries(tagFields).filter(([, v]) => v !== undefined),
+    );
+
+    if (Object.keys(tagUpdates).length > 0) {
+      for (const track of album.tracks) {
+        if (artistId !== album.artistId) {
+          await prisma.track.update({
+            where: { id: track.id },
+            data: { artistId },
+          });
+        }
+        await writeTags(track.filePath, tagUpdates);
+      }
+    }
+
+    res.json({
+      data: {
+        ...updated,
+        releaseDate: updated.releaseDate?.toISOString() ?? null,
+        createdAt: updated.createdAt.toISOString(),
+        trackCount: updated._count.tracks,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── POST /api/albums/:id/cover (Admin) ────────────────────────────────────
+
+router.post('/:id/cover', requireAdmin, upload.single('cover'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'No cover image uploaded. Use field name "cover".' });
+      return;
+    }
+
+    const album = await prisma.album.findUnique({
+      where: { id: String(req.params.id) },
+      select: { id: true },
+    });
+    if (!album) {
+      res.status(404).json({ error: 'Album not found' });
+      return;
+    }
+
+    const covers = await processAndSaveCover(req.file.buffer, album.id);
+
+    await prisma.album.update({
+      where: { id: album.id },
+      data: { coverUrl: covers.url500 },
+    });
+
+    res.json({ data: covers });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── POST /api/albums/:id/match-musicbrainz (Admin) ────────────────────────
+
+router.post('/:id/match-musicbrainz', requireAdmin, async (req, res, next) => {
+  try {
+    const parsed = matchMusicbrainzSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+      return;
+    }
+
+    const album = await prisma.album.findUnique({
+      where: { id: String(req.params.id) },
+      include: {
+        artist: true,
+        tracks: {
+          select: { id: true, filePath: true, trackNumber: true, title: true },
+          orderBy: [{ discNumber: 'asc' }, { trackNumber: 'asc' }],
+        },
+      },
+    });
+    if (!album) {
+      res.status(404).json({ error: 'Album not found' });
+      return;
+    }
+
+    const { musicbrainzReleaseId, confirm } = parsed.data;
+
+    // Fetch MusicBrainz release data
+    const release = await getReleaseById(musicbrainzReleaseId);
+    const coverUrl = await getCoverArtUrl(musicbrainzReleaseId);
+
+    // Build the preview of changes
+    const artistName = release['artist-credit']
+      ?.map((c) => c.name + (c.joinphrase || ''))
+      .join('') ?? album.artist.name;
+    const releaseYear = release.date ? parseInt(release.date.slice(0, 4), 10) : null;
+    const label = release['label-info']?.[0]?.label?.name ?? null;
+    const country = release.country ?? null;
+    const genre = release.tags?.sort((a, b) => b.count - a.count)[0]?.name ?? null;
+    const totalDiscs = release.media?.length ?? null;
+
+    // Build track-level changes from MusicBrainz media
+    const mbTracks = release.media?.flatMap((m) =>
+      (m.tracks ?? []).map((t) => ({
+        discNumber: m.position,
+        trackNumber: t.position,
+        title: t.title,
+        duration: t.length ? t.length / 1000 : null,
+        musicbrainzId: t.recording.id,
+      })),
+    ) ?? [];
+
+    const changes = {
+      album: {
+        title: { from: album.title, to: release.title },
+        artistName: { from: album.artist.name, to: artistName },
+        year: { from: album.year, to: releaseYear },
+        genre: { from: album.genre, to: genre },
+        label: { from: album.label, to: label },
+        country: { from: album.country, to: country },
+        totalDiscs: { from: album.totalDiscs, to: totalDiscs },
+        coverUrl: { from: album.coverUrl, to: coverUrl },
+        musicbrainzId: { from: album.musicbrainzId, to: musicbrainzReleaseId },
+      },
+      tracks: mbTracks,
+    };
+
+    if (!confirm) {
+      res.json({ data: { preview: true, changes } });
+      return;
+    }
+
+    // Apply changes
+
+    // Resolve artist
+    let artistId = album.artistId;
+    if (artistName !== album.artist.name) {
+      const existing = await prisma.artist.findFirst({
+        where: { name: artistName },
+        select: { id: true },
+      });
+      artistId = existing
+        ? existing.id
+        : (await prisma.artist.create({
+            data: { name: artistName },
+            select: { id: true },
+          })).id;
+    }
+
+    // Update album
+    await prisma.album.update({
+      where: { id: album.id },
+      data: {
+        title: release.title,
+        artistId,
+        year: releaseYear,
+        genre,
+        label,
+        country,
+        totalDiscs,
+        musicbrainzId: musicbrainzReleaseId,
+        ...(coverUrl ? { coverUrl } : {}),
+      },
+    });
+
+    // Match and update tracks by position
+    for (const mbTrack of mbTracks) {
+      const localTrack = album.tracks.find(
+        (t: typeof album.tracks[number]) => t.trackNumber === mbTrack.trackNumber,
+      );
+      if (!localTrack) continue;
+
+      await prisma.track.update({
+        where: { id: localTrack.id },
+        data: {
+          title: mbTrack.title,
+          artistId,
+          musicbrainzId: mbTrack.musicbrainzId,
+        },
+      });
+
+      await writeTags(localTrack.filePath, {
+        title: mbTrack.title,
+        artist: artistName,
+        album: release.title,
+        trackNumber: mbTrack.trackNumber,
+        discNumber: mbTrack.discNumber,
+        year: releaseYear ?? undefined,
+        genre: genre ?? undefined,
+      });
+    }
+
+    res.json({ data: { preview: false, applied: true, changes } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── GET /api/albums/:id/musicbrainz-candidates ────────────────────────────
+
+router.get('/:id/musicbrainz-candidates', async (req, res, next) => {
+  try {
+    const album = await prisma.album.findUnique({
+      where: { id: String(req.params.id) },
+      include: {
+        artist: { select: { name: true } },
+        _count: { select: { tracks: true } },
+      },
+    });
+    if (!album) {
+      res.status(404).json({ error: 'Album not found' });
+      return;
+    }
+
+    const result = await matchAlbum({
+      title: album.title,
+      artistName: album.artist.name,
+      year: album.year,
+      trackCount: album._count.tracks,
+    });
+
+    res.json({ data: result });
   } catch (error) {
     next(error);
   }
