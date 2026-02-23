@@ -79,7 +79,7 @@ NGINX
 RUN cat > /etc/supervisord.conf <<'EOF'
 [supervisord]
 nodaemon=true
-logfile=/data/logs/supervisord.log
+logfile=/tmp/supervisord.log
 logfile_maxbytes=1MB
 loglevel=info
 
