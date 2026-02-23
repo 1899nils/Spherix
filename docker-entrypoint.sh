@@ -25,12 +25,21 @@ if [ ! -f "/data/postgres/PG_VERSION" ]; then
   echo "listen_addresses = 'localhost'" >> /data/postgres/postgresql.conf
 
   # Start PostgreSQL temporarily to create user and database
+  # Note: use Unix socket (no -h flag) because auth-local=trust allows passwordless access
   su postgres -c "pg_ctl -D /data/postgres -l /data/logs/postgres.log start -w"
   sleep 1
 
   echo "Creating database user and database..."
-  su postgres -c "psql -h localhost -c \"CREATE USER musicserver WITH PASSWORD 'musicserver';\"" 2>&1
-  su postgres -c "psql -h localhost -c \"CREATE DATABASE musicserver OWNER musicserver;\"" 2>&1
+  if ! su postgres -c "psql -c \"CREATE USER musicserver WITH PASSWORD 'musicserver';\"" 2>&1; then
+    echo "ERROR: Failed to create database user"
+    su postgres -c "pg_ctl -D /data/postgres stop -w"
+    exit 1
+  fi
+  if ! su postgres -c "psql -c \"CREATE DATABASE musicserver OWNER musicserver;\"" 2>&1; then
+    echo "ERROR: Failed to create database"
+    su postgres -c "pg_ctl -D /data/postgres stop -w"
+    exit 1
+  fi
 
   su postgres -c "pg_ctl -D /data/postgres stop -w"
   sleep 1
