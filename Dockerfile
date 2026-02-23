@@ -1,50 +1,49 @@
 # =============================================================================
 # MusicServer – Combined Image (Server + Web)
 # Runs Node.js backend + nginx frontend in a single container
+#
+# IMPORTANT: This Dockerfile expects pre-built artifacts (dist/ directories).
+# Build the app first (pnpm build), then run docker build.
+# The GitHub Actions workflow handles this automatically.
 # =============================================================================
 
-# --- Base ---
-FROM node:20-alpine AS base
+# --- Install dependencies & generate Prisma client ---
+FROM node:20-alpine AS deps
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
-# --- Dependencies ---
-FROM base AS deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/server/package.json ./apps/server/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
 RUN pnpm install --frozen-lockfile
 
-# --- Build everything in one stage ---
-FROM deps AS build
-COPY tsconfig.base.json ./
-COPY packages/shared/ ./packages/shared/
-COPY apps/server/ ./apps/server/
-COPY apps/web/ ./apps/web/
-RUN pnpm --filter @musicserver/shared build
+# Prisma needs to generate platform-specific binaries for Alpine
+COPY apps/server/prisma ./apps/server/prisma
 RUN pnpm --filter @musicserver/server prisma:generate
-RUN pnpm --filter @musicserver/server build
-RUN cd apps/web && npx vite build
 
-# --- Production ---
+# --- Production image ---
 FROM node:20-alpine AS production
 
 RUN apk add --no-cache nginx supervisor
 
 WORKDIR /app
 
-# Copy server
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/apps/server/node_modules ./apps/server/node_modules
-COPY --from=build /app/apps/server/dist ./apps/server/dist
-COPY --from=build /app/apps/server/prisma ./apps/server/prisma
-COPY --from=build /app/apps/server/package.json ./apps/server/
-COPY --from=build /app/packages/shared/dist ./packages/shared/dist
-COPY --from=build /app/packages/shared/package.json ./packages/shared/
+# Runtime dependencies (node_modules from pnpm install + Prisma client)
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/server/node_modules ./apps/server/node_modules
 
-# Copy web static files
-COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+# Pre-built shared library
+COPY packages/shared/dist ./packages/shared/dist
+COPY packages/shared/package.json ./packages/shared/
+
+# Pre-built server
+COPY apps/server/dist ./apps/server/dist
+COPY apps/server/prisma ./apps/server/prisma
+COPY apps/server/package.json ./apps/server/
+
+# Pre-built web frontend
+COPY apps/web/dist /usr/share/nginx/html
 
 # Nginx config: proxy /api to localhost:3000
 RUN cat > /etc/nginx/http.d/default.conf <<'NGINX'
