@@ -1,50 +1,66 @@
 #!/bin/sh
-set -e
 
 echo "=== MusicServer starting ==="
 
 # Ensure data directories exist
-mkdir -p /data/covers /data/redis
+mkdir -p /data/covers /data/redis /data/logs
 
 # --- Initialize PostgreSQL if needed ---
-if [ ! -d "/data/postgres" ]; then
+if [ ! -d "/data/postgres/PG_VERSION" ]; then
   echo "Initializing PostgreSQL database..."
+  rm -rf /data/postgres
   mkdir -p /data/postgres
   chown postgres:postgres /data/postgres
-  su postgres -c "initdb -D /data/postgres"
+  chmod 700 /data/postgres
 
-  # Allow local connections without password for setup
-  echo "host all all 127.0.0.1/32 md5" >> /data/postgres/pg_hba.conf
-  echo "local all all trust" >> /data/postgres/pg_hba.conf
+  if ! su postgres -c "initdb -D /data/postgres --auth-local=trust --auth-host=md5" 2>&1; then
+    echo "ERROR: PostgreSQL initdb failed"
+    exit 1
+  fi
 
   # Start PostgreSQL temporarily to create user and database
-  su postgres -c "pg_ctl -D /data/postgres -l /tmp/pg_init.log start"
-  sleep 2
-
-  su postgres -c "psql -c \"CREATE USER musicserver WITH PASSWORD 'musicserver';\""
-  su postgres -c "psql -c \"CREATE DATABASE musicserver OWNER musicserver;\""
-
-  su postgres -c "pg_ctl -D /data/postgres stop"
+  su postgres -c "pg_ctl -D /data/postgres -l /data/logs/postgres-init.log start -w"
   sleep 1
+
+  echo "Creating database user and database..."
+  su postgres -c "psql -c \"CREATE USER musicserver WITH PASSWORD 'musicserver';\"" 2>&1
+  su postgres -c "psql -c \"CREATE DATABASE musicserver OWNER musicserver;\"" 2>&1
+
+  su postgres -c "pg_ctl -D /data/postgres stop -w"
+  sleep 1
+  echo "PostgreSQL initialized successfully"
 else
-  chown postgres:postgres /data/postgres
+  echo "PostgreSQL data directory found, skipping init"
+  chown -f postgres:postgres /data/postgres
 fi
 
 # Start PostgreSQL and Redis for migrations
-su postgres -c "pg_ctl -D /data/postgres -l /tmp/pg.log start"
-redis-server --dir /data/redis --appendonly yes --daemonize yes
-sleep 2
+echo "Starting PostgreSQL for migrations..."
+su postgres -c "pg_ctl -D /data/postgres -l /data/logs/postgres.log start -w" 2>&1
+if [ $? -ne 0 ]; then
+  echo "ERROR: PostgreSQL failed to start. Log:"
+  cat /data/logs/postgres.log 2>/dev/null
+  exit 1
+fi
+
+echo "Starting Redis for migrations..."
+redis-server --dir /data/redis --appendonly yes --daemonize yes --logfile /data/logs/redis.log 2>&1
+
+# Wait for services
+sleep 1
 
 # Run database migrations
 echo "Running database migrations..."
 cd /app/apps/server
-npx prisma migrate deploy
+if ! npx prisma migrate deploy 2>&1; then
+  echo "WARNING: Prisma migrate failed, server may still start if tables exist"
+fi
 cd /app
 
 # Stop temporary services (supervisor will manage them)
-redis-cli shutdown || true
-su postgres -c "pg_ctl -D /data/postgres stop" || true
+redis-cli shutdown 2>/dev/null || true
+su postgres -c "pg_ctl -D /data/postgres stop -w" 2>/dev/null || true
 sleep 1
 
-echo "Starting all services..."
+echo "Starting all services via supervisor..."
 exec supervisord -c /etc/supervisord.conf

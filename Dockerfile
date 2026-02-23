@@ -21,7 +21,7 @@ RUN pnpm --filter @musicserver/server prisma:generate
 # --- Production image ---
 FROM node:20-alpine AS production
 
-RUN apk add --no-cache nginx supervisor postgresql16 redis
+RUN apk add --no-cache nginx supervisor postgresql16 postgresql16-client redis
 
 WORKDIR /app
 
@@ -75,17 +75,21 @@ server {
 NGINX
 
 # Supervisor config: run nginx, node, postgres, redis
+# Services start in priority order (lower = earlier). Server waits for DB/Redis.
 RUN cat > /etc/supervisord.conf <<'EOF'
 [supervisord]
 nodaemon=true
-logfile=/dev/null
-logfile_maxbytes=0
+logfile=/data/logs/supervisord.log
+logfile_maxbytes=1MB
+loglevel=info
 
 [program:postgres]
 command=postgres -D /data/postgres
 user=postgres
+priority=10
 autostart=true
 autorestart=true
+startsecs=3
 stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
@@ -93,8 +97,10 @@ stderr_logfile_maxbytes=0
 
 [program:redis]
 command=redis-server --dir /data/redis --appendonly yes
+priority=10
 autostart=true
 autorestart=true
+startsecs=2
 stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
@@ -102,6 +108,7 @@ stderr_logfile_maxbytes=0
 
 [program:nginx]
 command=nginx -g "daemon off;"
+priority=20
 autostart=true
 autorestart=true
 stdout_logfile=/dev/stdout
@@ -112,8 +119,11 @@ stderr_logfile_maxbytes=0
 [program:server]
 command=node /app/apps/server/dist/index.js
 directory=/app/apps/server
+priority=30
 autostart=true
 autorestart=true
+startretries=5
+startsecs=3
 stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
