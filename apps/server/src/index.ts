@@ -13,6 +13,7 @@ import tracksRouter from './routes/tracks.js';
 import albumsRouter from './routes/albums.js';
 import artistsRouter from './routes/artists.js';
 import librariesRouter from './routes/libraries.js';
+import musicbrainzRouter from './routes/musicbrainz.js';
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/api/tracks', tracksRouter);
 app.use('/api/albums', albumsRouter);
 app.use('/api/artists', artistsRouter);
 app.use('/api/libraries', librariesRouter);
+app.use('/api/musicbrainz', musicbrainzRouter);
 
 // Error handling
 app.use(errorHandler);
