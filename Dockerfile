@@ -1,10 +1,6 @@
 # =============================================================================
-# MusicServer – Combined Image (Server + Web)
-# Runs Node.js backend + nginx frontend in a single container
-#
-# IMPORTANT: This Dockerfile expects pre-built artifacts (dist/ directories).
-# Build the app first (pnpm build), then run docker build.
-# The GitHub Actions workflow handles this automatically.
+# MusicServer – All-in-one Image (Server + Web + PostgreSQL + Redis)
+# Single container with everything included for easy self-hosted deployment.
 # =============================================================================
 
 # --- Install dependencies & generate Prisma client ---
@@ -25,7 +21,7 @@ RUN pnpm --filter @musicserver/server prisma:generate
 # --- Production image ---
 FROM node:20-alpine AS production
 
-RUN apk add --no-cache nginx supervisor
+RUN apk add --no-cache nginx supervisor postgresql16 redis
 
 WORKDIR /app
 
@@ -37,13 +33,16 @@ COPY --from=deps /app/apps/server/node_modules ./apps/server/node_modules
 COPY packages/shared/dist ./packages/shared/dist
 COPY packages/shared/package.json ./packages/shared/
 
-# Pre-built server
+# Pre-built server (including prisma schema + migrations for migrate deploy)
 COPY apps/server/dist ./apps/server/dist
 COPY apps/server/prisma ./apps/server/prisma
 COPY apps/server/package.json ./apps/server/
 
 # Pre-built web frontend
 COPY apps/web/dist /usr/share/nginx/html
+
+# Entrypoint script (runs migrations, then starts services)
+COPY docker-entrypoint.sh /docker-entrypoint.sh
 
 # Nginx config: proxy /api to localhost:3000
 RUN cat > /etc/nginx/http.d/default.conf <<'NGINX'
@@ -75,12 +74,31 @@ server {
 }
 NGINX
 
-# Supervisor config: run both nginx and node
+# Supervisor config: run nginx, node, postgres, redis
 RUN cat > /etc/supervisord.conf <<'EOF'
 [supervisord]
 nodaemon=true
 logfile=/dev/null
 logfile_maxbytes=0
+
+[program:postgres]
+command=postgres -D /data/postgres
+user=postgres
+autostart=true
+autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+
+[program:redis]
+command=redis-server --dir /data/redis --appendonly yes
+autostart=true
+autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
 
 [program:nginx]
 command=nginx -g "daemon off;"
@@ -96,7 +114,6 @@ command=node /app/apps/server/dist/index.js
 directory=/app/apps/server
 autostart=true
 autorestart=true
-environment=NODE_ENV=production
 stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
@@ -104,10 +121,13 @@ stderr_logfile_maxbytes=0
 EOF
 
 ENV NODE_ENV=production
+ENV DATABASE_URL=postgresql://musicserver:musicserver@localhost:5432/musicserver
+ENV REDIS_URL=redis://localhost:6379
 
-# Volumes for persistent data
-VOLUME ["/app/music", "/app/data"]
+# /music = mounted music directory
+# /data  = persistent data (postgres, redis, covers)
+VOLUME ["/music", "/data"]
 
 EXPOSE 80
 
-CMD ["supervisord", "-c", "/etc/supervisord.conf"]
+ENTRYPOINT ["/docker-entrypoint.sh"]

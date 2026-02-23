@@ -24,12 +24,18 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: env.nodeEnv === 'production',
+      secure: false, // Allow HTTP (typical for self-hosted setups like Unraid)
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
     },
   }),
 );
+
+// Serve cover art from /data/covers as /api/covers/:filename
+app.use('/api/covers', express.static('/data/covers', {
+  maxAge: '7d',
+  immutable: true,
+}));
 
 // Routes
 app.use('/api/health', healthRouter);

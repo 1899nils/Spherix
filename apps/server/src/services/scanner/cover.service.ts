@@ -51,7 +51,7 @@ export async function saveCoverArt(
       await fs.writeFile(filePath, picture.data);
     }
 
-    return `/covers/${filename}`;
+    return `/api/covers/${filename}`;
   } catch (error) {
     logger.warn('Failed to save cover art', { error });
     return null;
