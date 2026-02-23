@@ -60,6 +60,31 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
+/** Update track metadata */
+router.patch('/:id', async (req, res, next) => {
+  try {
+    const { title, trackNumber, discNumber, lyrics } = req.body;
+
+    const track = await prisma.track.update({
+      where: { id: req.params.id },
+      data: {
+        ...(title !== undefined ? { title } : {}),
+        ...(trackNumber !== undefined ? { trackNumber } : {}),
+        ...(discNumber !== undefined ? { discNumber } : {}),
+        ...(lyrics !== undefined ? { lyrics } : {}),
+      },
+      include: {
+        artist: { select: { id: true, name: true } },
+        album: { select: { id: true, title: true, coverUrl: true } },
+      },
+    });
+
+    res.json({ data: track });
+  } catch (error) {
+    next(error);
+  }
+});
+
 /** Stream audio file */
 router.get('/:id/stream', async (req, res, next) => {
   try {

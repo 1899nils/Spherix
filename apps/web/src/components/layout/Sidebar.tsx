@@ -5,6 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Home,
   Library,
+  Disc3,
   Mic2,
   ListMusic,
   Settings,
@@ -21,6 +22,7 @@ interface SidebarProps {
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/library', icon: Library, label: 'Bibliothek' },
+  { to: '/albums', icon: Disc3, label: 'Alben' },
   { to: '/artists', icon: Mic2, label: 'Künstler' },
   { to: '/playlists', icon: ListMusic, label: 'Playlists' },
   { to: '/settings', icon: Settings, label: 'Einstellungen' },

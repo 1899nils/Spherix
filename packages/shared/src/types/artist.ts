@@ -12,3 +12,7 @@ export interface ArtistWithRelations extends Artist {
   albumCount: number;
   trackCount: number;
 }
+
+export interface ArtistDetail extends ArtistWithRelations {
+  albums: import('./album').AlbumWithRelations[];
+}

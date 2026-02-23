@@ -10,6 +10,8 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { startScanWorker, stopScanWorker } from './services/scanner/index.js';
 import healthRouter from './routes/health.js';
 import tracksRouter from './routes/tracks.js';
+import albumsRouter from './routes/albums.js';
+import artistsRouter from './routes/artists.js';
 import librariesRouter from './routes/libraries.js';
 
 const app = express();
@@ -40,6 +42,8 @@ app.use('/api/covers', express.static('/data/covers', {
 // Routes
 app.use('/api/health', healthRouter);
 app.use('/api/tracks', tracksRouter);
+app.use('/api/albums', albumsRouter);
+app.use('/api/artists', artistsRouter);
 app.use('/api/libraries', librariesRouter);
 
 // Error handling
