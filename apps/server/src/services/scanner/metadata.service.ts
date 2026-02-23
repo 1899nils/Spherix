@@ -43,6 +43,12 @@ async function getParseFile(): Promise<(path: string) => Promise<IAudioMetadata>
     const mm = (await import('music-metadata')) as unknown as {
       parseFile: (path: string) => Promise<IAudioMetadata>;
     };
+    if (typeof mm.parseFile !== 'function') {
+      const available = Object.keys(mm).join(', ');
+      throw new Error(
+        `music-metadata did not export parseFile. Available exports: ${available}`,
+      );
+    }
     _parseFile = mm.parseFile;
   }
   return _parseFile;

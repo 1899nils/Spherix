@@ -259,7 +259,11 @@ export async function scanLibrary(libraryId: string): Promise<ScanProgress> {
     } catch (error) {
       progress.errors++;
       const err = error instanceof Error ? error : new Error(String(error));
-      logger.error(`Error processing file: ${filePath}`, { error: err.message });
+      logger.error(`Error processing file: ${filePath}`, {
+        error: err.message,
+        stack: err.stack,
+        code: (error as NodeJS.ErrnoException).code,
+      });
       scannerEvents.emitError(err, filePath);
       // Continue with next file — do not abort the scan
     }
