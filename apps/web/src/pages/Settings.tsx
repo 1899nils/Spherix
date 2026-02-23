@@ -18,13 +18,19 @@ export function Settings() {
     queryFn: () => api.get<ApiData<Library[]>>('/libraries'),
   });
 
+  const [createError, setCreateError] = useState('');
+
   const createLibrary = useMutation({
     mutationFn: (data: { name: string; path: string }) =>
       api.post<ApiData<Library>>('/libraries', data),
     onSuccess: () => {
       setNewLibName('');
       setNewLibPath('');
+      setCreateError('');
       refetch();
+    },
+    onError: (err: Error) => {
+      setCreateError(err.message || 'Bibliothek konnte nicht hinzugefügt werden');
     },
   });
 
@@ -103,6 +109,9 @@ export function Settings() {
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
+          {createError && (
+            <p className="text-sm text-red-500">{createError}</p>
+          )}
           <Button
             onClick={() => createLibrary.mutate({ name: newLibName, path: newLibPath })}
             disabled={!newLibName || !newLibPath || createLibrary.isPending}
