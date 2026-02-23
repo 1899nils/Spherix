@@ -1,6 +1,9 @@
 #!/bin/sh
+set -e
 
 echo "=== MusicServer starting ==="
+echo "Date: $(date)"
+echo "Node: $(node --version)"
 
 # Ensure data directories exist with correct ownership
 mkdir -p /data/covers /data/redis /data/logs
@@ -68,8 +71,18 @@ sleep 2
 # Run database migrations
 echo "Running database migrations..."
 cd /app/apps/server
-if ! npx prisma migrate deploy 2>&1; then
+if npx prisma migrate deploy 2>&1; then
+  echo "Migrations applied successfully"
+else
   echo "WARNING: Prisma migrate failed, server may still start if tables exist"
+fi
+
+# Verify the server can start (quick syntax/import check)
+echo "Verifying server module loads..."
+if node -e "import('/app/apps/server/dist/index.js').then(() => { console.log('Module loaded OK'); process.exit(0); }).catch(e => { console.error('Module load failed:', e.message); process.exit(1); })" 2>&1; then
+  echo "Server module verified"
+else
+  echo "WARNING: Server module verification failed (may still work under supervisor)"
 fi
 cd /app
 

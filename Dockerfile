@@ -21,7 +21,8 @@ RUN pnpm --filter @musicserver/server prisma:generate
 # --- Production image ---
 FROM node:20-alpine AS production
 
-RUN apk add --no-cache nginx supervisor postgresql16 postgresql16-client redis
+# tini handles PID 1 responsibilities (zombie reaping, signal forwarding)
+RUN apk add --no-cache nginx supervisor postgresql16 postgresql16-client redis tini
 
 WORKDIR /app
 
@@ -43,6 +44,7 @@ COPY apps/web/dist /usr/share/nginx/html
 
 # Entrypoint script (runs migrations, then starts services)
 COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 # Nginx config: proxy /api to localhost:3000
 RUN cat > /etc/nginx/http.d/default.conf <<'NGINX'
@@ -79,9 +81,11 @@ NGINX
 RUN cat > /etc/supervisord.conf <<'EOF'
 [supervisord]
 nodaemon=true
-logfile=/tmp/supervisord.log
-logfile_maxbytes=1MB
-loglevel=info
+logfile=/dev/null
+logfile_maxbytes=0
+loglevel=warn
+pidfile=/tmp/supervisord.pid
+childlogdir=/tmp
 
 [program:postgres]
 command=postgres -D /data/postgres
@@ -122,12 +126,13 @@ directory=/app/apps/server
 priority=30
 autostart=true
 autorestart=true
-startretries=5
-startsecs=3
+startretries=10
+startsecs=5
 stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
+environment=NODE_ENV="production",DATABASE_URL="postgresql://musicserver:musicserver@localhost:5432/musicserver",REDIS_URL="redis://localhost:6379"
 EOF
 
 ENV NODE_ENV=production
@@ -140,4 +145,5 @@ VOLUME ["/music", "/data"]
 
 EXPOSE 80
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+# Use tini as PID 1 to properly handle signals and zombie processes
+ENTRYPOINT ["/sbin/tini", "--", "/docker-entrypoint.sh"]

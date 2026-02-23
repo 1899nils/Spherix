@@ -8,16 +8,15 @@ const logFormat = printf(({ level, message, timestamp, stack, ...meta }) => {
   return `${timestamp} [${level}]${stack ? `: ${stack}` : `: ${message}`}${metaStr}`;
 });
 
-export const logger = winston.createLogger({
-  level: env.nodeEnv === 'production' ? 'info' : 'debug',
-  format: combine(
-    errors({ stack: true }),
-    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-  ),
-  transports: [
-    new winston.transports.Console({
-      format: combine(colorize(), logFormat),
-    }),
+const transports: winston.transport[] = [
+  new winston.transports.Console({
+    format: combine(colorize(), logFormat),
+  }),
+];
+
+// Only add file transports in development (Docker captures stdout/stderr)
+if (env.nodeEnv !== 'production') {
+  transports.push(
     new winston.transports.File({
       filename: 'logs/error.log',
       level: 'error',
@@ -31,5 +30,14 @@ export const logger = winston.createLogger({
       maxsize: 10 * 1024 * 1024,
       maxFiles: 5,
     }),
-  ],
+  );
+}
+
+export const logger = winston.createLogger({
+  level: env.nodeEnv === 'production' ? 'info' : 'debug',
+  format: combine(
+    errors({ stack: true }),
+    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  ),
+  transports,
 });

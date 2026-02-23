@@ -79,6 +79,7 @@ CREATE TABLE "tracks" (
     "channels" INTEGER,
     "musicbrainz_id" TEXT,
     "lyrics" TEXT,
+    "missing" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "tracks_pkey" PRIMARY KEY ("id")
