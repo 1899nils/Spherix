@@ -49,6 +49,7 @@ services:
         condition: service_healthy
     volumes:
       - musicdata:/app/music
+      - coverdata:/data/covers
 
   web:
     build:
@@ -64,3 +65,4 @@ volumes:
   pgdata:
   redisdata:
   musicdata:
+  coverdata:
