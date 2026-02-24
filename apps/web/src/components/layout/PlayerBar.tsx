@@ -97,9 +97,7 @@ export function PlayerBar() {
                   </p>
                   <p className="text-[10px] text-muted-foreground/60 truncate">
                     {currentTrack.album?.title} 
-                    {/* @ts-ignore - year might be on album from joint object */}
                     {currentTrack.album?.year ? ` • ${currentTrack.album.year}` : ''}
-                    {/* @ts-ignore - label might be on album from joint object */}
                     {currentTrack.album?.label ? ` • ${currentTrack.album.label}` : ''}
                   </p>
                 </div>

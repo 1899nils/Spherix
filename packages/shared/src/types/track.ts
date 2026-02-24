@@ -20,5 +20,5 @@ export interface Track {
 
 export interface TrackWithRelations extends Track {
   artist: { id: string; name: string };
-  album: { id: string; title: string; coverUrl: string | null } | null;
+  album: { id: string; title: string; coverUrl: string | null; year: number | null; label: string | null } | null;
 }

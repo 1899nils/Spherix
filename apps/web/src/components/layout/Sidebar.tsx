@@ -3,27 +3,6 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  Home,
-  Library,
-  Disc3,
-  Mic2,
-  ListMusic,
-  Settings,
-  PanelLeftClose,
-  PanelLeft,
-  Music2,
-} from 'lucide-react';
-
-interface SidebarProps {
-  collapsed: boolean;
-  onToggle: () => void;
-}
-
-import { NavLink } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import {
   PlayCircle,
   LayoutGrid,
   Radio,
@@ -98,7 +77,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 </h3>
               )}
               <nav className="flex flex-col gap-0.5">
-                {section.items.map(({ to, icon: Icon, label, color }) => (
+                {section.items.map(({ to, icon: Icon, label }) => (
                   <NavLink
                     key={to}
                     to={to}
@@ -122,13 +101,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         <span className="flex-1 truncate">{label}</span>
                         <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-40 transition-opacity" />
                       </>
-                    )}
-                    {/* Active Indicator Dot for collapsed view */}
-                    {collapsed && (
-                      <div className={cn(
-                        "absolute -right-1 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-red-500 opacity-0 transition-opacity",
-                        "group-[.active]:opacity-100" // This works with NavLink's default active class
-                      )} />
                     )}
                   </NavLink>
                 ))}
@@ -162,4 +134,3 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     </aside>
   );
 }
-
