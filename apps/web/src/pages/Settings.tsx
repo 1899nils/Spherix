@@ -76,12 +76,7 @@ export function Settings() {
   const lastfm = lastfmData?.data;
 
   return (
-    <div className="space-y-8 max-w-2xl text-white">
-      <div>
-        <h1 className="text-3xl font-bold text-white">Einstellungen</h1>
-        <p className="text-muted-foreground mt-1">Serverkonfiguration</p>
-      </div>
-
+    <div className="space-y-8 max-w-2xl mx-auto text-white">
       <section className="space-y-4">
         <h2 className="text-xl font-semibold text-white">Last.fm Scrobbling</h2>
         <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4 shadow-inner">

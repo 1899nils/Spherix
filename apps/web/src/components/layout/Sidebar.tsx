@@ -7,7 +7,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Playlist } from '@musicserver/shared';
 import { useUIStore } from '@/stores/uiStore';
-import { CreatePlaylistModal } from './CreatePlaylistModal';
 import {
   PlayCircle,
   LayoutGrid,
@@ -221,11 +220,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           )}
         </Button>
       </div>
-
-      <CreatePlaylistModal 
-        isOpen={isCreatePlaylistOpen} 
-        onClose={() => setCreatePlaylistOpen(false)} 
-      />
     </aside>
   );
 }

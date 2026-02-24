@@ -6,11 +6,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 import { Header } from './Header';
 import { useUIStore } from '@/stores/uiStore';
+import { Modal } from '@/components/ui/Modal';
+import { Settings } from '@/pages/Settings';
+import { CreatePlaylistModal } from './CreatePlaylistModal';
 
 export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isSettingsOpen = useUIStore((state) => state.isSettingsOpen);
+  const setSettingsOpen = useUIStore((state) => state.setSettingsOpen);
   const isCreatePlaylistOpen = useUIStore((state) => state.isCreatePlaylistOpen);
+  const setCreatePlaylistOpen = useUIStore((state) => state.setCreatePlaylistOpen);
   const isAnyModalOpen = isSettingsOpen || isCreatePlaylistOpen;
 
   return (
@@ -35,6 +40,19 @@ export function MainLayout() {
         {/* Player Bar */}
         {!isAnyModalOpen && <PlayerBar />}
       </div>
+
+      <Modal 
+        title="Einstellungen" 
+        isOpen={isSettingsOpen} 
+        onClose={() => setSettingsOpen(false)}
+      >
+        <Settings />
+      </Modal>
+
+      <CreatePlaylistModal 
+        isOpen={isCreatePlaylistOpen} 
+        onClose={() => setCreatePlaylistOpen(false)} 
+      />
     </div>
   );
 }

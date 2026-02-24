@@ -1,11 +1,8 @@
 import { Search, Settings as SettingsIcon, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Settings } from '@/pages/Settings';
-import { Modal } from '@/components/ui/Modal';
 import { useUIStore } from '@/stores/uiStore';
 
 export function Header() {
-  const isSettingsOpen = useUIStore((state) => state.isSettingsOpen);
   const setSettingsOpen = useUIStore((state) => state.setSettingsOpen);
 
   return (
@@ -39,13 +36,6 @@ export function Header() {
         </Button>
       </div>
 
-      <Modal 
-        title="Einstellungen" 
-        isOpen={isSettingsOpen} 
-        onClose={() => setSettingsOpen(false)}
-      >
-        <Settings />
-      </Modal>
     </header>
   );
 }
