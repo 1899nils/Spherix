@@ -1,68 +1,18 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: musicserver
-      POSTGRES_PASSWORD: musicserver
-      POSTGRES_DB: musicserver
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U musicserver"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    volumes:
-      - redisdata:/data
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  server:
+  spherix:
     build:
       context: .
-      dockerfile: apps/server/Dockerfile
+      dockerfile: Dockerfile
+    container_name: spherix
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://musicserver:musicserver@postgres:5432/musicserver
-      REDIS_URL: redis://redis:6379
-      PORT: "3000"
-      NODE_ENV: production
-      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
-    ports:
-      - "3000:3000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - musicdata:/app/music
-      - coverdata:/data/covers
-
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    restart: unless-stopped
+      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
     ports:
       - "80:80"
-    depends_on:
-      - server
+      - "3000:3000"
+    volumes:
+      - spherix_data:/data
+      - /pfad/zu/deiner/musik:/music
 
 volumes:
-  pgdata:
-  redisdata:
-  musicdata:
-  coverdata:
+  spherix_data:
