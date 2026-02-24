@@ -39,15 +39,15 @@ export function Header() {
 
       {/* Custom Settings Modal */}
       {isSettingsOpen && (
-        <>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
           {/* Backdrop */}
           <div 
-            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
             onClick={() => setIsSettingsOpen(false)}
           />
           {/* Modal Content */}
           <div 
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-full max-w-4xl max-h-[85vh] flex flex-col bg-[#1c1c1e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-300"
+            className="relative z-[101] w-full max-w-4xl max-h-[85vh] flex flex-col bg-[#1c1c1e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-300"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-6 border-b border-white/5 shrink-0">
@@ -65,7 +65,7 @@ export function Header() {
               <Settings />
             </div>
           </div>
-        </>
+        </div>
       )}
     </header>
   );

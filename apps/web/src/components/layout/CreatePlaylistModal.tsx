@@ -46,16 +46,16 @@ export function CreatePlaylistModal({ onClose }: CreatePlaylistModalProps) {
   };
 
   return (
-    <>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md animate-in fade-in duration-300"
+        className="absolute inset-0 bg-black/70 backdrop-blur-md animate-in fade-in duration-300"
         onClick={onClose}
       />
       
       {/* Modal Content */}
       <div 
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-full max-w-5xl h-[85vh] flex flex-col bg-[#1c1c1e] border border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300"
+        className="relative z-[101] w-full max-w-5xl h-[85vh] flex flex-col bg-[#1c1c1e] border border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
