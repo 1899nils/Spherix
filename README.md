@@ -1,100 +1,93 @@
-# MusicServer
+# Spherix 🎵
 
-Selbst gehosteter Music Server -- Monorepo mit pnpm Workspaces.
+Spherix ist ein moderner, selbst gehosteter Musik-Server, der eine nahtlose Erfahrung für deine private Musiksammlung bietet. Das Projekt ist als Monorepo mit pnpm Workspaces strukturiert und darauf optimiert, einfach bereitgestellt zu werden.
 
-## Projektstruktur
+## ✨ Features
 
+- **Intuitive Benutzeroberfläche:** Modernes Design mit Fokus auf Ästhetik und Benutzerfreundlichkeit.
+- **Intelligenter Scanner:** Extrahiert Metadaten (Titel, Album, Jahr, Cover) zuverlässig aus deiner Musiksammlung (MP3, FLAC, OGG, etc.).
+- **Radio-Integration:** Live-Radiosender direkt im Browser hören, mit filterbaren Regionen (z.B. Hessen, Bayern, NRW).
+- **Zuletzt hinzugefügt:** Behalte den Überblick über deine neuesten Entdeckungen.
+- **All-in-One Docker Image:** Einfache Bereitstellung aller Komponenten in einem einzigen Container.
+- **Subsonic API:** Kompatibilität mit vielen mobilen Subsonic-Clients.
+
+## 🚀 Schnelle Bereitstellung (Docker)
+
+Spherix kann einfach als Docker-Container gestartet werden. Das Image enthält bereits den Server, das Frontend, PostgreSQL und Redis.
+
+```bash
+docker run -d \
+  --name spherix \
+  -p 80:80 \
+  -v /pfad/zu/deiner/musik:/music \
+  -v spherix_data:/data \
+  -e SESSION_SECRET=dein_sicheres_geheimnis \
+  ghcr.io/1899nils/spherix:latest
 ```
-/apps
-  /server    → Node.js + TypeScript + Express Backend (Prisma ORM)
-  /web       → React + TypeScript Frontend (Vite)
-/packages
-  /shared    → Gemeinsame TypeScript Types
+
+Alternativ kannst du das Projekt über **Docker Compose** starten:
+
+```bash
+docker compose up -d --build
 ```
 
-## Voraussetzungen
+- **Frontend:** [http://localhost](http://localhost)
+- **Backend API:** [http://localhost:3000/api](http://localhost:3000/api)
+
+## 🛠️ Entwicklung (Lokales Setup)
+
+### Voraussetzungen
 
 - Node.js >= 20
 - pnpm >= 9
-- Docker & Docker Compose (für Datenbanken oder Vollbetrieb)
+- Docker (für lokale Datenbank-Instanzen)
 
-## Setup (Lokale Entwicklung)
-
-### 1. Repository klonen und Dependencies installieren
+### 1. Installation
 
 ```bash
-git clone <repo-url> && cd musicserver
+git clone https://github.com/1899nils/Spherix.git
+cd Spherix
 pnpm install
 ```
 
-### 2. Umgebungsvariablen konfigurieren
-
-```bash
-cp .env.example .env
-# .env nach Bedarf anpassen
-```
-
-### 3. Datenbanken starten
+### 2. Datenbanken starten
 
 ```bash
 docker compose up -d postgres redis
 ```
 
-### 4. Prisma Migrationen ausführen
+### 3. Datenbank-Setup
 
 ```bash
 pnpm db:generate
 pnpm db:migrate
 ```
 
-### 5. Entwicklungsserver starten
+### 4. Starten
 
 ```bash
-# Backend + Frontend parallel
+# Backend + Frontend parallel starten
 pnpm dev
 
 # Oder einzeln:
-pnpm dev:server   # Backend auf :3000
-pnpm dev:web      # Frontend auf :5173
+pnpm dev:server   # Backend auf Port 3000
+pnpm dev:web      # Frontend auf Port 5173
 ```
 
-## Setup (Docker -- Vollbetrieb)
+## 🏗️ Projektstruktur
 
-```bash
-cp .env.example .env
-# SESSION_SECRET in .env auf einen sicheren Wert setzen
+- `apps/server`: Node.js + Express Backend mit Prisma ORM.
+- `apps/web`: React + Vite Frontend.
+- `packages/shared`: Gemeinsame TypeScript-Typen für Konsistenz zwischen API und UI.
 
-docker compose up -d --build
-```
+## 🧰 Technologien
 
-Danach erreichbar unter:
+- **Frontend:** React 19, Vite 6, Tailwind CSS, Lucide Icons.
+- **Backend:** Node.js, Express, BullMQ (für Background-Jobs).
+- **Datenbank:** PostgreSQL (Prisma ORM).
+- **Cache & Sessions:** Redis.
+- **Metadaten:** `music-metadata`.
 
-- **Frontend:** http://localhost
-- **Backend API:** http://localhost:3000/api
-- **Health Check:** http://localhost:3000/api/health
+## 📄 Lizenz
 
-## Verfügbare Scripts
-
-| Script | Beschreibung |
-|---|---|
-| `pnpm dev` | Backend + Frontend parallel starten |
-| `pnpm dev:server` | Nur Backend starten |
-| `pnpm dev:web` | Nur Frontend starten |
-| `pnpm build` | Alle Packages bauen |
-| `pnpm lint` | ESLint ausführen |
-| `pnpm format` | Prettier formatieren |
-| `pnpm db:migrate` | Prisma Migrationen ausführen |
-| `pnpm db:generate` | Prisma Client generieren |
-| `pnpm db:studio` | Prisma Studio öffnen |
-
-## Technologien
-
-- **Runtime:** Node.js 20
-- **Sprache:** TypeScript (strict mode)
-- **Backend:** Express
-- **Frontend:** React 19, Vite 6
-- **Datenbank:** PostgreSQL 16 (Prisma ORM)
-- **Cache/Sessions:** Redis 7
-- **Monorepo:** pnpm Workspaces
-- **Linting:** ESLint + Prettier
-- **Container:** Docker + Docker Compose
+Dieses Projekt ist unter der MIT-Lizenz lizenziert.
