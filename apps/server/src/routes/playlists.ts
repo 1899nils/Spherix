@@ -36,6 +36,7 @@ router.get('/', async (req, res, next) => {
     const data: Playlist[] = playlists.map((p) => ({
       id: p.id,
       name: p.name,
+      coverUrl: p.coverUrl,
       userId: p.userId,
       isPublic: p.isPublic,
       isPinned: p.isPinned,
@@ -134,6 +135,7 @@ router.get('/:id', async (req, res, next) => {
     const data: PlaylistWithTracks = {
       id: playlist.id,
       name: playlist.name,
+      coverUrl: playlist.coverUrl,
       userId: playlist.userId,
       isPublic: playlist.isPublic,
       isPinned: playlist.isPinned,
