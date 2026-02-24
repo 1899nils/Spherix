@@ -46,7 +46,7 @@ export function CreatePlaylistModal({ onClose }: CreatePlaylistModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 text-white">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/70 backdrop-blur-md animate-in fade-in duration-300"
@@ -75,7 +75,6 @@ export function CreatePlaylistModal({ onClose }: CreatePlaylistModalProps) {
         </div>
 
         <div className="flex-1 flex overflow-hidden">
-          {/* ... Rest of the modal content ... */}
           {/* Left: Details */}
           <div className="w-1/3 border-r border-white/5 p-8 space-y-8 overflow-y-auto">
             <div className="space-y-4">
@@ -174,8 +173,9 @@ export function CreatePlaylistModal({ onClose }: CreatePlaylistModalProps) {
                 )}
               </div>
             </div>
-                  </div>
-                </div>
-              </div>
-            );
-          }
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
