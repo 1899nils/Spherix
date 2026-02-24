@@ -59,7 +59,7 @@ router.post('/', async (req, res, next) => {
       return;
     }
 
-    const { name } = req.body;
+    const { name, coverUrl, trackIds } = req.body;
     if (!name) {
       res.status(400).json({ error: 'Playlist name is required' });
       return;
@@ -68,7 +68,14 @@ router.post('/', async (req, res, next) => {
     const playlist = await prisma.playlist.create({
       data: {
         name,
+        coverUrl: coverUrl || null,
         userId,
+        tracks: {
+          create: (trackIds || []).map((trackId: string, index: number) => ({
+            trackId,
+            position: index,
+          })),
+        },
       },
     });
 

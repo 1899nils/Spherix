@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Playlist } from '@musicserver/shared';
+import { CreatePlaylistModal } from './CreatePlaylistModal';
 import {
   PlayCircle,
   LayoutGrid,
@@ -50,6 +51,7 @@ const sections = [
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const queryClient = useQueryClient();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const { data: playlistsData } = useQuery({
     queryKey: ['playlists'],
@@ -57,8 +59,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   });
 
   const createPlaylist = useMutation({
-    mutationFn: (name: string) => api.post('/playlists', { name }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['playlists'] }),
+    mutationFn: (data: { name: string; coverUrl?: string; trackIds: string[] }) => 
+      api.post('/playlists', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['playlists'] });
+      setIsCreateModalOpen(false);
+    },
   });
 
   const togglePin = useMutation({
@@ -69,8 +75,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const handleCreatePlaylist = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const name = prompt('Name der neuen Playlist:');
-    if (name) createPlaylist.mutate(name);
+    setIsCreateModalOpen(true);
   };
 
   const playlists = playlistsData?.data ?? [];
@@ -224,6 +229,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           )}
         </Button>
       </div>
+
+      {isCreateModalOpen && (
+        <CreatePlaylistModal onClose={() => setIsCreateModalOpen(false)} />
+      )}
     </aside>
   );
 }

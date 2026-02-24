@@ -39,9 +39,15 @@ export function Header() {
 
       {/* Custom Settings Modal */}
       {isSettingsOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1c1c1e] border border-white/10 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center justify-between p-6 border-b border-white/5">
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setIsSettingsOpen(false)}
+        >
+          <div 
+            className="bg-[#1c1c1e] border border-white/10 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-6 border-b border-white/5 shrink-0">
               <h2 className="text-xl font-bold text-white">Einstellungen</h2>
               <Button 
                 variant="ghost" 
@@ -52,7 +58,7 @@ export function Header() {
                 <X className="h-5 w-5 text-zinc-400" />
               </Button>
             </div>
-            <div className="flex-1 overflow-y-auto p-8">
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
               <Settings />
             </div>
           </div>

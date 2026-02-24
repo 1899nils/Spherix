@@ -154,6 +154,7 @@ model PlayHistory {
 model Playlist {
   id           String    @id @default(uuid())
   name         String
+  coverUrl     String?   @map("cover_url")
   userId       String    @map("user_id")
   isPublic     Boolean   @default(false) @map("is_public")
   isPinned     Boolean   @default(false) @map("is_pinned")
