@@ -38,8 +38,17 @@ export function PlayerBar() {
     cycleRepeat,
   } = usePlayerStore();
 
+  const isRadio = currentTrack && 'isRadio' in currentTrack;
+
   const getQualityLabel = () => {
     if (!currentTrack) return null;
+    if ('isRadio' in currentTrack) {
+      return (
+        <span className="text-[10px] py-0 px-1.5 h-4 bg-pink-500/20 border border-pink-500/30 text-pink-400 font-bold tracking-wider rounded flex items-center">
+          LIVE
+        </span>
+      );
+    }
     const format = currentTrack.format?.toUpperCase();
     const isLossless = ['FLAC', 'ALAC', 'WAV', 'AIFF'].includes(format);
     const isHiRes = currentTrack.sampleRate && currentTrack.sampleRate > 44100;
@@ -67,39 +76,55 @@ export function PlayerBar() {
           {currentTrack ? (
             <>
               {/* Cover */}
-              <div className="h-16 w-16 rounded-lg bg-muted shrink-0 overflow-hidden shadow-lg border border-white/10 relative group">
-                {currentTrack.album?.coverUrl ? (
-                  <img
-                    src={currentTrack.album.coverUrl}
-                    alt={currentTrack.album.title}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
+              <div className="h-16 w-16 rounded-lg bg-muted shrink-0 overflow-hidden shadow-lg border border-white/10 relative group bg-black/20 flex items-center justify-center p-2">
+                {'isRadio' in currentTrack ? (
+                  currentTrack.favicon ? (
+                    <img src={currentTrack.favicon} alt={currentTrack.name} className="h-full w-full object-contain" />
+                  ) : (
+                    <div className="text-2xl">📻</div>
+                  )
                 ) : (
-                  <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
-                    ♪
+                  currentTrack.album?.coverUrl ? (
+                    <img
+                      src={currentTrack.album.coverUrl}
+                      alt={currentTrack.album.title}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
+                      ♪
+                    </div>
+                  )
+                )}
+                {!isRadio && (
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Info className="h-5 w-5 text-white" />
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Info className="h-5 w-5 text-white" />
-                </div>
               </div>
               {/* Title / Artist / Meta */}
               <div className="min-w-0 flex flex-col gap-0.5">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold truncate text-white">
-                    {currentTrack.title}
+                    {'name' in currentTrack ? currentTrack.name : currentTrack.title}
                   </p>
                   {getQualityLabel()}
                 </div>
                 <div className="flex flex-col">
-                  <p className="text-xs text-muted-foreground truncate hover:text-white transition-colors cursor-pointer">
-                    {currentTrack.artist.name}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground/60 truncate">
-                    {currentTrack.album?.title} 
-                    {currentTrack.album?.year ? ` • ${currentTrack.album.year}` : ''}
-                    {currentTrack.album?.label ? ` • ${currentTrack.album.label}` : ''}
-                  </p>
+                  {isRadio ? (
+                    <p className="text-xs text-pink-400 font-medium animate-pulse">Live Stream</p>
+                  ) : (
+                    <>
+                      <p className="text-xs text-muted-foreground truncate hover:text-white transition-colors cursor-pointer">
+                        {currentTrack.artist.name}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground/60 truncate">
+                        {currentTrack.album?.title} 
+                        {currentTrack.album?.year ? ` • ${currentTrack.album.year}` : ''}
+                        {currentTrack.album?.label ? ` • ${currentTrack.album.label}` : ''}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             </>
@@ -118,6 +143,7 @@ export function PlayerBar() {
                 size="icon"
                 className="h-8 w-8 hover:bg-white/10"
                 onClick={toggleShuffle}
+                disabled={isRadio}
               >
                 <Shuffle className={`h-4 w-4 transition-all ${isShuffled ? 'text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'text-muted-foreground'}`} />
               </Button>
@@ -129,7 +155,7 @@ export function PlayerBar() {
                 size="icon"
                 className="h-10 w-10 hover:bg-white/10 rounded-full"
                 onClick={prev}
-                disabled={!currentTrack}
+                disabled={!currentTrack || isRadio}
               >
                 <SkipBack className="h-5 w-5 fill-current" />
               </Button>
@@ -155,7 +181,7 @@ export function PlayerBar() {
                 size="icon"
                 className="h-10 w-10 hover:bg-white/10 rounded-full"
                 onClick={next}
-                disabled={!currentTrack}
+                disabled={!currentTrack || isRadio}
               >
                 <SkipForward className="h-5 w-5 fill-current" />
               </Button>
@@ -167,6 +193,7 @@ export function PlayerBar() {
                 size="icon"
                 className="h-8 w-8 hover:bg-white/10"
                 onClick={cycleRepeat}
+                disabled={isRadio}
               >
                 <RepeatIcon className={`h-4 w-4 transition-all ${repeatMode !== 'off' ? 'text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'text-muted-foreground'}`} />
               </Button>
@@ -176,16 +203,16 @@ export function PlayerBar() {
           {/* Seekbar */}
           <div className="flex items-center gap-3 w-full">
             <span className="text-[10px] font-medium text-muted-foreground w-10 text-right tabular-nums">
-              {formatDuration(seek)}
+              {isRadio ? 'LIVE' : formatDuration(seek)}
             </span>
             <Slider
-              value={seek}
-              max={duration || 1}
+              value={isRadio ? 100 : seek}
+              max={isRadio ? 100 : (duration || 1)}
               onChange={seekTo}
-              className="flex-1"
+              className={`flex-1 ${isRadio ? 'opacity-50 pointer-events-none' : ''}`}
             />
             <span className="text-[10px] font-medium text-muted-foreground w-10 tabular-nums">
-              {formatDuration(duration)}
+              {isRadio ? '∞' : formatDuration(duration)}
             </span>
           </div>
         </div>

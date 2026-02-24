@@ -4,10 +4,18 @@ import type { TrackWithRelations } from '@musicserver/shared';
 
 export type RepeatMode = 'off' | 'all' | 'one';
 
+export interface RadioStation {
+  id: string;
+  name: string;
+  url: string;
+  favicon?: string;
+  isRadio: true;
+}
+
 interface PlayerState {
-  // Current track
-  currentTrack: TrackWithRelations | null;
-  queue: TrackWithRelations[];
+  // Current track or radio
+  currentTrack: TrackWithRelations | RadioStation | null;
+  queue: (TrackWithRelations | RadioStation)[];
   queueIndex: number;
 
   // Playback state
@@ -25,6 +33,7 @@ interface PlayerState {
 
   // Actions
   playTrack: (track: TrackWithRelations, queue?: TrackWithRelations[]) => void;
+  playStream: (station: RadioStation) => void;
   play: () => void;
   pause: () => void;
   togglePlay: () => void;
@@ -35,7 +44,7 @@ interface PlayerState {
   toggleMute: () => void;
   toggleShuffle: () => void;
   cycleRepeat: () => void;
-  setQueue: (tracks: TrackWithRelations[], startIndex?: number) => void;
+  setQueue: (tracks: (TrackWithRelations | RadioStation)[], startIndex?: number) => void;
   clearQueue: () => void;
 }
 
@@ -71,9 +80,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     stopSeekUpdates(state);
 
     const newQueue = queue || state.queue;
-    const newIndex = queue
-      ? queue.findIndex((t) => t.id === track.id)
-      : state.queue.findIndex((t) => t.id === track.id);
+    const newIndex = newQueue.findIndex((t) => 'id' in t && t.id === track.id);
 
     const howl = new Howl({
       src: [`/api/tracks/${track.id}/stream`],
@@ -98,7 +105,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         // Auto-advance
         const s = get();
         if (s.repeatMode === 'one') {
-          s.playTrack(track, newQueue);
+          s.playTrack(track, newQueue as TrackWithRelations[]);
         } else {
           s.next();
         }
@@ -119,12 +126,47 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     howl.play();
   },
 
+  playStream: (station) => {
+    const state = get();
+
+    if (state._howl) {
+      state._howl.unload();
+    }
+    stopSeekUpdates(state);
+
+    const howl = new Howl({
+      src: [station.url],
+      html5: true,
+      format: ['mp3', 'aac', 'ogg'],
+      volume: state.isMuted ? 0 : state.volume,
+      onplay: () => set({ isPlaying: true, duration: 0, seek: 0 }),
+      onpause: () => set({ isPlaying: false }),
+      onstop: () => set({ isPlaying: false }),
+      onend: () => set({ isPlaying: false }),
+    });
+
+    set({
+      currentTrack: station,
+      queue: [station],
+      queueIndex: 0,
+      _howl: howl,
+      seek: 0,
+      duration: 0,
+    });
+
+    howl.play();
+  },
+
   play: () => {
     const { _howl, currentTrack } = get();
     if (_howl) {
       _howl.play();
     } else if (currentTrack) {
-      get().playTrack(currentTrack);
+      if ('isRadio' in currentTrack) {
+        get().playStream(currentTrack);
+      } else {
+        get().playTrack(currentTrack);
+      }
     }
   },
 
@@ -147,7 +189,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   next: () => {
     const { queue, queueIndex, repeatMode, isShuffled } = get();
-    if (queue.length === 0) return;
+    if (queue.length <= 1) return;
 
     let nextIndex: number;
     if (isShuffled) {
@@ -163,12 +205,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }
     }
 
-    get().playTrack(queue[nextIndex], queue);
+    const nextItem = queue[nextIndex];
+    if ('isRadio' in nextItem) {
+      get().playStream(nextItem);
+    } else {
+      get().playTrack(nextItem, queue as TrackWithRelations[]);
+    }
   },
 
   prev: () => {
     const { queue, queueIndex, seek, isShuffled } = get();
-    if (queue.length === 0) return;
+    if (queue.length <= 1) return;
 
     // If past 3 seconds, restart current track
     if (seek > 3) {
@@ -184,11 +231,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (prevIndex < 0) prevIndex = queue.length - 1;
     }
 
-    get().playTrack(queue[prevIndex], queue);
+    const prevItem = queue[prevIndex];
+    if ('isRadio' in prevItem) {
+      get().playStream(prevItem);
+    } else {
+      get().playTrack(prevItem, queue as TrackWithRelations[]);
+    }
   },
 
   seekTo: (seconds) => {
-    const { _howl } = get();
+    const { _howl, currentTrack } = get();
+    // Cannot seek in live radio streams
+    if (currentTrack && 'isRadio' in currentTrack) return;
+    
     if (_howl) {
       _howl.seek(seconds);
       set({ seek: seconds });
@@ -227,7 +282,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setQueue: (tracks, startIndex = 0) => {
     set({ queue: tracks, queueIndex: startIndex });
     if (tracks.length > 0) {
-      get().playTrack(tracks[startIndex], tracks);
+      const item = tracks[startIndex];
+      if ('isRadio' in item) {
+        get().playStream(item);
+      } else {
+        get().playTrack(item, tracks as TrackWithRelations[]);
+      }
     }
   },
 
@@ -248,3 +308,4 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     });
   },
 }));
+

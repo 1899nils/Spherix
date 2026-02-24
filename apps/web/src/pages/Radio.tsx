@@ -1,13 +1,123 @@
+import { useQuery } from '@tanstack/react-query';
+import { Radio as RadioIcon, Play, Signal } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { usePlayerStore, type RadioStation } from '@/stores/playerStore';
+
+interface RadioBrowserStation {
+  stationuuid: string;
+  name: string;
+  url_resolved: string;
+  favicon: string;
+  tags: string;
+  votes: number;
+  clickcount: number;
+}
+
 export function Radio() {
+  const { playStream, currentTrack, isPlaying } = usePlayerStore();
+
+  const { data: stations, isLoading } = useQuery({
+    queryKey: ['radio-stations'],
+    queryFn: async () => {
+      const res = await fetch('https://de1.api.radio-browser.info/json/stations/bycountry/germany');
+      if (!res.ok) throw new Error('Failed to fetch radio stations');
+      const data: RadioBrowserStation[] = await res.json();
+      // Sort by clicks and take top 100
+      return data
+        .sort((a, b) => b.clickcount - a.clickcount)
+        .slice(0, 100);
+    },
+  });
+
+  const handlePlay = (s: RadioBrowserStation) => {
+    const station: RadioStation = {
+      id: s.stationuuid,
+      name: s.name,
+      url: s.url_resolved,
+      favicon: s.favicon,
+      isRadio: true,
+    };
+    playStream(station);
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
-      <div className="h-20 w-20 bg-pink-500/10 rounded-2xl flex items-center justify-center">
-        <div className="h-10 w-10 text-pink-500">
-           <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></svg>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-4xl font-black text-white tracking-tight">Radio</h1>
+          <p className="text-muted-foreground mt-1">Live-Sender aus Deutschland</p>
+        </div>
+        <div className="h-12 w-12 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 shadow-lg shadow-pink-500/5">
+          <RadioIcon className="h-6 w-6 text-pink-500" />
         </div>
       </div>
-      <h1 className="text-3xl font-bold text-white">Radio</h1>
-      <p className="text-muted-foreground max-w-md">Live-Sender und kuratierte Radio-Shows – demnächst verfügbar.</p>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
+        {isLoading ? (
+          Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="aspect-square bg-white/5 animate-pulse rounded-2xl border border-white/5" />
+          ))
+        ) : (
+          stations?.map((station) => {
+            const isCurrent = currentTrack && 'id' in currentTrack && currentTrack.id === station.stationuuid;
+            const isThisPlaying = isCurrent && isPlaying;
+
+            return (
+              <div 
+                key={station.stationuuid}
+                className={`group relative bg-[#1c1c1e] p-5 rounded-2xl border transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-black/50 ${
+                  isCurrent ? 'border-pink-500/50 bg-pink-500/5' : 'border-white/5 hover:bg-white/5'
+                }`}
+              >
+                <div className="aspect-square rounded-xl overflow-hidden mb-4 relative shadow-inner bg-black/20 flex items-center justify-center border border-white/5">
+                  {station.favicon ? (
+                    <img 
+                      src={station.favicon} 
+                      alt={station.name} 
+                      className="w-2/3 h-2/3 object-contain transition-transform duration-500 group-hover:scale-110"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '';
+                        (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="text-zinc-700 font-bold text-4xl">📻</div>';
+                      }}
+                    />
+                  ) : (
+                    <div className="text-zinc-700 font-bold text-4xl">📻</div>
+                  )}
+                  
+                  {/* Play Overlay */}
+                  <div className={`absolute inset-0 bg-black/40 transition-opacity flex items-center justify-center ${
+                    isCurrent ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  }`}>
+                    <Button 
+                      variant="secondary" 
+                      size="icon" 
+                      className={`rounded-full h-14 w-14 shadow-2xl transition-transform active:scale-90 ${
+                        isCurrent ? 'bg-pink-500 text-white hover:bg-pink-400' : 'bg-white text-black hover:bg-white/90'
+                      }`}
+                      onClick={() => handlePlay(station)}
+                    >
+                      {isThisPlaying ? (
+                        <Signal className="h-7 w-7 animate-bounce" />
+                      ) : (
+                        <Play className="h-7 w-7 fill-current ml-1" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-1 min-w-0">
+                  <h3 className={`font-bold text-sm truncate ${isCurrent ? 'text-pink-400' : 'text-white'}`}>
+                    {station.name}
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground truncate uppercase tracking-wider font-semibold">
+                    {station.tags.split(',')[0] || 'Radio'}
+                  </p>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
