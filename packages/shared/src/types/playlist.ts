@@ -1,4 +1,4 @@
-import type { TrackWithRelations } from './track';
+import type { TrackWithRelations } from './track.js';
 
 export interface Playlist {
   id: string;

@@ -1,4 +1,4 @@
-import { TrackWithRelations } from './track';
+import { TrackWithRelations } from './track.js';
 
 export interface Album {
   id: string;
