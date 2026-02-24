@@ -1,4 +1,5 @@
 import { mbFetch } from './client.js';
+import { logger } from '../../config/logger.js';
 import type {
   LocalAlbum,
   MatchCandidate,
@@ -140,34 +141,60 @@ function scoreCandidate(
 }
 
 /**
+ * Escape only quotes and backslashes for use inside a Lucene double-quoted string.
+ * Inside "...", these are the only characters that need escaping.
+ */
+function escQuoted(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/**
  * Match a local album against MusicBrainz releases.
  *
  * Searches by artist + album title, scores the top results, and returns
  * up to 5 candidates sorted by confidence. If the best candidate exceeds
- * 90% confidence it is flagged as `autoMatch`.
+ * the threshold it is flagged as `autoMatch`.
+ *
+ * Gracefully returns empty candidates on API errors instead of throwing.
  */
 export async function matchAlbum(album: LocalAlbum): Promise<MatchResult> {
-  // Escape Lucene special characters in user-supplied strings
-  const escLucene = (s: string) =>
-    s.replace(/([+\-&|!(){}[\]^"~*?:\\/])/g, '\\$1');
+  const emptyResult: MatchResult = {
+    query: album,
+    candidates: [],
+    autoMatch: null,
+  };
 
-  const query = `release:"${escLucene(album.title)}" AND artist:"${escLucene(album.artistName)}"`;
+  let response: MBReleaseSearchResponse | null = null;
 
-  let response: MBReleaseSearchResponse;
+  // Strategy 1: structured Lucene query with quoted fields
   try {
+    const query = `release:"${escQuoted(album.title)}" AND artist:"${escQuoted(album.artistName)}"`;
     response = await mbFetch<MBReleaseSearchResponse>('release', {
       query,
       limit: '10',
       offset: '0',
     });
-  } catch {
-    // If the precise Lucene query fails, fall back to a simpler free-text search
-    const fallbackQuery = `${escLucene(album.title)} ${escLucene(album.artistName)}`;
-    response = await mbFetch<MBReleaseSearchResponse>('release', {
-      query: fallbackQuery,
-      limit: '10',
-      offset: '0',
-    });
+  } catch (err) {
+    logger.warn('MusicBrainz structured query failed, trying fallback', { error: String(err) });
+  }
+
+  // Strategy 2: simple free-text search (no Lucene operators)
+  if (!response || !response.releases?.length) {
+    try {
+      const query = `${album.title} ${album.artistName}`;
+      response = await mbFetch<MBReleaseSearchResponse>('release', {
+        query,
+        limit: '10',
+        offset: '0',
+      });
+    } catch (err) {
+      logger.error('MusicBrainz fallback query also failed', { error: String(err) });
+      return emptyResult;
+    }
+  }
+
+  if (!response?.releases?.length) {
+    return emptyResult;
   }
 
   const candidates: MatchCandidate[] = response.releases
