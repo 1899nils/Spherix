@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { TrackWithRelations, PaginatedResponse } from '@musicserver/shared';
-import { X, Search, Music, Check, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Search, Music, Check, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/Modal';
 

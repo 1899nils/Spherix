@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { PlaylistWithTracks } from '@musicserver/shared';
+import type { PlaylistWithTracks, TrackWithRelations } from '@musicserver/shared';
 import { Play, Clock, MoreHorizontal, PlayCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDuration } from '@/lib/utils';
