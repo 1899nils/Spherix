@@ -82,9 +82,9 @@ NGINX
 RUN cat > /etc/supervisord.conf <<'EOF'
 [supervisord]
 nodaemon=true
-logfile=/dev/null
+logfile=/dev/stdout
 logfile_maxbytes=0
-loglevel=warn
+loglevel=info
 pidfile=/tmp/supervisord.pid
 childlogdir=/tmp
 

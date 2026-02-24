@@ -61,6 +61,10 @@ app.use(errorHandler);
 
 // Start server
 async function main() {
+  logger.info('Starting Spherix Server...');
+  logger.info(`Environment: ${env.nodeEnv}`);
+  logger.info(`Database URL: ${env.databaseUrl?.replace(/:[^:@]+@/, ':****@')}`);
+  
   await connectDatabase();
   startScanWorker();
 
