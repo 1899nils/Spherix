@@ -1,24 +1,34 @@
 # =============================================================================
-# MusicServer – All-in-one Image (Server + Web + PostgreSQL + Redis)
-# Single container with everything included for easy self-hosted deployment.
+# Spherix – All-in-one Image (Server + Web + PostgreSQL + Redis)
+# Multi-stage build to ensure reliability across all environments.
 # =============================================================================
 
-# --- Install dependencies & generate Prisma client ---
-FROM node:20-alpine AS deps
+# --- Stage 1: Build Frontend & Backend ---
+FROM node:20-alpine AS builder
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
+# Install dependencies
 COPY .npmrc pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/server/package.json ./apps/server/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
 RUN pnpm install --frozen-lockfile
 
-# Prisma needs to generate platform-specific binaries for Alpine
-COPY apps/server/prisma ./apps/server/prisma
-RUN pnpm --filter @musicserver/server prisma:generate
+# Build shared library
+COPY packages/shared ./packages/shared
+RUN pnpm --filter @musicserver/shared build
 
-# --- Production image ---
+# Build backend
+COPY apps/server ./apps/server
+RUN pnpm --filter @musicserver/server prisma:generate
+RUN pnpm --filter @musicserver/server build
+
+# Build frontend
+COPY apps/web ./apps/web
+RUN pnpm --filter @musicserver/web build
+
+# --- Stage 2: Production Image ---
 FROM node:20-alpine AS production
 
 # tini handles PID 1 responsibilities
@@ -27,24 +37,19 @@ RUN apk add --no-cache nginx supervisor postgresql16 postgresql16-client redis t
 
 WORKDIR /app
 
-# Copy all node_modules to preserve pnpm symlinks and virtual store
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/server/node_modules ./apps/server/node_modules
+# Copy dependencies
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/server/node_modules ./apps/server/node_modules
 
-# Pre-built shared library
-COPY packages/shared/dist ./packages/shared/dist
-COPY packages/shared/package.json ./packages/shared/
+# Copy built assets
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=builder /app/apps/server/dist ./apps/server/dist
+COPY --from=builder /app/apps/server/prisma ./apps/server/prisma
+COPY --from=builder /app/apps/server/package.json ./apps/server/package.json
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
 
-# Pre-built server (including prisma schema + migrations for migrate deploy)
-COPY apps/server/dist ./apps/server/dist
-COPY apps/server/prisma ./apps/server/prisma
-COPY apps/server/package.json ./apps/server/
-
-# Pre-built web frontend
-# We try multiple common build paths to be safe in different CI environments
-COPY apps/web/dist/ /usr/share/nginx/html/
-
-# Entrypoint script (runs migrations, then starts services)
+# Entrypoint script
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
@@ -63,9 +68,6 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
     }
 
@@ -75,8 +77,7 @@ server {
 }
 NGINX
 
-# Supervisor config: run nginx, node, postgres, redis
-# Services start in priority order (lower = earlier). Server waits for DB/Redis.
+# Supervisor config
 RUN cat > /etc/supervisord.conf <<'EOF'
 [supervisord]
 nodaemon=true
@@ -144,11 +145,6 @@ ENV NODE_ENV=production
 ENV DATABASE_URL=postgresql://musicserver:musicserver@localhost:5432/musicserver
 ENV REDIS_URL=redis://localhost:6379
 
-# /music = mounted music directory
-# /data  = persistent data (postgres, redis, covers)
 VOLUME ["/music", "/data"]
-
 EXPOSE 80
-
-# Use tini as PID 1 to properly handle signals and zombie processes
 ENTRYPOINT ["/sbin/tini", "--", "/docker-entrypoint.sh"]
