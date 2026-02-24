@@ -54,10 +54,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               end={to === '/'}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                  'hover:bg-sidebar-accent hover:text-foreground',
+                  'flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200',
+                  'hover:bg-white/5 hover:text-white',
                   isActive
-                    ? 'bg-sidebar-accent text-foreground'
+                    ? 'bg-white/10 text-white shadow-sm'
                     : 'text-muted-foreground',
                   collapsed && 'justify-center px-0',
                 )

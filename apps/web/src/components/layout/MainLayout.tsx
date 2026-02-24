@@ -19,7 +19,7 @@ export function MainLayout() {
       <div className="flex flex-col flex-1 min-w-0">
         {/* Scrollable Content */}
         <ScrollArea className="flex-1">
-          <main className="p-6">
+          <main className="p-6 pb-32">
             <Outlet />
           </main>
         </ScrollArea>

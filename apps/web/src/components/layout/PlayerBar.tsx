@@ -45,141 +45,145 @@ export function PlayerBar() {
   const RepeatIcon = repeatMode === 'one' ? Repeat1 : Repeat;
 
   return (
-    <footer className="h-20 bg-player text-player-foreground border-t border-border flex items-center px-4 gap-4 shrink-0">
-      {/* Left: Track Info */}
-      <div className="flex items-center gap-3 w-[30%] min-w-0">
-        {currentTrack ? (
-          <>
-            {/* Cover */}
-            <div className="h-12 w-12 rounded bg-muted shrink-0 overflow-hidden">
-              {currentTrack.album?.coverUrl ? (
-                <img
-                  src={currentTrack.album.coverUrl}
-                  alt={currentTrack.album.title}
-                  className="h-full w-full object-cover"
-                />
+    <div className="fixed bottom-4 left-4 right-4 z-50">
+      <footer className="h-24 liquid-glass rounded-2xl flex items-center px-6 gap-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] overflow-hidden">
+        {/* Left: Track Info */}
+        <div className="flex items-center gap-4 w-[30%] min-w-0">
+          {currentTrack ? (
+            <>
+              {/* Cover */}
+              <div className="h-14 w-14 rounded-lg bg-muted shrink-0 overflow-hidden shadow-lg border border-white/10">
+                {currentTrack.album?.coverUrl ? (
+                  <img
+                    src={currentTrack.album.coverUrl}
+                    alt={currentTrack.album.title}
+                    className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
+                  />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
+                    ♪
+                  </div>
+                )}
+              </div>
+              {/* Title / Artist */}
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate text-white">
+                  {currentTrack.title}
+                </p>
+                <p className="text-xs text-muted-foreground truncate hover:text-white transition-colors cursor-pointer">
+                  {currentTrack.artist.name}
+                </p>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">Wähle einen Song</p>
+          )}
+        </div>
+
+        {/* Center: Controls + Seekbar */}
+        <div className="flex flex-col items-center gap-2 w-[40%] max-w-[600px]">
+          {/* Buttons */}
+          <div className="flex items-center gap-4">
+            <Tooltip content={isShuffled ? 'Shuffle aus' : 'Shuffle an'}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 hover:bg-white/10"
+                onClick={toggleShuffle}
+              >
+                <Shuffle className={`h-4 w-4 transition-all ${isShuffled ? 'text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'text-muted-foreground'}`} />
+              </Button>
+            </Tooltip>
+
+            <Tooltip content="Zurück">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 hover:bg-white/10 rounded-full"
+                onClick={prev}
+                disabled={!currentTrack}
+              >
+                <SkipBack className="h-5 w-5 fill-current" />
+              </Button>
+            </Tooltip>
+
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-12 w-12 rounded-full bg-white text-black hover:bg-white/90 transition-transform active:scale-95 shadow-xl"
+              onClick={togglePlay}
+              disabled={!currentTrack}
+            >
+              {isPlaying ? (
+                <Pause className="h-6 w-6 fill-current" />
               ) : (
-                <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
-                  ♪
-                </div>
+                <Play className="h-6 w-6 ml-1 fill-current" />
               )}
-            </div>
-            {/* Title / Artist */}
-            <div className="min-w-0">
-              <p className="text-sm font-medium truncate">
-                {currentTrack.title}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {currentTrack.artist.name}
-              </p>
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">Kein Track ausgewählt</p>
-        )}
-      </div>
-
-      {/* Center: Controls + Seekbar */}
-      <div className="flex flex-col items-center gap-1 w-[40%] max-w-[600px]">
-        {/* Buttons */}
-        <div className="flex items-center gap-1">
-          <Tooltip content={isShuffled ? 'Shuffle aus' : 'Shuffle an'}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={toggleShuffle}
-            >
-              <Shuffle className={`h-4 w-4 ${isShuffled ? 'text-primary' : ''}`} />
             </Button>
-          </Tooltip>
 
-          <Tooltip content="Zurück">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={prev}
-              disabled={!currentTrack}
-            >
-              <SkipBack className="h-4 w-4" />
-            </Button>
-          </Tooltip>
+            <Tooltip content="Weiter">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 hover:bg-white/10 rounded-full"
+                onClick={next}
+                disabled={!currentTrack}
+              >
+                <SkipForward className="h-5 w-5 fill-current" />
+              </Button>
+            </Tooltip>
 
-          <Button
-            variant="default"
-            size="icon"
-            className="h-8 w-8 rounded-full"
-            onClick={togglePlay}
-            disabled={!currentTrack}
-          >
-            {isPlaying ? (
-              <Pause className="h-4 w-4" />
-            ) : (
-              <Play className="h-4 w-4 ml-0.5" />
-            )}
-          </Button>
+            <Tooltip content={`Wiederholen: ${repeatMode}`}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 hover:bg-white/10"
+                onClick={cycleRepeat}
+              >
+                <RepeatIcon className={`h-4 w-4 transition-all ${repeatMode !== 'off' ? 'text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'text-muted-foreground'}`} />
+              </Button>
+            </Tooltip>
+          </div>
 
-          <Tooltip content="Weiter">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={next}
-              disabled={!currentTrack}
-            >
-              <SkipForward className="h-4 w-4" />
-            </Button>
-          </Tooltip>
-
-          <Tooltip content={`Wiederholen: ${repeatMode}`}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={cycleRepeat}
-            >
-              <RepeatIcon className={`h-4 w-4 ${repeatMode !== 'off' ? 'text-primary' : ''}`} />
-            </Button>
-          </Tooltip>
+          {/* Seekbar */}
+          <div className="flex items-center gap-3 w-full">
+            <span className="text-[10px] font-medium text-muted-foreground w-10 text-right tabular-nums">
+              {formatDuration(seek)}
+            </span>
+            <Slider
+              value={seek}
+              max={duration || 1}
+              onChange={seekTo}
+              className="flex-1"
+            />
+            <span className="text-[10px] font-medium text-muted-foreground w-10 tabular-nums">
+              {formatDuration(duration)}
+            </span>
+          </div>
         </div>
 
-        {/* Seekbar */}
-        <div className="flex items-center gap-2 w-full">
-          <span className="text-[11px] text-muted-foreground w-10 text-right tabular-nums">
-            {formatDuration(seek)}
-          </span>
+        {/* Right: Volume */}
+        <div className="flex items-center justify-end gap-3 w-[30%]">
+          <Tooltip content={isMuted ? 'Ton an' : 'Stumm'}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 hover:bg-white/10"
+              onClick={toggleMute}
+            >
+              <VolumeIcon className="h-4 w-4 text-muted-foreground hover:text-white" />
+            </Button>
+          </Tooltip>
           <Slider
-            value={seek}
-            max={duration || 1}
-            onChange={seekTo}
-            className="flex-1"
+            value={isMuted ? 0 : volume}
+            max={1}
+            onChange={setVolume}
+            className="w-28"
           />
-          <span className="text-[11px] text-muted-foreground w-10 tabular-nums">
-            {formatDuration(duration)}
-          </span>
         </div>
-      </div>
-
-      {/* Right: Volume */}
-      <div className="flex items-center justify-end gap-2 w-[30%]">
-        <Tooltip content={isMuted ? 'Ton an' : 'Stumm'}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={toggleMute}
-          >
-            <VolumeIcon className="h-4 w-4" />
-          </Button>
-        </Tooltip>
-        <Slider
-          value={isMuted ? 0 : volume}
-          max={1}
-          onChange={setVolume}
-          className="w-24"
-        />
-      </div>
-    </footer>
+      </footer>
+    </div>
   );
+}
+
 }
