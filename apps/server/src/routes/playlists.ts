@@ -26,7 +26,7 @@ router.get('/', async (req, res, next) => {
       where: { userId },
       orderBy: [
         { isPinned: 'desc' },
-        { lastPlayedAt: { sort: 'desc', nulls: 'last' } },
+        { lastPlayedAt: 'desc' },
         { createdAt: 'desc' },
       ],
       include: {
