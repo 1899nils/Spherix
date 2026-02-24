@@ -14,6 +14,10 @@ router.get('/', async (req, res, next) => {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 20));
     const skip = (page - 1) * pageSize;
+    const sort = (req.query.sort as string) || 'title';
+
+    const orderBy =
+      sort === 'newest' ? { createdAt: 'desc' as const } : { title: 'asc' as const };
 
     const [tracks, total] = await Promise.all([
       prisma.track.findMany({
@@ -23,7 +27,7 @@ router.get('/', async (req, res, next) => {
           artist: { select: { id: true, name: true } },
           album: { select: { id: true, title: true, coverUrl: true, year: true, label: true } },
         },
-        orderBy: { title: 'asc' },
+        orderBy,
       }),
       prisma.track.count(),
     ]);
