@@ -41,7 +41,8 @@ COPY apps/server/prisma ./apps/server/prisma
 COPY apps/server/package.json ./apps/server/
 
 # Pre-built web frontend
-COPY apps/web/dist /usr/share/nginx/html
+# We try multiple common build paths to be safe in different CI environments
+COPY apps/web/dist/ /usr/share/nginx/html/
 
 # Entrypoint script (runs migrations, then starts services)
 COPY docker-entrypoint.sh /docker-entrypoint.sh
@@ -56,12 +57,15 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    location /api/ {
+    location /api {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
     }
 

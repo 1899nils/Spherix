@@ -83,6 +83,9 @@ echo "Working directory: $(pwd)"
 echo "Checking dist directory structure:"
 ls -R /app/apps/server/dist || echo "ERROR: dist directory not found!"
 
+echo "Checking frontend files in /usr/share/nginx/html:"
+ls -R /usr/share/nginx/html || echo "ERROR: frontend files not found!"
+
 echo "Verifying server module loads..."
 if node --input-type=module -e "import '/app/apps/server/dist/index.js'; console.log('Module loaded OK');" 2>&1; then
   echo "Server module verified"
