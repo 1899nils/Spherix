@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { TrackWithRelations, PaginatedResponse } from '@musicserver/shared';
 import { Button } from '@/components/ui/button';
-import { Play, MoreHorizontal, Clock } from 'lucide-react';
+import { MoreHorizontal, Clock } from 'lucide-react';
 import { usePlayerStore } from '@/stores/playerStore';
 import { formatDuration } from '@/lib/utils';
 
