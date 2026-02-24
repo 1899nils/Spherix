@@ -26,7 +26,6 @@ export function Settings() {
   const [localApiKey, setLocalApiKey] = useState('');
   const [localApiSecret, setLocalApiSecret] = useState('');
 
-  // Update local state when data is loaded
   useEffect(() => {
     if (lastfmData?.data) {
       setLocalApiKey(lastfmData.data.apiKey || '');
@@ -74,7 +73,6 @@ export function Settings() {
   });
 
   const libraries = librariesData?.data ?? [];
-
   const lastfm = lastfmData?.data;
 
   return (
@@ -84,11 +82,8 @@ export function Settings() {
         <p className="text-muted-foreground mt-1">Serverkonfiguration</p>
       </div>
 
-      {/* Last.fm Integration */}
       <section className="space-y-4">
         <h2 className="text-xl font-semibold text-white">Last.fm Scrobbling</h2>
-        
-        {/* API Config */}
         <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4 shadow-inner">
           <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500">API Konfiguration</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -162,11 +157,8 @@ export function Settings() {
         </div>
       </section>
 
-      {/* Libraries */}
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Musik-Bibliotheken</h2>
-
-        {/* Existing Libraries */}
         {libraries.length > 0 && (
           <div className="space-y-2">
             {libraries.map((lib: Library) => (
@@ -204,7 +196,6 @@ export function Settings() {
           </div>
         )}
 
-        {/* Add Library Form */}
         <div className="rounded-lg border border-border p-4 space-y-3">
           <h3 className="text-sm font-medium">Neue Bibliothek hinzufügen</h3>
           <div className="space-y-2">
@@ -213,19 +204,17 @@ export function Settings() {
               placeholder="Name (z.B. Meine Musik)"
               value={newLibName}
               onChange={(e) => setNewLibName(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full rounded-md border border-input bg-black px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring text-white"
             />
             <input
               type="text"
               placeholder="Pfad (z.B. /music)"
               value={newLibPath}
               onChange={(e) => setNewLibPath(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full rounded-md border border-input bg-black px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring text-white"
             />
           </div>
-          {createError && (
-            <p className="text-sm text-red-500">{createError}</p>
-          )}
+          {createError && <p className="text-sm text-red-500">{createError}</p>}
           <Button
             onClick={() => createLibrary.mutate({ name: newLibName, path: newLibPath })}
             disabled={!newLibName || !newLibPath || createLibrary.isPending}
@@ -237,7 +226,6 @@ export function Settings() {
         </div>
       </section>
 
-      {/* Theme */}
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Darstellung</h2>
         <p className="text-sm text-muted-foreground">

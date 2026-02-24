@@ -9,7 +9,8 @@ import { useUIStore } from '@/stores/uiStore';
 
 export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const { isSettingsOpen, isCreatePlaylistOpen } = useUIStore();
+  const isSettingsOpen = useUIStore((state) => state.isSettingsOpen);
+  const isCreatePlaylistOpen = useUIStore((state) => state.isCreatePlaylistOpen);
   const isAnyModalOpen = isSettingsOpen || isCreatePlaylistOpen;
 
   return (

@@ -5,7 +5,8 @@ import { Modal } from '@/components/ui/Modal';
 import { useUIStore } from '@/stores/uiStore';
 
 export function Header() {
-  const { isSettingsOpen, setSettingsOpen } = useUIStore();
+  const isSettingsOpen = useUIStore((state) => state.isSettingsOpen);
+  const setSettingsOpen = useUIStore((state) => state.setSettingsOpen);
 
   return (
     <header className="h-16 flex items-center justify-between px-8 bg-background/50 backdrop-blur-md sticky top-0 z-40 border-b border-white/5">

@@ -51,7 +51,8 @@ const sections = [
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const queryClient = useQueryClient();
-  const { isCreatePlaylistOpen, setCreatePlaylistOpen } = useUIStore();
+  const isCreatePlaylistOpen = useUIStore((state) => state.isCreatePlaylistOpen);
+  const setCreatePlaylistOpen = useUIStore((state) => state.setCreatePlaylistOpen);
 
   const { data: playlistsData } = useQuery({
     queryKey: ['playlists'],
