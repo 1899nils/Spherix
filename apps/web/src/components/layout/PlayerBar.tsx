@@ -38,7 +38,7 @@ export function PlayerBar() {
     cycleRepeat,
   } = usePlayerStore();
 
-  const isRadio = currentTrack && 'isRadio' in currentTrack;
+  const isRadio = !!(currentTrack && 'isRadio' in currentTrack);
 
   const getQualityLabel = () => {
     if (!currentTrack) return null;

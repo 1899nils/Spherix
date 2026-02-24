@@ -59,8 +59,8 @@ export function Radio() {
           ))
         ) : (
           stations?.map((station) => {
-            const isCurrent = currentTrack && 'id' in currentTrack && currentTrack.id === station.stationuuid;
-            const isThisPlaying = isCurrent && isPlaying;
+            const isCurrent = !!(currentTrack && 'id' in currentTrack && currentTrack.id === station.stationuuid);
+            const isThisPlaying = !!(isCurrent && isPlaying);
 
             return (
               <div 
