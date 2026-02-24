@@ -424,6 +424,16 @@ export function MusicBrainzLinkModal({
         </div>
       </div>
 
+      {/* Error display for preview/apply mutations */}
+      {previewMutation.isError && (
+        <div className="px-6 py-3 border-t border-border bg-red-500/5">
+          <div className="flex items-center gap-2 text-sm text-red-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>Fehler beim Laden der Vorschau: {previewMutation.error.message}</span>
+          </div>
+        </div>
+      )}
+
       {/* Loading overlay for preview */}
       {previewMutation.isPending && (
         <div className="absolute inset-0 bg-background/60 flex items-center justify-center z-10 rounded-lg">

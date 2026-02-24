@@ -296,9 +296,9 @@ router.post('/:id/cover', requireAdmin, upload.single('cover'), async (req, res,
   }
 });
 
-// ─── POST /api/albums/:id/match-musicbrainz (Admin) ────────────────────────
+// ─── POST /api/albums/:id/match-musicbrainz ─────────────────────────────────
 
-router.post('/:id/match-musicbrainz', requireAdmin, async (req, res, next) => {
+router.post('/:id/match-musicbrainz', async (req, res, next) => {
   try {
     const parsed = matchMusicbrainzSchema.safeParse(req.body);
     if (!parsed.success) {
