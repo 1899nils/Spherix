@@ -39,6 +39,22 @@ router.get('/status', async (req, res) => {
   }
 });
 
+/** Test Last.fm configuration without saving */
+router.post('/test-config', async (req, res) => {
+  try {
+    const { apiKey, apiSecret } = req.body;
+    if (!apiKey || !apiSecret) {
+      res.status(400).json({ error: 'API Key und Secret sind erforderlich.' });
+      return;
+    }
+
+    await lastfmService.validateConfig({ apiKey, apiSecret });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: String(error) });
+  }
+});
+
 /** Save Last.fm configuration */
 router.post('/config', async (req, res) => {
   try {

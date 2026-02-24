@@ -48,6 +48,7 @@ export function Settings() {
 
   const [localApiKey, setLocalApiKey] = useState('');
   const [localApiSecret, setLocalApiSecret] = useState('');
+  const [lastfmFeedback, setLastfmFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   useEffect(() => {
     if (lastfmData?.data) {
@@ -59,7 +60,26 @@ export function Settings() {
   const saveLastfmConfig = useMutation({
     mutationFn: (data: { apiKey: string; apiSecret: string }) => 
       api.post('/lastfm/config', data),
-    onSuccess: () => refetchLastfm(),
+    onSuccess: () => {
+      setLastfmFeedback({ type: 'success', message: 'Konfiguration erfolgreich gespeichert!' });
+      refetchLastfm();
+      setTimeout(() => setLastfmFeedback(null), 3000);
+    },
+    onError: (err: Error) => {
+      setLastfmFeedback({ type: 'error', message: `Fehler: ${err.message}` });
+    }
+  });
+
+  const testLastfmConfig = useMutation({
+    mutationFn: (data: { apiKey: string; apiSecret: string }) => 
+      api.post('/lastfm/test-config', data),
+    onSuccess: () => {
+      setLastfmFeedback({ type: 'success', message: 'API-Daten sind gültig!' });
+      setTimeout(() => setLastfmFeedback(null), 3000);
+    },
+    onError: (err: Error) => {
+      setLastfmFeedback({ type: 'error', message: `Test fehlgeschlagen: ${err.message}` });
+    }
   });
 
   const connectLastfm = useMutation({
@@ -126,15 +146,36 @@ export function Settings() {
               />
             </div>
           </div>
-          <Button 
-            size="sm" 
-            className="w-full md:w-auto bg-blue-600 hover:bg-blue-500 text-white font-bold"
-            onClick={() => saveLastfmConfig.mutate({ apiKey: localApiKey, apiSecret: localApiSecret })}
-            disabled={saveLastfmConfig.isPending}
-          >
-            {saveLastfmConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Konfiguration speichern
-          </Button>
+          
+          {lastfmFeedback && (
+            <div className={`p-3 rounded-lg text-sm ${
+              lastfmFeedback.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+            }`}>
+              {lastfmFeedback.message}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-3">
+            <Button 
+              size="sm" 
+              className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
+              onClick={() => saveLastfmConfig.mutate({ apiKey: localApiKey, apiSecret: localApiSecret })}
+              disabled={saveLastfmConfig.isPending || !localApiKey || !localApiSecret}
+            >
+              {saveLastfmConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Konfiguration speichern
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline"
+              className="font-bold"
+              onClick={() => testLastfmConfig.mutate({ apiKey: localApiKey, apiSecret: localApiSecret })}
+              disabled={testLastfmConfig.isPending || !localApiKey || !localApiSecret}
+            >
+              {testLastfmConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              API testen
+            </Button>
+          </div>
         </div>
 
         <div className="rounded-xl border border-white/5 p-6 bg-white/5">

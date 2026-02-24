@@ -96,6 +96,19 @@ export const lastfmService = {
     };
   },
 
+  /** Verify that API Key and Secret are valid */
+  async validateConfig(config: LastfmConfig): Promise<boolean> {
+    try {
+      // We use a simple method that requires an API key. 
+      // If the secret is wrong, the signature check fails.
+      await lastfmRequest('artist.search', { artist: 'test', limit: '1' }, 'GET', config);
+      return true;
+    } catch (error) {
+      logger.warn('Last.fm config validation failed', { error: String(error) });
+      throw error;
+    }
+  },
+
   /** Update the "Now Playing" status on Last.fm */
   async updateNowPlaying(sessionKey: string, track: LastfmTrackInfo, config: LastfmConfig): Promise<void> {
     await lastfmRequest('track.updateNowPlaying', {
