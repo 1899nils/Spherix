@@ -6,7 +6,7 @@ import { lastfmService, LastfmTrackInfo } from './lastfm.service.js';
 
 const QUEUE_NAME = 'scrobble-queue';
 
-export const scrobbleQueue = new Queue(QUEUE_NAME, { connection: redis });
+export const scrobbleQueue = new Queue(QUEUE_NAME, { connection: redis as any });
 
 interface ScrobbleJobData {
   userId: string;
@@ -55,7 +55,7 @@ export const scrobbleWorker = new Worker(
     }
   },
   { 
-    connection: redis,
+    connection: redis as any,
     limiter: {
       max: 5,
       duration: 1000, // Max 5 requests per second to stay within Last.fm limits

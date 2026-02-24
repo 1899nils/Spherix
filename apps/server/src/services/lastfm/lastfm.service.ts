@@ -70,7 +70,7 @@ async function lastfmRequest<T>(
   }
 
   const response = await fetch(url.toString(), fetchOptions);
-  const data = await response.json();
+  const data: any = await response.json();
 
   if (!response.ok || data.error) {
     const msg = data.message || `Last.fm error ${data.error}`;

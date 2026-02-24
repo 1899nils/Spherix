@@ -13,7 +13,7 @@ async function getUserId(req: any) {
 }
 
 /** Get Last.fm connection status and config */
-router.get('/status', async (req, res, next) => {
+router.get('/status', async (req, res) => {
   try {
     const userId = await getUserId(req);
     if (!userId) {
@@ -35,12 +35,12 @@ router.get('/status', async (req, res, next) => {
       },
     });
   } catch (error) {
-    next(error);
+    res.status(500).json({ error: String(error) });
   }
 });
 
 /** Save Last.fm configuration */
-router.post('/config', async (req, res, next) => {
+router.post('/config', async (req, res) => {
   try {
     const userId = await getUserId(req);
     if (!userId) throw new Error('User not authenticated');
@@ -55,12 +55,12 @@ router.post('/config', async (req, res, next) => {
 
     res.json({ success: true });
   } catch (error) {
-    next(error);
+    res.status(500).json({ error: String(error) });
   }
 });
 
 /** Get Last.fm Auth URL */
-router.get('/auth-url', async (req, res, next) => {
+router.get('/auth-url', async (req, res) => {
   try {
     const userId = await getUserId(req);
     const settings = await prisma.userSettings.findUnique({ where: { userId: String(userId) } });
@@ -74,12 +74,12 @@ router.get('/auth-url', async (req, res, next) => {
     const url = lastfmService.getAuthUrl(settings.lastfmApiKey, callbackUrl);
     res.json({ data: { url } });
   } catch (error) {
-    next(error);
+    res.status(500).json({ error: String(error) });
   }
 });
 
 /** Callback for Last.fm Auth */
-router.get('/callback', async (req, res, next) => {
+router.get('/callback', async (req, res) => {
   try {
     const { token, userId } = req.query;
     if (!token) throw new Error('Token is required');
@@ -106,7 +106,7 @@ router.get('/callback', async (req, res, next) => {
 });
 
 /** Disconnect Last.fm */
-router.post('/disconnect', async (req, res, next) => {
+router.post('/disconnect', async (req, res) => {
   try {
     const userId = await getUserId(req);
     if (!userId) throw new Error('User not authenticated');
@@ -121,12 +121,12 @@ router.post('/disconnect', async (req, res, next) => {
 
     res.json({ success: true });
   } catch (error) {
-    next(error);
+    res.status(500).json({ error: String(error) });
   }
 });
 
 /** Manual trigger for Now Playing (used by frontend) */
-router.post('/now-playing', async (req, res, next) => {
+router.post('/now-playing', async (req, res) => {
   try {
     const userId = await getUserId(req);
     if (!userId) return res.status(401).end();
@@ -139,12 +139,12 @@ router.post('/now-playing', async (req, res, next) => {
 
     res.json({ success: true });
   } catch (error) {
-    next(error);
+    res.status(500).json({ error: String(error) });
   }
 });
 
 /** Manual trigger for Scrobble (used by frontend) */
-router.post('/scrobble', async (req, res, next) => {
+router.post('/scrobble', async (req, res) => {
   try {
     const userId = await getUserId(req);
     if (!userId) return res.status(401).end();
@@ -158,7 +158,7 @@ router.post('/scrobble', async (req, res, next) => {
 
     res.json({ success: true });
   } catch (error) {
-    next(error);
+    res.status(500).json({ error: String(error) });
   }
 });
 
