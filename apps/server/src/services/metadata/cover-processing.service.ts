@@ -62,6 +62,7 @@ export async function downloadAndSaveCover(
   try {
     const res = await fetch(imageUrl, {
       headers: { 'User-Agent': 'MusicServer/1.0' },
+      signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) {
       logger.warn(`Failed to download cover art: ${res.status} ${res.statusText}`, { imageUrl });

@@ -69,6 +69,7 @@ export async function mbFetch<T>(
       'User-Agent': USER_AGENT,
       Accept: 'application/json',
     },
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!res.ok) {
@@ -111,6 +112,7 @@ export async function caaFetch<T>(path: string): Promise<T> {
 
   const res = await fetch(url, {
     headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!res.ok) {
