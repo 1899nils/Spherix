@@ -32,8 +32,14 @@ router.get('/', async (req, res, next) => {
       prisma.track.count(),
     ]);
 
+    const data = tracks.map((t) => ({
+      ...t,
+      fileSize: t.fileSize.toString(),
+      createdAt: t.createdAt.toISOString(),
+    }));
+
     const response: PaginatedResponse<TrackWithRelations> = {
-      data: tracks as unknown as TrackWithRelations[],
+      data: data as unknown as TrackWithRelations[],
       total,
       page,
       pageSize,
@@ -61,7 +67,13 @@ router.get('/:id', async (req, res, next) => {
       return;
     }
 
-    res.json({ data: track });
+    res.json({
+      data: {
+        ...track,
+        fileSize: track.fileSize.toString(),
+        createdAt: track.createdAt.toISOString(),
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -86,7 +98,13 @@ router.patch('/:id', async (req, res, next) => {
       },
     });
 
-    res.json({ data: track });
+    res.json({
+      data: {
+        ...track,
+        fileSize: track.fileSize.toString(),
+        createdAt: track.createdAt.toISOString(),
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -181,7 +199,13 @@ router.put('/:id/metadata', requireAdmin, async (req, res, next) => {
       lyrics: input.lyrics,
     });
 
-    res.json({ data: updated });
+    res.json({
+      data: {
+        ...updated,
+        fileSize: updated.fileSize.toString(),
+        createdAt: updated.createdAt.toISOString(),
+      },
+    });
   } catch (error) {
     next(error);
   }
