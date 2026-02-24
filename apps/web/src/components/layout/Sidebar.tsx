@@ -58,15 +58,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     queryFn: () => api.get<{ data: Playlist[] }>('/playlists'),
   });
 
-  const createPlaylist = useMutation({
-    mutationFn: (data: { name: string; coverUrl?: string; trackIds: string[] }) => 
-      api.post('/playlists', data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['playlists'] });
-      setIsCreateModalOpen(false);
-    },
-  });
-
   const togglePin = useMutation({
     mutationFn: (id: string) => api.patch(`/playlists/${id}/pin`, {}),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['playlists'] }),
