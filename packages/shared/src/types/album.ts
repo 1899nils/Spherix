@@ -1,3 +1,5 @@
+import { TrackWithRelations } from './track';
+
 export interface Album {
   id: string;
   title: string;
@@ -20,5 +22,5 @@ export interface AlbumWithRelations extends Album {
 }
 
 export interface AlbumDetail extends AlbumWithRelations {
-  tracks: import('./track').TrackWithRelations[];
+  tracks: TrackWithRelations[];
 }
