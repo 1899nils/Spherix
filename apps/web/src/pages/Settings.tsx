@@ -3,15 +3,38 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import type { Library } from '@musicserver/shared';
-import { FolderOpen, Loader2, RefreshCw, Music2 } from 'lucide-react';
+import { useUIStore } from '@/stores/uiStore';
+import { FolderOpen, Loader2, RefreshCw, Music2, Radio as RadioIcon } from 'lucide-react';
 
 interface ApiData<T> {
   data: T;
 }
 
+const REGIONS = [
+  'Alle',
+  'Baden-Württemberg',
+  'Bayern',
+  'Berlin',
+  'Brandenburg',
+  'Bremen',
+  'Hamburg',
+  'Hessen',
+  'Mecklenburg-Vorpommern',
+  'Niedersachsen',
+  'Nordrhein-Westfalen',
+  'Rheinland-Pfalz',
+  'Saarland',
+  'Sachsen',
+  'Sachsen-Anhalt',
+  'Schleswig-Holstein',
+  'Thüringen'
+];
+
 export function Settings() {
   const [newLibName, setNewLibName] = useState('');
   const [newLibPath, setNewLibPath] = useState('');
+  const radioRegion = useUIStore((state) => state.radioRegion);
+  const setRadioRegion = useUIStore((state) => state.setRadioRegion);
 
   const { data: librariesData, refetch } = useQuery({
     queryKey: ['libraries'],
@@ -218,6 +241,30 @@ export function Settings() {
             {createLibrary.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
             Bibliothek hinzufügen
           </Button>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold">Radio Einstellungen</h2>
+        <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 bg-pink-500/10 rounded-xl flex items-center justify-center">
+              <RadioIcon className="h-6 w-6 text-pink-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-white">Bevorzugte Region</p>
+              <p className="text-sm text-muted-foreground">Wähle aus, welche regionalen Sender standardmäßig angezeigt werden sollen.</p>
+            </div>
+            <select 
+              value={radioRegion}
+              onChange={(e) => setRadioRegion(e.target.value)}
+              className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all outline-none"
+            >
+              {REGIONS.map(region => (
+                <option key={region} value={region}>{region}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </section>
 

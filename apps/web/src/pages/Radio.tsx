@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Radio as RadioIcon, Play, Signal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePlayerStore, type RadioStation } from '@/stores/playerStore';
+import { useUIStore } from '@/stores/uiStore';
 
 interface RadioBrowserStation {
   stationuuid: string;
@@ -15,11 +17,17 @@ interface RadioBrowserStation {
 
 export function Radio() {
   const { playStream, currentTrack, isPlaying } = usePlayerStore();
+  const radioRegion = useUIStore((state) => state.radioRegion);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const { data: stations, isLoading } = useQuery({
-    queryKey: ['radio-stations'],
+    queryKey: ['radio-stations', radioRegion],
     queryFn: async () => {
-      const res = await fetch('https://de1.api.radio-browser.info/json/stations/bycountry/germany');
+      const url = radioRegion && radioRegion !== 'Alle' 
+        ? `https://de1.api.radio-browser.info/json/stations/bystate/${encodeURIComponent(radioRegion)}`
+        : 'https://de1.api.radio-browser.info/json/stations/bycountry/germany';
+        
+      const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch radio stations');
       const data: RadioBrowserStation[] = await res.json();
       // Sort by clicks and take top 100
@@ -40,12 +48,18 @@ export function Radio() {
     playStream(station);
   };
 
+  const handleImageError = (uuid: string) => {
+    setFailedImages((prev) => new Set(prev).add(uuid));
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-black text-white tracking-tight">Radio</h1>
-          <p className="text-muted-foreground mt-1">Live-Sender aus Deutschland</p>
+          <p className="text-muted-foreground mt-1">
+            {radioRegion && radioRegion !== 'Alle' ? `Live-Sender aus ${radioRegion}` : 'Live-Sender aus Deutschland'}
+          </p>
         </div>
         <div className="h-12 w-12 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 shadow-lg shadow-pink-500/5">
           <RadioIcon className="h-6 w-6 text-pink-500" />
@@ -61,6 +75,7 @@ export function Radio() {
           stations?.map((station) => {
             const isCurrent = !!(currentTrack && 'id' in currentTrack && currentTrack.id === station.stationuuid);
             const isThisPlaying = !!(isCurrent && isPlaying);
+            const hasImageFailed = failedImages.has(station.stationuuid);
 
             return (
               <div 
@@ -70,15 +85,12 @@ export function Radio() {
                 }`}
               >
                 <div className="aspect-square rounded-xl overflow-hidden mb-4 relative shadow-inner bg-black/20 flex items-center justify-center border border-white/5">
-                  {station.favicon ? (
+                  {station.favicon && !hasImageFailed ? (
                     <img 
                       src={station.favicon} 
                       alt={station.name} 
                       className="w-2/3 h-2/3 object-contain transition-transform duration-500 group-hover:scale-110"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '';
-                        (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="text-zinc-700 font-bold text-4xl">📻</div>';
-                      }}
+                      onError={() => handleImageError(station.stationuuid)}
                     />
                   ) : (
                     <div className="text-zinc-700 font-bold text-4xl">📻</div>
