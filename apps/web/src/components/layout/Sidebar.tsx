@@ -18,7 +18,6 @@ import {
   ListMusic,
   PanelLeftClose,
   PanelLeft,
-  Music2,
   ChevronRight,
   Plus,
   Pin,
