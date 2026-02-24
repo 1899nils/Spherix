@@ -9,6 +9,7 @@ interface MetadataEditModalProps {
   id: string;
   initialData: Record<string, unknown>;
   onClose: () => void;
+  onOpenMusicBrainz?: () => void;
 }
 
 interface FieldConfig {
@@ -37,7 +38,7 @@ const FIELDS: Record<string, FieldConfig[]> = {
   ],
 };
 
-export function MetadataEditModal({ type, id, initialData, onClose }: MetadataEditModalProps) {
+export function MetadataEditModal({ type, id, initialData, onClose, onOpenMusicBrainz }: MetadataEditModalProps) {
   const queryClient = useQueryClient();
   const fields = FIELDS[type];
 
@@ -134,20 +135,21 @@ export function MetadataEditModal({ type, id, initialData, onClose }: MetadataEd
               </div>
             ))}
 
-            {/* MusicBrainz Search Placeholder */}
-            <div className="pt-2 border-t border-border">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full"
-                disabled
-                title="MusicBrainz-Suche wird in einer zukünftigen Version verfügbar sein"
-              >
-                <Search className="h-4 w-4 mr-2" />
-                In MusicBrainz suchen (bald verfügbar)
-              </Button>
-            </div>
+            {/* MusicBrainz Search */}
+            {type === 'album' && onOpenMusicBrainz && (
+              <div className="pt-2 border-t border-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={onOpenMusicBrainz}
+                >
+                  <Search className="h-4 w-4 mr-2" />
+                  Mit MusicBrainz verknüpfen
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Footer */}

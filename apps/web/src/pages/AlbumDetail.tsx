@@ -6,12 +6,14 @@ import { Button } from '@/components/ui/button';
 import { formatDuration } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
 import { MetadataEditModal } from '@/components/MetadataEditModal';
+import { MusicBrainzLinkModal } from '@/components/MusicBrainzLinkModal';
 import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations } from '@musicserver/shared';
-import { Play, Pause, Disc3, Pencil } from 'lucide-react';
+import { Play, Pause, Disc3, Pencil, ExternalLink } from 'lucide-react';
 
 export function AlbumDetail() {
   const { id } = useParams<{ id: string }>();
   const [editOpen, setEditOpen] = useState(false);
+  const [mbOpen, setMbOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['album', id],
@@ -100,6 +102,14 @@ export function AlbumDetail() {
               <Pencil className="h-4 w-4 mr-1" />
               Metadaten bearbeiten
             </Button>
+
+            <Button variant="outline" size="sm" onClick={() => setMbOpen(true)}>
+              <ExternalLink className="h-4 w-4 mr-1" />
+              MusicBrainz
+              {album.musicbrainzId && (
+                <span className="ml-1 h-2 w-2 rounded-full bg-primary inline-block" />
+              )}
+            </Button>
           </div>
         </div>
       </div>
@@ -174,6 +184,21 @@ export function AlbumDetail() {
             genre: album.genre,
           }}
           onClose={() => setEditOpen(false)}
+          onOpenMusicBrainz={() => {
+            setEditOpen(false);
+            setMbOpen(true);
+          }}
+        />
+      )}
+
+      {/* MusicBrainz Link Modal */}
+      {mbOpen && (
+        <MusicBrainzLinkModal
+          albumId={album.id}
+          albumTitle={album.title}
+          artistName={album.artist.name}
+          musicbrainzId={album.musicbrainzId}
+          onClose={() => setMbOpen(false)}
         />
       )}
     </div>
