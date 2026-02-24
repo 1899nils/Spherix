@@ -25,7 +25,6 @@ const navItems = [
   { to: '/albums', icon: Disc3, label: 'Alben' },
   { to: '/artists', icon: Mic2, label: 'Künstler' },
   { to: '/playlists', icon: ListMusic, label: 'Playlists' },
-  { to: '/settings', icon: Settings, label: 'Einstellungen' },
 ];
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {

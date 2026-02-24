@@ -16,6 +16,9 @@ import {
   Repeat1,
 } from 'lucide-react';
 
+import { Badge } from '@/components/ui/badge';
+import { Info } from 'lucide-react';
+
 export function PlayerBar() {
   const {
     currentTrack,
@@ -36,6 +39,19 @@ export function PlayerBar() {
     cycleRepeat,
   } = usePlayerStore();
 
+  const getQualityLabel = () => {
+    if (!currentTrack) return null;
+    const format = currentTrack.format?.toUpperCase();
+    const isLossless = ['FLAC', 'ALAC', 'WAV', 'AIFF'].includes(format);
+    const isHiRes = currentTrack.sampleRate && currentTrack.sampleRate > 44100;
+
+    return (
+      <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 bg-white/5 border-white/20 text-white font-bold tracking-wider">
+        {isHiRes ? 'HI-RES' : isLossless ? 'LOSSLESS' : format}
+      </Badge>
+    );
+  };
+
   const VolumeIcon = isMuted || volume === 0
     ? VolumeX
     : volume < 0.5
@@ -48,31 +64,46 @@ export function PlayerBar() {
     <div className="fixed bottom-4 left-4 right-4 z-50">
       <footer className="h-24 liquid-glass rounded-2xl flex items-center px-6 gap-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] overflow-hidden">
         {/* Left: Track Info */}
-        <div className="flex items-center gap-4 w-[30%] min-w-0">
+        <div className="flex items-center gap-4 w-[35%] min-w-0">
           {currentTrack ? (
             <>
               {/* Cover */}
-              <div className="h-14 w-14 rounded-lg bg-muted shrink-0 overflow-hidden shadow-lg border border-white/10">
+              <div className="h-16 w-16 rounded-lg bg-muted shrink-0 overflow-hidden shadow-lg border border-white/10 relative group">
                 {currentTrack.album?.coverUrl ? (
                   <img
                     src={currentTrack.album.coverUrl}
                     alt={currentTrack.album.title}
-                    className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
                 ) : (
                   <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
                     ♪
                   </div>
                 )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Info className="h-5 w-5 text-white" />
+                </div>
               </div>
-              {/* Title / Artist */}
-              <div className="min-w-0">
-                <p className="text-sm font-semibold truncate text-white">
-                  {currentTrack.title}
-                </p>
-                <p className="text-xs text-muted-foreground truncate hover:text-white transition-colors cursor-pointer">
-                  {currentTrack.artist.name}
-                </p>
+              {/* Title / Artist / Meta */}
+              <div className="min-w-0 flex flex-col gap-0.5">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold truncate text-white">
+                    {currentTrack.title}
+                  </p>
+                  {getQualityLabel()}
+                </div>
+                <div className="flex flex-col">
+                  <p className="text-xs text-muted-foreground truncate hover:text-white transition-colors cursor-pointer">
+                    {currentTrack.artist.name}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/60 truncate">
+                    {currentTrack.album?.title} 
+                    {/* @ts-ignore - year might be on album from joint object */}
+                    {currentTrack.album?.year ? ` • ${currentTrack.album.year}` : ''}
+                    {/* @ts-ignore - label might be on album from joint object */}
+                    {currentTrack.album?.label ? ` • ${currentTrack.album.label}` : ''}
+                  </p>
+                </div>
               </div>
             </>
           ) : (

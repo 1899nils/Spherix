@@ -4,6 +4,8 @@ import { Sidebar } from './Sidebar';
 import { PlayerBar } from './PlayerBar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+import { Header } from './Header';
+
 export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -17,6 +19,8 @@ export function MainLayout() {
 
       {/* Main Content Area */}
       <div className="flex flex-col flex-1 min-w-0">
+        <Header />
+        
         {/* Scrollable Content */}
         <ScrollArea className="flex-1">
           <main className="p-6 pb-32">

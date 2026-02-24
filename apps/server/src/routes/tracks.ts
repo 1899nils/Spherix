@@ -21,7 +21,7 @@ router.get('/', async (req, res, next) => {
         take: pageSize,
         include: {
           artist: { select: { id: true, name: true } },
-          album: { select: { id: true, title: true, coverUrl: true } },
+          album: { select: { id: true, title: true, coverUrl: true, year: true, label: true } },
         },
         orderBy: { title: 'asc' },
       }),
@@ -48,7 +48,7 @@ router.get('/:id', async (req, res, next) => {
       where: { id: String(req.params.id) },
       include: {
         artist: { select: { id: true, name: true } },
-        album: { select: { id: true, title: true, coverUrl: true } },
+        album: { select: { id: true, title: true, coverUrl: true, year: true, label: true } },
       },
     });
 
@@ -78,7 +78,7 @@ router.patch('/:id', async (req, res, next) => {
       },
       include: {
         artist: { select: { id: true, name: true } },
-        album: { select: { id: true, title: true, coverUrl: true } },
+        album: { select: { id: true, title: true, coverUrl: true, year: true, label: true } },
       },
     });
 
@@ -161,7 +161,7 @@ router.put('/:id/metadata', requireAdmin, async (req, res, next) => {
       },
       include: {
         artist: { select: { id: true, name: true } },
-        album: { select: { id: true, title: true, coverUrl: true } },
+        album: { select: { id: true, title: true, coverUrl: true, year: true, label: true } },
       },
     });
 
