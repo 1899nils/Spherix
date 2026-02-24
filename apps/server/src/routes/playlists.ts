@@ -100,6 +100,53 @@ router.patch('/:id/pin', async (req, res, next) => {
   }
 });
 
+/** Get playlist details with tracks */
+router.get('/:id', async (req, res, next) => {
+  try {
+    const playlist = await prisma.playlist.findUnique({
+      where: { id: String(req.params.id) },
+      include: {
+        tracks: {
+          include: {
+            track: {
+              include: {
+                artist: { select: { id: true, name: true } },
+                album: { select: { id: true, title: true, coverUrl: true, year: true, label: true } },
+              },
+            },
+          },
+          orderBy: { position: 'asc' },
+        },
+      },
+    });
+
+    if (!playlist) {
+      res.status(404).json({ error: 'Playlist not found' });
+      return;
+    }
+
+    const data: PlaylistWithTracks = {
+      id: playlist.id,
+      name: playlist.name,
+      userId: playlist.userId,
+      isPublic: playlist.isPublic,
+      isPinned: playlist.isPinned,
+      lastPlayedAt: playlist.lastPlayedAt?.toISOString() ?? null,
+      createdAt: playlist.createdAt.toISOString(),
+      trackCount: playlist.tracks.length,
+      tracks: playlist.tracks.map((pt) => ({
+        ...pt.track,
+        fileSize: pt.track.fileSize.toString(),
+        createdAt: pt.track.createdAt.toISOString(),
+      })) as any,
+    };
+
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+});
+
 /** Update last played timestamp */
 router.post('/:id/played', async (req, res, next) => {
   try {

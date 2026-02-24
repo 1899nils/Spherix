@@ -8,7 +8,9 @@ export interface Playlist {
   createdAt: string;
 }
 
+import type { TrackWithRelations } from './track';
+
 export interface PlaylistWithTracks extends Playlist {
-  tracks: { id: string; title: string; duration: number }[];
+  tracks: TrackWithRelations[];
   trackCount: number;
 }

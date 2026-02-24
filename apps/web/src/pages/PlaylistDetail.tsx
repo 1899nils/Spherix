@@ -60,7 +60,7 @@ export function PlaylistDetail() {
               <tr 
                 key={track.id} 
                 className="hover:bg-white/10 group transition-all duration-200 cursor-pointer border-b border-white/5 last:border-0"
-                onClick={() => playTrack(track as any)}
+                onClick={() => playTrack(track)}
               >
                 <td className="px-6 py-4 text-muted-foreground tabular-nums text-center">{index + 1}</td>
                 <td className="px-6 py-4 font-semibold text-white">{track.title}</td>
