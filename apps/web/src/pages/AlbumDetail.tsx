@@ -34,7 +34,7 @@ export function AlbumDetail() {
   }
 
   const tracks = album.tracks ?? [];
-  const totalDuration = tracks.reduce((sum, t) => sum + t.duration, 0);
+  const totalDuration = tracks.reduce((sum: number, t: TrackWithRelations) => sum + t.duration, 0);
   const totalMins = Math.floor(totalDuration / 60);
 
   const handlePlayAll = () => {
@@ -47,10 +47,10 @@ export function AlbumDetail() {
     playTrack(track, tracks);
   };
 
-  const isCurrentAlbumPlaying = currentTrack && tracks.some((t) => t.id === currentTrack.id) && isPlaying;
+  const isCurrentAlbumPlaying = currentTrack && tracks.some((t: TrackWithRelations) => t.id === currentTrack.id) && isPlaying;
 
   // Group tracks by disc if multi-disc
-  const hasMultipleDiscs = new Set(tracks.map((t) => t.discNumber)).size > 1;
+  const hasMultipleDiscs = new Set(tracks.map((t: TrackWithRelations) => t.discNumber)).size > 1;
 
   return (
     <div className="space-y-6">
@@ -124,7 +124,7 @@ export function AlbumDetail() {
         </div>
 
         {/* Tracks */}
-        {tracks.map((track, index) => {
+        {tracks.map((track: TrackWithRelations, index: number) => {
           const isCurrent = currentTrack?.id === track.id;
           const showDiscHeader = hasMultipleDiscs &&
             (index === 0 || tracks[index - 1].discNumber !== track.discNumber);

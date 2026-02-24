@@ -57,7 +57,7 @@ export function RecentlyAdded() {
                 <div key={i} className="aspect-square bg-white/5 animate-pulse rounded-xl" />
              ))
           ) : (
-            albumsData?.data.map((album) => (
+            albumsData?.data.map((album: AlbumWithRelations) => (
               <div key={album.id} className="group relative bg-white/5 p-4 rounded-2xl hover:bg-white/10 transition-all duration-300">
                 <div className="aspect-square rounded-lg overflow-hidden shadow-lg mb-4 relative">
                   {album.coverUrl ? (
@@ -94,7 +94,7 @@ export function RecentlyAdded() {
                     <tr key={i} className="animate-pulse border-b border-white/5"><td colSpan={4} className="h-12 bg-white/5"></td></tr>
                  ))
               ) : (
-                tracksData?.data.map((track) => (
+                tracksData?.data.map((track: TrackWithRelations) => (
                   <tr 
                     key={track.id} 
                     className="hover:bg-white/10 group transition-colors cursor-pointer border-b border-white/5 last:border-0"
