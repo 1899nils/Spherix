@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { logger } from '../../config/logger.js';
 import { saveCoverArt } from './cover.service.js';
 
 // music-metadata types for the fields we use
