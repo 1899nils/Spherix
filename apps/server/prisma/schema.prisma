@@ -152,16 +152,19 @@ model PlayHistory {
 // ─── Playlist ───────────────────────────────────────────────────────────────
 
 model Playlist {
-  id        String   @id @default(uuid())
-  name      String
-  userId    String   @map("user_id")
-  isPublic  Boolean  @default(false) @map("is_public")
-  createdAt DateTime @default(now()) @map("created_at")
+  id           String    @id @default(uuid())
+  name         String
+  userId       String    @map("user_id")
+  isPublic     Boolean   @default(false) @map("is_public")
+  isPinned     Boolean   @default(false) @map("is_pinned")
+  lastPlayedAt DateTime? @map("last_played_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
   user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   tracks PlaylistTrack[]
 
   @@index([userId])
+  @@index([isPinned, lastPlayedAt])
   @@map("playlists")
 }
 

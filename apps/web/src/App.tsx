@@ -8,6 +8,7 @@ import { AlbumDetail } from '@/pages/AlbumDetail';
 import { Artists } from '@/pages/Artists';
 import { ArtistDetail } from '@/pages/ArtistDetail';
 import { Playlists } from '@/pages/Playlists';
+import { PlaylistDetail } from '@/pages/PlaylistDetail';
 import { Settings } from '@/pages/Settings';
 import { RecentlyAdded } from '@/pages/RecentlyAdded';
 import { Songs } from '@/pages/Songs';
@@ -41,6 +42,7 @@ export function App() {
             <Route path="/artists/:id" element={<ArtistDetail />} />
             <Route path="/songs" element={<Songs />} />
             <Route path="/playlists" element={<Playlists />} />
+            <Route path="/playlists/:id" element={<PlaylistDetail />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Routes>

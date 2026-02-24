@@ -3,6 +3,8 @@ export interface Playlist {
   name: string;
   userId: string;
   isPublic: boolean;
+  isPinned: boolean;
+  lastPlayedAt: string | null;
   createdAt: string;
 }
 
