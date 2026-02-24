@@ -80,11 +80,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     >
       {/* Logo / Header */}
       <div className="flex items-center gap-3 px-6 h-16 shrink-0">
-        <div className="h-8 w-8 bg-gradient-to-br from-pink-500 to-red-600 rounded-lg flex items-center justify-center shadow-lg">
-          <Music2 className="h-5 w-5 text-white" />
+        <div className="h-9 w-9 rounded-xl flex items-center justify-center overflow-hidden shadow-2xl border border-white/10 bg-white/5">
+          <img src="/logo.png" alt="Spherix Logo" className="h-full w-full object-cover" />
         </div>
         {!collapsed && (
-          <span className="font-bold text-lg tracking-tight text-white">MusicServer</span>
+          <span className="font-bold text-xl tracking-tight text-white">Spherix</span>
         )}
       </div>
 

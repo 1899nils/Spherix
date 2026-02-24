@@ -31,7 +31,7 @@ export function PlaylistDetail() {
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Playlist</p>
           <h1 className="text-7xl font-black text-white tracking-tighter">{playlist?.name}</h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
-            <span className="text-white">MusicServer</span>
+            <span className="text-white">Spherix</span>
             <span>•</span>
             <span>{playlist?.trackCount} Titel</span>
           </div>
