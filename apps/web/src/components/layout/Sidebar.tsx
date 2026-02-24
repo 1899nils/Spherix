@@ -45,7 +45,7 @@ interface SidebarProps {
 
 const sections = [
   {
-    title: 'Apple Music',
+    title: 'Music',
     items: [
       { to: '/', icon: PlayCircle, label: 'Jetzt hören', color: 'text-red-500' },
       { to: '/browse', icon: LayoutGrid, label: 'Entdecken', color: 'text-blue-500' },
