@@ -9,7 +9,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 export const env = {
   port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  databaseUrl: process.env.DATABASE_URL!,
+  databaseUrl: process.env.DATABASE_URL,
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
   sessionSecret: process.env.SESSION_SECRET || 'change-me',
   lastfmApiKey: process.env.LASTFM_API_KEY || '',
