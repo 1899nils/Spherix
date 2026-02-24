@@ -32,7 +32,7 @@ export async function searchRelease(
  */
 export async function getReleaseById(mbid: string): Promise<MBRelease> {
   return mbFetch<MBRelease>(`release/${mbid}`, {
-    inc: 'artist-credits+labels+recordings+release-groups+tags+cover-art-archive',
+    inc: 'artist-credits+labels+recordings+release-groups+tags',
   });
 }
 
