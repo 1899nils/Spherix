@@ -5,9 +5,12 @@ import { PlayerBar } from './PlayerBar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 import { Header } from './Header';
+import { useUIStore } from '@/stores/uiStore';
 
 export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { isSettingsOpen, isCreatePlaylistOpen } = useUIStore();
+  const isAnyModalOpen = isSettingsOpen || isCreatePlaylistOpen;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -29,7 +32,7 @@ export function MainLayout() {
         </ScrollArea>
 
         {/* Player Bar */}
-        <PlayerBar />
+        {!isAnyModalOpen && <PlayerBar />}
       </div>
     </div>
   );

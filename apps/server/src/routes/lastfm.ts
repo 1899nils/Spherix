@@ -12,7 +12,7 @@ async function getUserId(req: any) {
   return user?.id || null;
 }
 
-/** Get Last.fm connection status */
+/** Get Last.fm connection status and config */
 router.get('/status', async (req, res, next) => {
   try {
     const userId = await getUserId(req);
@@ -23,15 +23,37 @@ router.get('/status', async (req, res, next) => {
 
     const settings = await prisma.userSettings.findUnique({
       where: { userId },
-      select: { lastfmUsername: true, lastfmSessionKey: true },
+      select: { lastfmUsername: true, lastfmSessionKey: true, lastfmApiKey: true, lastfmApiSecret: true },
     });
 
     res.json({
       data: {
         connected: !!settings?.lastfmSessionKey,
         username: settings?.lastfmUsername || null,
+        apiKey: settings?.lastfmApiKey || null,
+        apiSecret: settings?.lastfmApiSecret || null,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Save Last.fm configuration */
+router.post('/config', async (req, res, next) => {
+  try {
+    const userId = await getUserId(req);
+    if (!userId) throw new Error('User not authenticated');
+
+    const { apiKey, apiSecret } = req.body;
+
+    await prisma.userSettings.upsert({
+      where: { userId },
+      update: { lastfmApiKey: apiKey, lastfmApiSecret: apiSecret },
+      create: { userId, lastfmApiKey: apiKey, lastfmApiSecret: apiSecret },
+    });
+
+    res.json({ success: true });
   } catch (error) {
     next(error);
   }
@@ -40,8 +62,16 @@ router.get('/status', async (req, res, next) => {
 /** Get Last.fm Auth URL */
 router.get('/auth-url', async (req, res, next) => {
   try {
-    const callbackUrl = `${req.protocol}://${req.get('host')}/api/lastfm/callback`;
-    const url = lastfmService.getAuthUrl(callbackUrl);
+    const userId = await getUserId(req);
+    const settings = await prisma.userSettings.findUnique({ where: { userId: String(userId) } });
+    
+    if (!settings?.lastfmApiKey) {
+      res.status(400).json({ error: 'Bitte speichere zuerst deinen Last.fm API Key.' });
+      return;
+    }
+
+    const callbackUrl = `${req.protocol}://${req.get('host')}/api/lastfm/callback?userId=${userId}`;
+    const url = lastfmService.getAuthUrl(settings.lastfmApiKey, callbackUrl);
     res.json({ data: { url } });
   } catch (error) {
     next(error);
@@ -51,22 +81,17 @@ router.get('/auth-url', async (req, res, next) => {
 /** Callback for Last.fm Auth */
 router.get('/callback', async (req, res, next) => {
   try {
-    const { token } = req.query;
+    const { token, userId } = req.query;
     if (!token) throw new Error('Token is required');
 
-    const { sessionKey, username } = await lastfmService.getSession(token as string);
-    const userId = await getUserId(req);
+    const settings = await prisma.userSettings.findUnique({ where: { userId: String(userId) } });
+    const config = { apiKey: settings?.lastfmApiKey, apiSecret: settings?.lastfmApiSecret };
 
-    if (!userId) throw new Error('User not found');
+    const { sessionKey, username } = await lastfmService.getSession(token as string, config);
 
-    await prisma.userSettings.upsert({
-      where: { userId },
-      update: {
-        lastfmSessionKey: sessionKey,
-        lastfmUsername: username,
-      },
-      create: {
-        userId,
+    await prisma.userSettings.update({
+      where: { userId: String(userId) },
+      data: {
         lastfmSessionKey: sessionKey,
         lastfmUsername: username,
       },

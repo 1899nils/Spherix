@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Playlist } from '@musicserver/shared';
+import { useUIStore } from '@/stores/uiStore';
 import { CreatePlaylistModal } from './CreatePlaylistModal';
 import {
   PlayCircle,
@@ -50,7 +51,7 @@ const sections = [
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const queryClient = useQueryClient();
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const { isCreatePlaylistOpen, setCreatePlaylistOpen } = useUIStore();
 
   const { data: playlistsData } = useQuery({
     queryKey: ['playlists'],
@@ -65,7 +66,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const handleCreatePlaylist = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsCreateModalOpen(true);
+    setCreatePlaylistOpen(true);
   };
 
   const playlists = playlistsData?.data ?? [];
@@ -220,9 +221,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </Button>
       </div>
 
-      {isCreateModalOpen && (
-        <CreatePlaylistModal onClose={() => setIsCreateModalOpen(false)} />
-      )}
+      <CreatePlaylistModal 
+        isOpen={isCreatePlaylistOpen} 
+        onClose={() => setCreatePlaylistOpen(false)} 
+      />
     </aside>
   );
 }

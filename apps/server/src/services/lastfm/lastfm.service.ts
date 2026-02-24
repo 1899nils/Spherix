@@ -11,11 +11,16 @@ export interface LastfmTrackInfo {
   duration?: number;
 }
 
+export interface LastfmConfig {
+  apiKey?: string | null;
+  apiSecret?: string | null;
+}
+
 /**
  * Generates a Last.fm API signature.
  * md5(param1value1param2value2...secret)
  */
-function getSignature(params: Record<string, string>): string {
+function getSignature(params: Record<string, string>, secret: string): string {
   const sortedKeys = Object.keys(params).sort();
   let str = '';
   for (const key of sortedKeys) {
@@ -23,7 +28,7 @@ function getSignature(params: Record<string, string>): string {
       str += key + params[key];
     }
   }
-  str += env.lastfmApiSecret;
+  str += secret;
   return crypto.createHash('md5').update(str).digest('hex');
 }
 
@@ -34,19 +39,26 @@ async function lastfmRequest<T>(
   method: string,
   params: Record<string, string> = {},
   httpMethod: 'GET' | 'POST' = 'GET',
+  config: LastfmConfig = {}
 ): Promise<T> {
+  const apiKey = config.apiKey || env.lastfmApiKey;
+  const apiSecret = config.apiSecret || env.lastfmApiSecret;
+
+  if (!apiKey || !apiSecret) {
+    throw new Error('Last.fm API Key or Secret not configured');
+  }
+
   const allParams: any = {
     ...params,
-    api_key: env.lastfmApiKey,
+    api_key: apiKey,
     method,
     format: 'json',
   };
 
-  const sig = getSignature(allParams);
+  const sig = getSignature(allParams, apiSecret);
   const finalParams: any = { ...allParams, api_sig: sig };
 
   const url = new URL(LASTFM_ROOT);
-  
   let fetchOptions: RequestInit = { method: httpMethod };
 
   if (httpMethod === 'GET') {
@@ -71,13 +83,13 @@ async function lastfmRequest<T>(
 
 export const lastfmService = {
   /** Get the URL for the user to authorize Spherix on Last.fm */
-  getAuthUrl(callbackUrl: string): string {
-    return `https://www.last.fm/api/auth/?api_key=${env.lastfmApiKey}&cb=${encodeURIComponent(callbackUrl)}`;
+  getAuthUrl(apiKey: string, callbackUrl: string): string {
+    return `https://www.last.fm/api/auth/?api_key=${apiKey}&cb=${encodeURIComponent(callbackUrl)}`;
   },
 
   /** Exchange a token for a permanent session key */
-  async getSession(token: string): Promise<{ sessionKey: string; username: string }> {
-    const data: any = await lastfmRequest('auth.getSession', { token });
+  async getSession(token: string, config: LastfmConfig): Promise<{ sessionKey: string; username: string }> {
+    const data: any = await lastfmRequest('auth.getSession', { token }, 'GET', config);
     return {
       sessionKey: data.session.key,
       username: data.session.name,
@@ -85,42 +97,24 @@ export const lastfmService = {
   },
 
   /** Update the "Now Playing" status on Last.fm */
-  async updateNowPlaying(sessionKey: string, track: LastfmTrackInfo): Promise<void> {
+  async updateNowPlaying(sessionKey: string, track: LastfmTrackInfo, config: LastfmConfig): Promise<void> {
     await lastfmRequest('track.updateNowPlaying', {
       sk: sessionKey,
       artist: track.artist,
       track: track.track,
       ...(track.album ? { album: track.album } : {}),
       ...(track.duration ? { duration: String(Math.round(track.duration)) } : {}),
-    }, 'POST');
+    }, 'POST', config);
   },
 
   /** Scrobble a track to Last.fm */
-  async scrobble(sessionKey: string, track: LastfmTrackInfo, timestamp: number): Promise<void> {
+  async scrobble(sessionKey: string, track: LastfmTrackInfo, timestamp: number, config: LastfmConfig): Promise<void> {
     await lastfmRequest('track.scrobble', {
       sk: sessionKey,
       artist: track.artist,
       track: track.track,
       timestamp: String(Math.round(timestamp)),
       ...(track.album ? { album: track.album } : {}),
-    }, 'POST');
-  },
-
-  /** Fetch artist bio and info */
-  async getArtistInfo(artistName: string): Promise<any> {
-    const data: any = await lastfmRequest('artist.getInfo', { artist: artistName });
-    return data.artist;
-  },
-
-  /** Fetch similar artists */
-  async getSimilarArtists(artistName: string, limit = 10): Promise<any[]> {
-    const data: any = await lastfmRequest('artist.getSimilar', { artist: artistName, limit: String(limit) });
-    return data.similarartists.artist;
-  },
-
-  /** Fetch top tags for a track */
-  async getTrackTags(artist: string, track: string): Promise<any[]> {
-    const data: any = await lastfmRequest('track.getTopTags', { artist, track });
-    return data.toptags.tag;
+    }, 'POST', config);
   }
 };

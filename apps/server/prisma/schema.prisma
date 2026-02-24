@@ -31,6 +31,8 @@ model User {
 
 model UserSettings {
   userId           String  @id @map("user_id")
+  lastfmApiKey     String? @map("lastfm_api_key")
+  lastfmApiSecret  String? @map("lastfm_api_secret")
   lastfmUsername    String? @map("lastfm_username")
   lastfmSessionKey String? @map("lastfm_session_key")
   theme            String  @default("dark")

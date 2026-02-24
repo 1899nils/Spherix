@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,24 @@ export function Settings() {
 
   const { data: lastfmData, refetch: refetchLastfm } = useQuery({
     queryKey: ['lastfm-status'],
-    queryFn: () => api.get<ApiData<{ connected: boolean; username: string | null }>>('/lastfm/status'),
+    queryFn: () => api.get<ApiData<{ connected: boolean; username: string | null; apiKey: string | null; apiSecret: string | null }>>('/lastfm/status'),
+  });
+
+  const [localApiKey, setLocalApiKey] = useState('');
+  const [localApiSecret, setLocalApiSecret] = useState('');
+
+  // Update local state when data is loaded
+  useEffect(() => {
+    if (lastfmData?.data) {
+      setLocalApiKey(lastfmData.data.apiKey || '');
+      setLocalApiSecret(lastfmData.data.apiSecret || '');
+    }
+  }, [lastfmData]);
+
+  const saveLastfmConfig = useMutation({
+    mutationFn: (data: { apiKey: string; apiSecret: string }) => 
+      api.post('/lastfm/config', data),
+    onSuccess: () => refetchLastfm(),
   });
 
   const connectLastfm = useMutation({
@@ -69,8 +86,45 @@ export function Settings() {
 
       {/* Last.fm Integration */}
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Last.fm Scrobbling</h2>
-        <div className="rounded-lg border border-border p-6 bg-white/5">
+        <h2 className="text-xl font-semibold text-white">Last.fm Scrobbling</h2>
+        
+        {/* API Config */}
+        <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4 shadow-inner">
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500">API Konfiguration</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-xs text-zinc-400 font-medium">API Key</label>
+              <input
+                type="password"
+                value={localApiKey}
+                onChange={(e) => setLocalApiKey(e.target.value)}
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
+                placeholder="Last.fm API Key"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs text-zinc-400 font-medium">API Secret</label>
+              <input
+                type="password"
+                value={localApiSecret}
+                onChange={(e) => setLocalApiSecret(e.target.value)}
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
+                placeholder="Last.fm API Secret"
+              />
+            </div>
+          </div>
+          <Button 
+            size="sm" 
+            className="w-full md:w-auto bg-blue-600 hover:bg-blue-500 text-white font-bold"
+            onClick={() => saveLastfmConfig.mutate({ apiKey: localApiKey, apiSecret: localApiSecret })}
+            disabled={saveLastfmConfig.isPending}
+          >
+            {saveLastfmConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            Konfiguration speichern
+          </Button>
+        </div>
+
+        <div className="rounded-xl border border-white/5 p-6 bg-white/5">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 bg-red-500/10 rounded-xl flex items-center justify-center">
               <Music2 className="h-6 w-6 text-red-500" />

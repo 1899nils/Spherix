@@ -30,14 +30,19 @@ export const scrobbleWorker = new Worker(
       return; // No Last.fm account connected
     }
 
+    const config = { 
+      apiKey: userSettings.lastfmApiKey, 
+      apiSecret: userSettings.lastfmApiSecret 
+    };
+
     try {
       if (timestamp) {
         // Full scrobble
-        await lastfmService.scrobble(userSettings.lastfmSessionKey, track, timestamp);
+        await lastfmService.scrobble(userSettings.lastfmSessionKey, track, timestamp, config);
         logger.info('Track scrobbled to Last.fm', { userId, track: track.track });
       } else {
         // "Now Playing" update
-        await lastfmService.updateNowPlaying(userSettings.lastfmSessionKey, track);
+        await lastfmService.updateNowPlaying(userSettings.lastfmSessionKey, track, config);
         logger.info('Now Playing updated on Last.fm', { userId, track: track.track });
       }
     } catch (error) {

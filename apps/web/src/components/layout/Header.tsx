@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { Search, Settings as SettingsIcon, User, X } from 'lucide-react';
+import { Search, Settings as SettingsIcon, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Settings } from '@/pages/Settings';
+import { Modal } from '@/components/ui/Modal';
+import { useUIStore } from '@/stores/uiStore';
 
 export function Header() {
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { isSettingsOpen, setSettingsOpen } = useUIStore();
 
   return (
     <header className="h-16 flex items-center justify-between px-8 bg-background/50 backdrop-blur-md sticky top-0 z-40 border-b border-white/5">
@@ -12,12 +13,12 @@ export function Header() {
       <div className="w-1/4"></div>
 
       {/* Center: Search */}
-      <div className="flex-1 max-w-xl relative">
+      <div className="flex-1 max-w-xl relative text-white">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
           type="text"
           placeholder="Suche nach Künstlern, Alben oder Songs..."
-          className="w-full bg-white/5 border border-white/10 pl-10 h-10 rounded-full focus:outline-none focus:ring-1 focus:ring-white/20 transition-all text-sm text-white placeholder:text-muted-foreground"
+          className="w-full bg-white/5 border border-white/10 pl-10 h-10 rounded-full focus:outline-none focus:ring-1 focus:ring-white/20 transition-all text-sm placeholder:text-muted-foreground"
         />
       </div>
 
@@ -27,7 +28,7 @@ export function Header() {
           variant="ghost" 
           size="icon" 
           className="hover:bg-white/10 rounded-full"
-          onClick={() => setIsSettingsOpen(true)}
+          onClick={() => setSettingsOpen(true)}
         >
           <SettingsIcon className="h-5 w-5 text-muted-foreground hover:text-white transition-colors" />
         </Button>
@@ -37,36 +38,13 @@ export function Header() {
         </Button>
       </div>
 
-      {/* Custom Settings Modal */}
-      {isSettingsOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
-          {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
-            onClick={() => setIsSettingsOpen(false)}
-          />
-          {/* Modal Content */}
-          <div 
-            className="relative z-[101] w-full max-w-4xl max-h-[85vh] flex flex-col bg-[#1c1c1e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-300"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-6 border-b border-white/5 shrink-0">
-              <h2 className="text-xl font-bold text-white">Einstellungen</h2>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="hover:bg-white/10 rounded-full h-8 w-8"
-                onClick={() => setIsSettingsOpen(false)}
-              >
-                <X className="h-5 w-5 text-zinc-400" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-              <Settings />
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal 
+        title="Einstellungen" 
+        isOpen={isSettingsOpen} 
+        onClose={() => setSettingsOpen(false)}
+      >
+        <Settings />
+      </Modal>
     </header>
   );
 }
