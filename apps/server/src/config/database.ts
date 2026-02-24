@@ -3,11 +3,14 @@ import { env } from './env.js';
 
 export const prisma = new PrismaClient();
 
-export async function connectDatabase(retries = 10, delayMs = 2000): Promise<void> {
+export async function connectDatabase(retries = 20, delayMs = 3000): Promise<void> {
   if (!env.databaseUrl) {
-    console.error('DATABASE_URL is not set in environment variables');
+    console.error('DATABASE_URL is not set. Please check your environment variables.');
     process.exit(1);
   }
+  
+  console.log(`Attempting to connect to database at ${env.databaseUrl.replace(/:[^:@]+@/, ':****@')}...`);
+  
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       await prisma.$connect();
