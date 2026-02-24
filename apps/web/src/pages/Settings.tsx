@@ -87,7 +87,7 @@ export function Settings() {
               <input
                 type="password"
                 value={localApiKey}
-                onChange={(e) => setLocalApiKey(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalApiKey(e.target.value)}
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
                 placeholder="Last.fm API Key"
               />
@@ -97,7 +97,7 @@ export function Settings() {
               <input
                 type="password"
                 value={localApiSecret}
-                onChange={(e) => setLocalApiSecret(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalApiSecret(e.target.value)}
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
                 placeholder="Last.fm API Secret"
               />
@@ -198,14 +198,14 @@ export function Settings() {
               type="text"
               placeholder="Name (z.B. Meine Musik)"
               value={newLibName}
-              onChange={(e) => setNewLibName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewLibName(e.target.value)}
               className="w-full rounded-md border border-input bg-black px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring text-white"
             />
             <input
               type="text"
               placeholder="Pfad (z.B. /music)"
               value={newLibPath}
-              onChange={(e) => setNewLibPath(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewLibPath(e.target.value)}
               className="w-full rounded-md border border-input bg-black px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring text-white"
             />
           </div>

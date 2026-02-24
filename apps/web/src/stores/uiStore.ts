@@ -10,6 +10,6 @@ interface UIStore {
 export const useUIStore = create<UIStore>((set) => ({
   isSettingsOpen: false,
   isCreatePlaylistOpen: false,
-  setSettingsOpen: (open) => set({ isSettingsOpen: open }),
-  setCreatePlaylistOpen: (open) => set({ isCreatePlaylistOpen: open }),
+  setSettingsOpen: (open: boolean) => set({ isSettingsOpen: open }),
+  setCreatePlaylistOpen: (open: boolean) => set({ isCreatePlaylistOpen: open }),
 }));

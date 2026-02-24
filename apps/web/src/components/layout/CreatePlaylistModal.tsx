@@ -33,8 +33,8 @@ export function CreatePlaylistModal({ isOpen, onClose }: CreatePlaylistModalProp
   });
 
   const toggleTrack = (id: string) => {
-    setSelectedTracks(prev => 
-      prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+    setSelectedTracks((prev: string[]) => 
+      prev.includes(id) ? prev.filter((t: string) => t !== id) : [...prev, id]
     );
   };
 
@@ -64,7 +64,7 @@ export function CreatePlaylistModal({ isOpen, onClose }: CreatePlaylistModalProp
                 type="text"
                 placeholder="Name der Playlist"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
               />
               <div className="relative">
@@ -73,7 +73,7 @@ export function CreatePlaylistModal({ isOpen, onClose }: CreatePlaylistModalProp
                   type="text"
                   placeholder="Bild-URL (optional)"
                   value={coverUrl}
-                  onChange={(e) => setCoverUrl(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCoverUrl(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
                 />
               </div>
@@ -112,7 +112,7 @@ export function CreatePlaylistModal({ isOpen, onClose }: CreatePlaylistModalProp
                 type="text"
                 placeholder="Songs suchen..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
                 className="w-full bg-white/5 border border-white/5 rounded-full pl-9 pr-4 py-1.5 text-xs text-white focus:outline-none focus:bg-white/10 transition-all"
               />
             </div>

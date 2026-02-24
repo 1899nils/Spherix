@@ -37,7 +37,7 @@ export function Songs() {
                   <tr key={i} className="animate-pulse border-b border-white/5"><td colSpan={4} className="h-12 bg-white/5"></td></tr>
                ))
             ) : (
-              tracksData?.data.map((track) => (
+              tracksData?.data.map((track: TrackWithRelations) => (
                 <tr 
                   key={track.id} 
                   className="hover:bg-white/10 group transition-colors cursor-pointer border-b border-white/5 last:border-0"
