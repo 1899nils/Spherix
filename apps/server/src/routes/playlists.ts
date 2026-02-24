@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { prisma } from '../config/database.js';
-import { logger } from '../config/logger.js';
 import type { Playlist, PlaylistWithTracks } from '@musicserver/shared';
 
 const router: Router = Router();
