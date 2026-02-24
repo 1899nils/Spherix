@@ -1,16 +1,11 @@
-import { Search, Settings as SettingsIcon, User } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { useState } from 'react';
+import { Search, Settings as SettingsIcon, User, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { Settings } from '@/pages/Settings';
 
 export function Header() {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   return (
     <header className="h-16 flex items-center justify-between px-8 bg-background/50 backdrop-blur-md sticky top-0 z-40 border-b border-white/5">
       {/* Left: Empty for balance or could have breadcrumbs */}
@@ -19,32 +14,51 @@ export function Header() {
       {/* Center: Search */}
       <div className="flex-1 max-w-xl relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
+        <input
+          type="text"
           placeholder="Suche nach Künstlern, Alben oder Songs..."
-          className="w-full bg-white/5 border-white/10 pl-10 h-10 rounded-full focus:ring-1 focus:ring-white/20 transition-all"
+          className="w-full bg-white/5 border border-white/10 pl-10 h-10 rounded-full focus:outline-none focus:ring-1 focus:ring-white/20 transition-all text-sm text-white placeholder:text-muted-foreground"
         />
       </div>
 
       {/* Right: Settings & User */}
       <div className="w-1/4 flex justify-end items-center gap-3">
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="hover:bg-white/10 rounded-full">
-              <SettingsIcon className="h-5 w-5 text-muted-foreground hover:text-white transition-colors" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-card border-white/10">
-            <DialogHeader>
-              <DialogTitle>Einstellungen</DialogTitle>
-            </DialogHeader>
-            <Settings />
-          </DialogContent>
-        </Dialog>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="hover:bg-white/10 rounded-full"
+          onClick={() => setIsSettingsOpen(true)}
+        >
+          <SettingsIcon className="h-5 w-5 text-muted-foreground hover:text-white transition-colors" />
+        </Button>
 
         <Button variant="ghost" size="icon" className="hover:bg-white/10 rounded-full">
           <User className="h-5 w-5 text-muted-foreground hover:text-white transition-colors" />
         </Button>
       </div>
+
+      {/* Custom Settings Modal */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#1c1c1e] border border-white/10 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between p-6 border-b border-white/5">
+              <h2 className="text-xl font-bold text-white">Einstellungen</h2>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="hover:bg-white/10 rounded-full h-8 w-8"
+                onClick={() => setIsSettingsOpen(false)}
+              >
+                <X className="h-5 w-5 text-zinc-400" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-8">
+              <Settings />
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
+

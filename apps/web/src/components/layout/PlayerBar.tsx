@@ -16,7 +16,6 @@ import {
   Repeat1,
 } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
 import { Info } from 'lucide-react';
 
 export function PlayerBar() {
@@ -46,9 +45,9 @@ export function PlayerBar() {
     const isHiRes = currentTrack.sampleRate && currentTrack.sampleRate > 44100;
 
     return (
-      <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 bg-white/5 border-white/20 text-white font-bold tracking-wider">
+      <span className="text-[10px] py-0 px-1.5 h-4 bg-white/10 border border-white/20 text-white font-bold tracking-wider rounded flex items-center">
         {isHiRes ? 'HI-RES' : isLossless ? 'LOSSLESS' : format}
-      </Badge>
+      </span>
     );
   };
 
