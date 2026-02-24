@@ -174,9 +174,8 @@ export function CreatePlaylistModal({ onClose }: CreatePlaylistModalProps) {
                 )}
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
+                  </div>
+                </div>
+              </div>
+            );
+          }
