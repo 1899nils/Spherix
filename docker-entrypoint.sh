@@ -79,17 +79,19 @@ fi
 
 # Verify the server can start (quick syntax/import check)
 echo "Verifying server module loads..."
-if node -e "import('/app/apps/server/dist/index.js').then(() => { console.log('Module loaded OK'); process.exit(0); }).catch(e => { console.error('Module load failed:', e.message); process.exit(1); })" 2>&1; then
+if node --input-type=module -e "import '/app/apps/server/dist/index.js'; console.log('Module loaded OK');" 2>&1; then
   echo "Server module verified"
 else
-  echo "WARNING: Server module verification failed (may still work under supervisor)"
+  echo "CRITICAL: Server module verification failed. This usually means missing dependencies or broken symlinks."
+  node --input-type=module -e "import '/app/apps/server/dist/index.js';" || true
 fi
 cd /app
 
 # Stop temporary services (supervisor will manage them)
+echo "Stopping temporary setup services..."
 redis-cli shutdown 2>/dev/null || true
-su postgres -c "pg_ctl -D /data/postgres stop -w" 2>/dev/null || true
-sleep 1
+su postgres -c "pg_ctl -D /data/postgres stop -m fast -w" 2>/dev/null || true
+sleep 2
 
 echo "Starting all services via supervisor..."
 exec supervisord -c /etc/supervisord.conf

@@ -21,12 +21,13 @@ RUN pnpm --filter @musicserver/server prisma:generate
 # --- Production image ---
 FROM node:20-alpine AS production
 
-# tini handles PID 1 responsibilities (zombie reaping, signal forwarding)
-RUN apk add --no-cache nginx supervisor postgresql16 postgresql16-client redis tini
+# tini handles PID 1 responsibilities
+# openssl is required for Prisma
+RUN apk add --no-cache nginx supervisor postgresql16 postgresql16-client redis tini openssl
 
 WORKDIR /app
 
-# Runtime dependencies (node_modules from pnpm install + Prisma client)
+# Copy all node_modules to preserve pnpm symlinks and virtual store
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/server/node_modules ./apps/server/node_modules
 
