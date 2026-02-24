@@ -25,6 +25,7 @@ interface PlayerState {
   volume: number;
   isMuted: boolean;
   isShuffled: boolean;
+  hasScrobbled: boolean;
   repeatMode: RepeatMode;
 
   // Internal
@@ -65,6 +66,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   volume: 0.7,
   isMuted: false,
   isShuffled: false,
+  hasScrobbled: false,
   repeatMode: 'off',
 
   _howl: null,
@@ -87,14 +89,46 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       html5: true,
       volume: state.isMuted ? 0 : state.volume,
       onplay: () => {
-        set({ isPlaying: true, duration: howl.duration() });
+        set({ isPlaying: true, duration: howl.duration(), hasScrobbled: false });
+
+        // Update Now Playing on Last.fm
+        fetch('/api/lastfm/now-playing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            artist: track.artist.name,
+            track: track.title,
+            album: track.album?.title,
+            duration: howl.duration(),
+          }),
+        }).catch(() => {}); // Ignore errors
 
         // Update seek position periodically
         const interval = setInterval(() => {
           if (howl.playing()) {
-            set({ seek: howl.seek() as number });
+            const currentSeek = howl.seek() as number;
+            const currentDuration = howl.duration();
+            const { hasScrobbled } = get();
+
+            set({ seek: currentSeek });
+
+            // Scrobble condition: > 50% or > 4 minutes (240s)
+            if (!hasScrobbled && currentDuration > 30) { // Track must be > 30s to scrobble
+              if (currentSeek > currentDuration / 2 || currentSeek > 240) {
+                set({ hasScrobbled: true });
+                fetch('/api/lastfm/scrobble', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    artist: track.artist.name,
+                    track: track.title,
+                    album: track.album?.title,
+                  }),
+                }).catch(() => {}); // Ignore errors
+              }
+            }
           }
-        }, 250);
+        }, 1000);
         set({ _seekInterval: interval });
       },
       onpause: () => set({ isPlaying: false }),

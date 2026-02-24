@@ -3,7 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import type { Library } from '@musicserver/shared';
-import { FolderOpen, Loader2, RefreshCw } from 'lucide-react';
+import { FolderOpen, Loader2, RefreshCw, Music2 } from 'lucide-react';
 
 interface ApiData<T> {
   data: T;
@@ -16,6 +16,23 @@ export function Settings() {
   const { data: librariesData, refetch } = useQuery({
     queryKey: ['libraries'],
     queryFn: () => api.get<ApiData<Library[]>>('/libraries'),
+  });
+
+  const { data: lastfmData, refetch: refetchLastfm } = useQuery({
+    queryKey: ['lastfm-status'],
+    queryFn: () => api.get<ApiData<{ connected: boolean; username: string | null }>>('/lastfm/status'),
+  });
+
+  const connectLastfm = useMutation({
+    mutationFn: () => api.get<ApiData<{ url: string }>>('/lastfm/auth-url'),
+    onSuccess: (res) => {
+      window.location.href = res.data.url;
+    },
+  });
+
+  const disconnectLastfm = useMutation({
+    mutationFn: () => api.post('/lastfm/disconnect', {}),
+    onSuccess: () => refetchLastfm(),
   });
 
   const [createError, setCreateError] = useState('');
@@ -41,12 +58,55 @@ export function Settings() {
 
   const libraries = librariesData?.data ?? [];
 
+  const lastfm = lastfmData?.data;
+
   return (
-    <div className="space-y-8 max-w-2xl">
+    <div className="space-y-8 max-w-2xl text-white">
       <div>
-        <h1 className="text-3xl font-bold">Einstellungen</h1>
+        <h1 className="text-3xl font-bold text-white">Einstellungen</h1>
         <p className="text-muted-foreground mt-1">Serverkonfiguration</p>
       </div>
+
+      {/* Last.fm Integration */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold">Last.fm Scrobbling</h2>
+        <div className="rounded-lg border border-border p-6 bg-white/5">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 bg-red-500/10 rounded-xl flex items-center justify-center">
+              <Music2 className="h-6 w-6 text-red-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-white">Last.fm Account</p>
+              <p className="text-sm text-muted-foreground">
+                {lastfm?.connected 
+                  ? `Verbunden als ${lastfm.username}` 
+                  : 'Verbinde deinen Account, um deine Musik zu scrobbeln.'}
+              </p>
+            </div>
+            {lastfm?.connected ? (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => disconnectLastfm.mutate()}
+                disabled={disconnectLastfm.isPending}
+              >
+                Trennen
+              </Button>
+            ) : (
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="bg-red-600 hover:bg-red-500 text-white border-none"
+                onClick={() => connectLastfm.mutate()}
+                disabled={connectLastfm.isPending}
+              >
+                {connectLastfm.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Verbinden
+              </Button>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Libraries */}
       <section className="space-y-4">

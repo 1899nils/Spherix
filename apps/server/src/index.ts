@@ -15,6 +15,7 @@ import artistsRouter from './routes/artists.js';
 import librariesRouter from './routes/libraries.js';
 import musicbrainzRouter from './routes/musicbrainz.js';
 import playlistsRouter from './routes/playlists.js';
+import lastfmRouter from './routes/lastfm.js';
 import subsonicRouter from './subsonic/index.js';
 
 const app = express();
@@ -50,6 +51,7 @@ app.use('/api/artists', artistsRouter);
 app.use('/api/libraries', librariesRouter);
 app.use('/api/musicbrainz', musicbrainzRouter);
 app.use('/api/playlists', playlistsRouter);
+app.use('/api/lastfm', lastfmRouter);
 
 // Subsonic API (compatible with Subsonic/Airsonic clients)
 app.use('/rest', subsonicRouter);

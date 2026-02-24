@@ -12,4 +12,6 @@ export const env = {
   databaseUrl: process.env.DATABASE_URL!,
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
   sessionSecret: process.env.SESSION_SECRET || 'change-me',
+  lastfmApiKey: process.env.LASTFM_API_KEY || '',
+  lastfmApiSecret: process.env.LASTFM_API_SECRET || '',
 } as const;
