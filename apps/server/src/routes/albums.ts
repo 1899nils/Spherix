@@ -7,12 +7,13 @@ import {
   matchMusicbrainzSchema,
 } from './schemas/metadata.schemas.js';
 import { writeTags } from '../services/metadata/tagwriter.service.js';
-import { processAndSaveCover } from '../services/metadata/cover-processing.service.js';
+import { processAndSaveCover, downloadAndSaveCover } from '../services/metadata/cover-processing.service.js';
 import {
   getReleaseById,
   getCoverArtUrl,
   matchAlbum,
 } from '../services/musicbrainz/index.js';
+import { logger } from '../config/logger.js';
 import type { AlbumWithRelations, PaginatedResponse } from '@musicserver/shared';
 
 const router: Router = Router();
@@ -310,7 +311,7 @@ router.post('/:id/match-musicbrainz', requireAdmin, async (req, res, next) => {
       include: {
         artist: true,
         tracks: {
-          select: { id: true, filePath: true, trackNumber: true, title: true },
+          select: { id: true, filePath: true, trackNumber: true, discNumber: true, title: true },
           orderBy: [{ discNumber: 'asc' }, { trackNumber: 'asc' }],
         },
       },
@@ -321,6 +322,8 @@ router.post('/:id/match-musicbrainz', requireAdmin, async (req, res, next) => {
     }
 
     const { musicbrainzReleaseId, confirm } = parsed.data;
+
+    logger.info(`MusicBrainz match for album "${album.title}" (${album.id}) → release ${musicbrainzReleaseId}, confirm=${confirm}`);
 
     // Fetch MusicBrainz release data
     const release = await getReleaseById(musicbrainzReleaseId);
@@ -367,7 +370,7 @@ router.post('/:id/match-musicbrainz', requireAdmin, async (req, res, next) => {
       return;
     }
 
-    // Apply changes
+    // ── Apply changes ──────────────────────────────────────────────────────
 
     // Resolve artist
     let artistId = album.artistId;
@@ -384,6 +387,18 @@ router.post('/:id/match-musicbrainz', requireAdmin, async (req, res, next) => {
           })).id;
     }
 
+    // Download and save cover art locally (instead of storing the remote URL)
+    let localCoverUrl: string | null = null;
+    if (coverUrl) {
+      const saved = await downloadAndSaveCover(coverUrl, album.id);
+      if (saved) {
+        localCoverUrl = saved.url500;
+        logger.info(`Downloaded cover art for album ${album.id} from MusicBrainz`);
+      } else {
+        logger.warn(`Could not download cover art for album ${album.id} from ${coverUrl}`);
+      }
+    }
+
     // Update album
     await prisma.album.update({
       where: { id: album.id },
@@ -396,16 +411,26 @@ router.post('/:id/match-musicbrainz', requireAdmin, async (req, res, next) => {
         country,
         totalDiscs,
         musicbrainzId: musicbrainzReleaseId,
-        ...(coverUrl ? { coverUrl } : {}),
+        ...(localCoverUrl ? { coverUrl: localCoverUrl } : {}),
       },
     });
 
-    // Match and update tracks by position
+    // Match and update tracks by disc + track position
+    let tracksUpdated = 0;
+    let tracksSkipped = 0;
     for (const mbTrack of mbTracks) {
       const localTrack = album.tracks.find(
-        (t: typeof album.tracks[number]) => t.trackNumber === mbTrack.trackNumber,
+        (t) =>
+          t.discNumber === mbTrack.discNumber && t.trackNumber === mbTrack.trackNumber,
+      ) ?? album.tracks.find(
+        // Fallback: match by trackNumber only (single-disc albums or missing disc info)
+        (t) => t.trackNumber === mbTrack.trackNumber && (album.tracks.every((tr) => tr.discNumber === 1 || tr.discNumber === null)),
       );
-      if (!localTrack) continue;
+      if (!localTrack) {
+        tracksSkipped++;
+        logger.debug(`No local track for disc ${mbTrack.discNumber} track ${mbTrack.trackNumber} — skipped`);
+        continue;
+      }
 
       await prisma.track.update({
         where: { id: localTrack.id },
@@ -416,19 +441,32 @@ router.post('/:id/match-musicbrainz', requireAdmin, async (req, res, next) => {
         },
       });
 
-      await writeTags(localTrack.filePath, {
-        title: mbTrack.title,
-        artist: artistName,
-        album: release.title,
-        trackNumber: mbTrack.trackNumber,
-        discNumber: mbTrack.discNumber,
-        year: releaseYear ?? undefined,
-        genre: genre ?? undefined,
-      });
+      try {
+        await writeTags(localTrack.filePath, {
+          title: mbTrack.title,
+          artist: artistName,
+          album: release.title,
+          trackNumber: mbTrack.trackNumber,
+          discNumber: mbTrack.discNumber,
+          year: releaseYear ?? undefined,
+          genre: genre ?? undefined,
+        });
+      } catch (err) {
+        logger.warn(`Failed to write tags for track ${localTrack.id} at ${localTrack.filePath}`, { error: String(err) });
+      }
+      tracksUpdated++;
+    }
+
+    logger.info(`MusicBrainz match applied for album ${album.id}: ${tracksUpdated} tracks updated, ${tracksSkipped} skipped`);
+
+    // Update changes object with the actual local cover URL for the response
+    if (localCoverUrl) {
+      changes.album.coverUrl = { from: album.coverUrl, to: localCoverUrl };
     }
 
     res.json({ data: { preview: false, applied: true, changes } });
   } catch (error) {
+    logger.error('MusicBrainz match failed', { albumId: req.params.id, error: String(error) });
     next(error);
   }
 });

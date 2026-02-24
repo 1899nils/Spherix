@@ -50,3 +50,27 @@ export async function processAndSaveCover(
     url300: `/api/covers/${albumId}/${file300}`,
   };
 }
+
+/**
+ * Download a cover image from a URL and process/save it locally.
+ * Returns the local URL paths, or null if the download fails.
+ */
+export async function downloadAndSaveCover(
+  imageUrl: string,
+  albumId: string,
+): Promise<ProcessedCover | null> {
+  try {
+    const res = await fetch(imageUrl, {
+      headers: { 'User-Agent': 'MusicServer/1.0' },
+    });
+    if (!res.ok) {
+      logger.warn(`Failed to download cover art: ${res.status} ${res.statusText}`, { imageUrl });
+      return null;
+    }
+    const buffer = Buffer.from(await res.arrayBuffer());
+    return await processAndSaveCover(buffer, albumId);
+  } catch (err) {
+    logger.warn('Error downloading cover art', { imageUrl, error: String(err) });
+    return null;
+  }
+}

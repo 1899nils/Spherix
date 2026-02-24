@@ -7,7 +7,7 @@ import type {
   MBReleaseSearchResponse,
 } from './types.js';
 
-const AUTO_MATCH_THRESHOLD = 90;
+const AUTO_MATCH_THRESHOLD = 80;
 
 /**
  * Normalises a string for fuzzy comparison:
@@ -147,14 +147,28 @@ function scoreCandidate(
  * 90% confidence it is flagged as `autoMatch`.
  */
 export async function matchAlbum(album: LocalAlbum): Promise<MatchResult> {
-  // Build a Lucene query that targets both artist and release name
-  const query = `release:"${album.title}" AND artist:"${album.artistName}"`;
+  // Escape Lucene special characters in user-supplied strings
+  const escLucene = (s: string) =>
+    s.replace(/([+\-&|!(){}[\]^"~*?:\\/])/g, '\\$1');
 
-  const response = await mbFetch<MBReleaseSearchResponse>('release', {
-    query,
-    limit: '10',
-    offset: '0',
-  });
+  const query = `release:"${escLucene(album.title)}" AND artist:"${escLucene(album.artistName)}"`;
+
+  let response: MBReleaseSearchResponse;
+  try {
+    response = await mbFetch<MBReleaseSearchResponse>('release', {
+      query,
+      limit: '10',
+      offset: '0',
+    });
+  } catch {
+    // If the precise Lucene query fails, fall back to a simpler free-text search
+    const fallbackQuery = `${escLucene(album.title)} ${escLucene(album.artistName)}`;
+    response = await mbFetch<MBReleaseSearchResponse>('release', {
+      query: fallbackQuery,
+      limit: '10',
+      offset: '0',
+    });
+  }
 
   const candidates: MatchCandidate[] = response.releases
     .map((release) => {
