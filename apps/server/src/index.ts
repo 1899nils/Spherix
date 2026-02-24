@@ -14,6 +14,7 @@ import albumsRouter from './routes/albums.js';
 import artistsRouter from './routes/artists.js';
 import librariesRouter from './routes/libraries.js';
 import musicbrainzRouter from './routes/musicbrainz.js';
+import subsonicRouter from './subsonic/index.js';
 
 const app = express();
 
@@ -47,6 +48,9 @@ app.use('/api/albums', albumsRouter);
 app.use('/api/artists', artistsRouter);
 app.use('/api/libraries', librariesRouter);
 app.use('/api/musicbrainz', musicbrainzRouter);
+
+// Subsonic API (compatible with Subsonic/Airsonic clients)
+app.use('/rest', subsonicRouter);
 
 // Error handling
 app.use(errorHandler);
