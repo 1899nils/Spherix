@@ -98,7 +98,7 @@ export function RecentlyAdded() {
                   <tr 
                     key={track.id} 
                     className="hover:bg-white/10 group transition-colors cursor-pointer border-b border-white/5 last:border-0"
-                    onClick={() => playTrack(track)}
+                    onClick={() => playTrack(track as TrackWithRelations)}
                   >
                     <td className="px-6 py-3">
                       <div className="flex items-center gap-3">
