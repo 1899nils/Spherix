@@ -2,15 +2,16 @@ name: Build & Push Docker Image
 
 on:
   push:
-    branches: [main, claude/music-server-monorepo-yDJCR]
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ghcr.io/1899nils/musicserver
+  IMAGE_NAME: ghcr.io/1899nils/spherix
 
 jobs:
+
   build:
     name: Build & Push
     runs-on: ubuntu-latest
