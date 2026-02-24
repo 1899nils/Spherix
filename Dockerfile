@@ -1,9 +1,8 @@
 # =============================================================================
 # Spherix – All-in-one Image (Server + Web + PostgreSQL + Redis)
-# Multi-stage build to ensure reliability across all environments.
 # =============================================================================
 
-# --- Stage 1: Build Frontend & Backend ---
+# --- Stage 1: Build ---
 FROM node:20-alpine AS builder
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
@@ -28,20 +27,26 @@ RUN pnpm --filter @musicserver/server build
 COPY apps/web ./apps/web
 RUN pnpm --filter @musicserver/web build
 
-# --- Stage 2: Production Image ---
+# --- Stage 2: Production ---
 FROM node:20-alpine AS production
 
-# tini handles PID 1 responsibilities
-# openssl is required for Prisma
-RUN apk add --no-cache nginx supervisor postgresql16 postgresql16-client redis tini openssl
+# Install system dependencies
+RUN apk add --no-cache \
+    nginx \
+    supervisor \
+    postgresql16 \
+    postgresql16-client \
+    redis \
+    tini \
+    openssl
 
 WORKDIR /app
 
-# Copy dependencies
+# Copy all required node_modules to preserve symlinks
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/server/node_modules ./apps/server/node_modules
 
-# Copy built assets
+# Copy built app files
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=builder /app/apps/server/dist ./apps/server/dist
@@ -49,35 +54,41 @@ COPY --from=builder /app/apps/server/prisma ./apps/server/prisma
 COPY --from=builder /app/apps/server/package.json ./apps/server/package.json
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
 
-# Entrypoint script
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
-
-# Nginx config: proxy /api to localhost:3000
+# Setup Nginx
 RUN cat > /etc/nginx/http.d/default.conf <<'NGINX'
 server {
-    listen 80;
+    listen 80 default_server;
     server_name _;
     
     root /usr/share/nginx/html;
     index index.html;
 
+    # Backend API proxy
     location /api {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_cache_bypass $http_upgrade;
     }
 
+    # SPA support: Route everything else to index.html
     location / {
         try_files $uri $uri/ /index.html;
+    }
+
+    # Static assets caching
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
     }
 }
 NGINX
 
-# Supervisor config
+# Setup Supervisor
 RUN cat > /etc/supervisord.conf <<'EOF'
 [supervisord]
 nodaemon=true
@@ -85,7 +96,6 @@ logfile=/dev/stdout
 logfile_maxbytes=0
 loglevel=info
 pidfile=/tmp/supervisord.pid
-childlogdir=/tmp
 
 [program:postgres]
 command=postgres -D /data/postgres
@@ -94,8 +104,6 @@ priority=10
 autostart=true
 autorestart=true
 startsecs=5
-stopasgroup=true
-killasgroup=true
 stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
@@ -107,8 +115,6 @@ priority=10
 autostart=true
 autorestart=true
 startsecs=5
-stopasgroup=true
-killasgroup=true
 stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
@@ -132,8 +138,6 @@ autostart=true
 autorestart=true
 startretries=10
 startsecs=10
-stopasgroup=true
-killasgroup=true
 stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
@@ -141,10 +145,16 @@ stderr_logfile_maxbytes=0
 environment=NODE_ENV="production",DATABASE_URL="postgresql://musicserver:musicserver@localhost:5432/musicserver",REDIS_URL="redis://localhost:6379"
 EOF
 
+# Startup script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# Environment & Volumes
 ENV NODE_ENV=production
 ENV DATABASE_URL=postgresql://musicserver:musicserver@localhost:5432/musicserver
 ENV REDIS_URL=redis://localhost:6379
 
 VOLUME ["/music", "/data"]
-EXPOSE 80
+EXPOSE 80 3000
+
 ENTRYPOINT ["/sbin/tini", "--", "/docker-entrypoint.sh"]
