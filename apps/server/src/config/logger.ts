@@ -33,6 +33,18 @@ if (env.nodeEnv !== 'production') {
   );
 }
 
+// Add file logging in Docker environment
+if (env.nodeEnv === 'production') {
+  transports.push(
+    new winston.transports.File({
+      filename: '/data/logs/server.log',
+      format: logFormat,
+      maxsize: 10 * 1024 * 1024,
+      maxFiles: 5,
+    }),
+  );
+}
+
 export const logger = winston.createLogger({
   level: env.nodeEnv === 'production' ? 'info' : 'debug',
   format: combine(

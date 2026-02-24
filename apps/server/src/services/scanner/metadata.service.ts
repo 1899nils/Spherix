@@ -80,9 +80,35 @@ export interface ExtractedMetadata {
 export async function extractMetadata(
   filePath: string,
 ): Promise<ExtractedMetadata> {
-  const parseFile = await getParseFile();
-  const metadata = await parseFile(filePath);
   const stat = await fs.stat(filePath);
+  let metadata: IAudioMetadata | null = null;
+  
+  try {
+    const parseFile = await getParseFile();
+    metadata = await parseFile(filePath);
+  } catch (error) {
+    logger.warn(`Failed to parse metadata for ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    // Fallback to basic info from filename/stats
+    return {
+      title: path.basename(filePath, path.extname(filePath)),
+      artistName: 'Unknown Artist',
+      albumTitle: null,
+      trackNumber: 1,
+      discNumber: 1,
+      year: null,
+      genre: null,
+      duration: 0,
+      bitrate: null,
+      sampleRate: null,
+      channels: null,
+      format: path.extname(filePath).slice(1).toLowerCase() || 'unknown',
+      fileSize: BigInt(stat.size),
+      coverUrl: null,
+      musicbrainzTrackId: null,
+      musicbrainzAlbumId: null,
+      musicbrainzArtistId: null,
+    };
+  }
 
   const { common, format } = metadata;
 
