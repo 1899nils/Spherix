@@ -9,6 +9,9 @@ export {
 
 export { matchAlbum } from './match.service.js';
 
+export { autoMatchAlbum } from './auto-match.service.js';
+export type { AutoMatchResult } from './auto-match.service.js';
+
 export type {
   MBRelease,
   MBReleaseSearchResponse,

@@ -4,6 +4,7 @@ import { prisma } from '../../config/database.js';
 import { logger } from '../../config/logger.js';
 import { extractMetadata } from './metadata.service.js';
 import { scannerEvents, type ScanProgress } from './scanner.events.js';
+import { autoMatchAlbum } from '../musicbrainz/auto-match.service.js';
 
 const AUDIO_EXTENSIONS = new Set([
   '.mp3', '.flac', '.ogg', '.opus', '.m4a', '.aac', '.wav', '.aiff',
@@ -299,6 +300,39 @@ export async function scanLibrary(libraryId: string): Promise<ScanProgress> {
     logger.info(`Marked ${missingIds.length} tracks as missing`);
   }
 
+  // Phase 4: Auto-match albums to MusicBrainz (≥98% confidence)
+  progress.phase = 'matching';
+  scannerEvents.emitProgress(progress);
+
+  const albumsToMatch = await prisma.album.findMany({
+    where: {
+      musicbrainzId: null,
+      tracks: { some: { filePath: { startsWith: library.path }, missing: false } },
+    },
+    select: { id: true, title: true },
+  });
+
+  progress.totalAlbums = albumsToMatch.length;
+  progress.matchedAlbums = 0;
+  progress.autoLinkedAlbums = 0;
+  scannerEvents.emitProgress(progress);
+  logger.info(`Auto-matching ${albumsToMatch.length} albums against MusicBrainz (threshold: 98%)`);
+
+  for (const album of albumsToMatch) {
+    try {
+      const result = await autoMatchAlbum(album.id);
+      if (result.matched) {
+        progress.autoLinkedAlbums!++;
+      }
+    } catch (err) {
+      logger.warn(`Auto-match failed for album "${album.title}"`, { error: String(err) });
+    }
+    progress.matchedAlbums!++;
+    scannerEvents.emitProgress(progress);
+  }
+
+  logger.info(`Auto-matching complete: ${progress.autoLinkedAlbums} of ${albumsToMatch.length} albums linked`);
+
   // Update library lastScannedAt
   await prisma.library.update({
     where: { id: libraryId },
@@ -306,7 +340,7 @@ export async function scanLibrary(libraryId: string): Promise<ScanProgress> {
   });
 
   progress.phase = 'done';
-  progress.message = `Scan complete: ${progress.newTracks} new, ${progress.updatedTracks} updated, ${progress.removedTracks} missing, ${progress.errors} errors`;
+  progress.message = `Scan complete: ${progress.newTracks} new, ${progress.updatedTracks} updated, ${progress.removedTracks} missing, ${progress.errors} errors, ${progress.autoLinkedAlbums ?? 0} auto-linked to MusicBrainz`;
   scannerEvents.emitProgress(progress);
   logger.info(progress.message);
 
