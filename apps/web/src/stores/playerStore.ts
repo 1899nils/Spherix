@@ -75,6 +75,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   playTrack: (track, queue) => {
     const state = get();
 
+    // Stop radio metadata poller if switching away from radio
+    fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
+
     // Clean up previous howl
     if (state._howl) {
       state._howl.unload();
@@ -163,6 +166,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   playStream: (station) => {
     const state = get();
 
+    // Stop any running radio metadata poller before switching
+    fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
+
     if (state._howl) {
       state._howl.unload();
     }
@@ -173,10 +179,28 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       html5: true,
       format: ['mp3', 'aac', 'ogg'],
       volume: state.isMuted ? 0 : state.volume,
-      onplay: () => set({ isPlaying: true, duration: 0, seek: 0 }),
-      onpause: () => set({ isPlaying: false }),
-      onstop: () => set({ isPlaying: false }),
-      onend: () => set({ isPlaying: false }),
+      onplay: () => {
+        set({ isPlaying: true, duration: 0, seek: 0 });
+        // Start server-side ICY metadata polling for Last.fm scrobbling
+        fetch('/api/radio/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stationUrl: station.url, stationName: station.name }),
+          credentials: 'include',
+        }).catch(() => {});
+      },
+      onpause: () => {
+        set({ isPlaying: false });
+        fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
+      },
+      onstop: () => {
+        set({ isPlaying: false });
+        fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
+      },
+      onend: () => {
+        set({ isPlaying: false });
+        fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
+      },
     });
 
     set({
