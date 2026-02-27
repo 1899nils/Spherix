@@ -10,6 +10,12 @@ chown -R postgres:postgres /data/postgres /data/logs
 mkdir -p /run/postgresql
 chown postgres:postgres /run/postgresql
 
+# --- Clean up stale PostgreSQL PID file (left by unclean shutdown) ---
+if [ -f "/data/postgres/postmaster.pid" ]; then
+  echo "Removing stale postmaster.pid..."
+  rm -f /data/postgres/postmaster.pid
+fi
+
 # --- Initialize Database ---
 if [ ! -f "/data/postgres/PG_VERSION" ]; then
   echo "Initializing PostgreSQL..."
