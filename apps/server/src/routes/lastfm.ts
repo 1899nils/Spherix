@@ -3,6 +3,7 @@ import { lastfmService } from '../services/lastfm/lastfm.service.js';
 import { scrobbleQueue } from '../services/lastfm/scrobble.queue.js';
 import { prisma } from '../config/database.js';
 import { logger } from '../config/logger.js';
+import { env } from '../config/env.js';
 
 const router: Router = Router();
 
@@ -86,7 +87,8 @@ router.get('/auth-url', async (req, res) => {
       return;
     }
 
-    const callbackUrl = `${req.protocol}://${req.get('host')}/api/lastfm/callback?userId=${userId}`;
+    const baseUrl = env.publicUrl || `${req.protocol}://${req.get('host')}`;
+    const callbackUrl = `${baseUrl}/api/lastfm/callback?userId=${userId}`;
     const url = lastfmService.getAuthUrl(settings.lastfmApiKey, callbackUrl);
     res.json({ data: { url } });
   } catch (error) {
