@@ -14,4 +14,5 @@ export const env = {
   sessionSecret: process.env.SESSION_SECRET || 'change-me',
   lastfmApiKey: process.env.LASTFM_API_KEY || '',
   lastfmApiSecret: process.env.LASTFM_API_SECRET || '',
+  publicUrl: process.env.PUBLIC_URL || '',
 } as const;

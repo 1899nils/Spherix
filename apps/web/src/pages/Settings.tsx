@@ -50,6 +50,21 @@ export function Settings() {
   const [localApiSecret, setLocalApiSecret] = useState('');
   const [lastfmFeedback, setLastfmFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
+  // Handle OAuth callback redirect (?lastfm=connected or ?lastfm=error)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const lastfmParam = params.get('lastfm');
+    if (lastfmParam === 'connected') {
+      setLastfmFeedback({ type: 'success', message: 'Last.fm erfolgreich verbunden!' });
+      refetchLastfm();
+      setTimeout(() => setLastfmFeedback(null), 5000);
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (lastfmParam === 'error') {
+      setLastfmFeedback({ type: 'error', message: 'Last.fm Verbindung fehlgeschlagen. Bitte versuche es erneut.' });
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   useEffect(() => {
     if (lastfmData?.data) {
       setLocalApiKey(lastfmData.data.apiKey || '');
