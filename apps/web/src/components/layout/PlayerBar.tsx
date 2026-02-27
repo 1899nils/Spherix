@@ -121,7 +121,7 @@ export function PlayerBar() {
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold truncate text-white">
                     {isRadio
-                      ? (currentRadioTrack?.title ?? ('name' in currentTrack ? currentTrack.name : currentTrack.title))
+                      ? (currentRadioTrack?.title ?? ('isRadio' in currentTrack ? currentTrack.name : currentTrack.title))
                       : currentTrack.title}
                   </p>
                   {getQualityLabel()}
