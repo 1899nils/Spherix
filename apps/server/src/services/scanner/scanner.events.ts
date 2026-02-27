@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 
 export interface ScanProgress {
   libraryId: string;
-  phase: 'discovering' | 'scanning' | 'cleanup' | 'done' | 'error';
+  phase: 'discovering' | 'scanning' | 'matching' | 'cleanup' | 'done' | 'error';
   totalFiles: number;
   processedFiles: number;
   currentFile?: string;
@@ -11,6 +11,9 @@ export interface ScanProgress {
   removedTracks: number;
   errors: number;
   message?: string;
+  totalAlbums?: number;
+  matchedAlbums?: number;
+  autoLinkedAlbums?: number;
 }
 
 export interface ScannerEvents {
