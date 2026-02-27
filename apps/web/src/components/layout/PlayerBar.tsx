@@ -1,4 +1,4 @@
-import { usePlayerStore } from '@/stores/playerStore';
+import { usePlayerStore, type RadioStation } from '@/stores/playerStore';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -121,7 +121,7 @@ export function PlayerBar() {
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold truncate text-white">
                     {isRadio
-                      ? (currentRadioTrack?.title ?? ('isRadio' in currentTrack ? currentTrack.name : currentTrack.title))
+                      ? (currentRadioTrack?.title ?? (currentTrack as RadioStation).name)
                       : currentTrack.title}
                   </p>
                   {getQualityLabel()}
