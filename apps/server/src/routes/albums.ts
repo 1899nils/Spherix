@@ -399,6 +399,18 @@ router.post('/:id/match-musicbrainz', async (req, res, next) => {
       }
     }
 
+    // Check if the MusicBrainz release ID is already linked to a different album
+    const mbAlbumAlreadyClaimed = await prisma.album.findUnique({
+      where: { musicbrainzId: musicbrainzReleaseId },
+      select: { id: true, title: true },
+    });
+    if (mbAlbumAlreadyClaimed && mbAlbumAlreadyClaimed.id !== album.id) {
+      res.status(409).json({
+        error: `This MusicBrainz release is already linked to another album: "${mbAlbumAlreadyClaimed.title}"`,
+      });
+      return;
+    }
+
     // Update album
     await prisma.album.update({
       where: { id: album.id },
@@ -432,12 +444,20 @@ router.post('/:id/match-musicbrainz', async (req, res, next) => {
         continue;
       }
 
+      // Only set musicbrainzId if it is not already claimed by another track
+      const mbTrackAlreadyClaimed = mbTrack.musicbrainzId
+        ? await prisma.track.findUnique({
+            where: { musicbrainzId: mbTrack.musicbrainzId },
+            select: { id: true },
+          })
+        : null;
+
       await prisma.track.update({
         where: { id: localTrack.id },
         data: {
           title: mbTrack.title,
           artistId,
-          musicbrainzId: mbTrack.musicbrainzId,
+          ...(!mbTrackAlreadyClaimed ? { musicbrainzId: mbTrack.musicbrainzId } : {}),
         },
       });
 
