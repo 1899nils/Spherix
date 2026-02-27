@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip } from '@/components/ui/tooltip';
 import { formatDuration } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import {
   Play,
   Pause,
@@ -14,9 +16,9 @@ import {
   Shuffle,
   Repeat,
   Repeat1,
+  Music2,
+  Info,
 } from 'lucide-react';
-
-import { Info } from 'lucide-react';
 
 export function PlayerBar() {
   const {
@@ -28,6 +30,7 @@ export function PlayerBar() {
     isMuted,
     isShuffled,
     repeatMode,
+    scrobbleActivity,
     togglePlay,
     next,
     prev,
@@ -37,6 +40,16 @@ export function PlayerBar() {
     toggleShuffle,
     cycleRepeat,
   } = usePlayerStore();
+
+  const { data: lastfmData } = useQuery({
+    queryKey: ['lastfm-status'],
+    queryFn: () => api.get<{ data: { connected: boolean; username: string | null } }>('/lastfm/status'),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
+  const lastfmConnected = !!lastfmData?.data?.connected;
+  const lastfmUsername = lastfmData?.data?.username;
 
   const isRadio = !!(currentTrack && 'isRadio' in currentTrack);
 
@@ -217,8 +230,34 @@ export function PlayerBar() {
           </div>
         </div>
 
-        {/* Right: Volume */}
+        {/* Right: Last.fm + Volume */}
         <div className="flex items-center justify-end gap-3 w-[30%]">
+          {/* Last.fm status indicator */}
+          <Tooltip content={
+            scrobbleActivity === 'scrobbled'
+              ? `✓ Scrobbled zu Last.fm`
+              : scrobbleActivity === 'error'
+                ? 'Scrobble fehlgeschlagen'
+                : lastfmConnected
+                  ? `Last.fm verbunden · ${lastfmUsername}`
+                  : 'Last.fm nicht verbunden · Einstellungen öffnen'
+          }>
+            <div className="relative cursor-default shrink-0">
+              <Music2 className={`h-4 w-4 transition-all duration-300 ${
+                scrobbleActivity === 'scrobbled'
+                  ? 'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.9)]'
+                  : scrobbleActivity === 'error'
+                    ? 'text-yellow-400/70'
+                    : lastfmConnected
+                      ? 'text-red-500/60'
+                      : 'text-muted-foreground/25'
+              }`} />
+              {scrobbleActivity === 'scrobbled' && (
+                <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 bg-green-400 rounded-full" />
+              )}
+            </div>
+          </Tooltip>
+
           <Tooltip content={isMuted ? 'Ton an' : 'Stumm'}>
             <Button
               variant="ghost"

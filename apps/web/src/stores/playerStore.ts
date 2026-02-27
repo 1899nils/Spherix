@@ -26,6 +26,7 @@ interface PlayerState {
   isMuted: boolean;
   isShuffled: boolean;
   hasScrobbled: boolean;
+  scrobbleActivity: 'idle' | 'scrobbled' | 'error';
   repeatMode: RepeatMode;
 
   // Internal
@@ -67,6 +68,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isMuted: false,
   isShuffled: false,
   hasScrobbled: false,
+  scrobbleActivity: 'idle',
   repeatMode: 'off',
 
   _howl: null,
@@ -128,7 +130,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
                     album: track.album?.title,
                     trackId: track.id,
                   }),
-                }).catch(() => {}); // Ignore errors
+                }).then(() => {
+                  set({ scrobbleActivity: 'scrobbled' });
+                  setTimeout(() => set({ scrobbleActivity: 'idle' }), 4000);
+                }).catch(() => {
+                  set({ scrobbleActivity: 'error' });
+                  setTimeout(() => set({ scrobbleActivity: 'idle' }), 4000);
+                });
               }
             }
           }
