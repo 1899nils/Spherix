@@ -109,13 +109,19 @@ export async function autoMatchAlbum(albumId: string): Promise<AutoMatchResult> 
         ).id;
   }
 
-  // Set artist's MusicBrainz ID if not already set
+  // Set artist's MusicBrainz ID if not already claimed by another artist
   const mbArtistId = release['artist-credit']?.[0]?.artist?.id;
   if (mbArtistId) {
-    await prisma.artist.update({
-      where: { id: artistId },
-      data: { musicbrainzId: mbArtistId },
+    const alreadyClaimed = await prisma.artist.findUnique({
+      where: { musicbrainzId: mbArtistId },
+      select: { id: true },
     });
+    if (!alreadyClaimed) {
+      await prisma.artist.update({
+        where: { id: artistId },
+        data: { musicbrainzId: mbArtistId },
+      });
+    }
   }
 
   // Download cover art locally
@@ -159,12 +165,20 @@ export async function autoMatchAlbum(albumId: string): Promise<AutoMatchResult> 
 
     if (!localTrack) continue;
 
+    // Check if the MusicBrainz recording ID is already used by another track
+    const mbTrackAlreadyClaimed = mbTrack.musicbrainzId
+      ? await prisma.track.findUnique({
+          where: { musicbrainzId: mbTrack.musicbrainzId },
+          select: { id: true },
+        })
+      : null;
+
     await prisma.track.update({
       where: { id: localTrack.id },
       data: {
         title: mbTrack.title,
         artistId,
-        musicbrainzId: mbTrack.musicbrainzId,
+        ...(!mbTrackAlreadyClaimed ? { musicbrainzId: mbTrack.musicbrainzId } : {}),
       },
     });
 
