@@ -16,6 +16,20 @@ const MIME_TO_EXT: Record<string, string> = {
   'image/gif': '.gif',
 };
 
+const EXT_TO_MIME: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+};
+
+/** Candidate filenames to look for when there is no embedded cover art */
+const FOLDER_COVER_NAMES = [
+  'cover', 'folder', 'Folder', 'Cover', 'front', 'Front', 'album', 'Album',
+];
+const FOLDER_COVER_EXTS = ['.jpg', '.jpeg', '.png', '.webp'];
+
 async function ensureCoversDir(): Promise<void> {
   await fs.mkdir(COVERS_DIR, { recursive: true });
 }
@@ -56,4 +70,27 @@ export async function saveCoverArt(
     logger.warn('Failed to save cover art', { error });
     return null;
   }
+}
+
+/**
+ * Looks for a cover image file (cover.jpg, folder.jpg, etc.) in the same directory
+ * as the given audio file. Returns the URL path if found, null otherwise.
+ */
+export async function saveFolderCover(audioFilePath: string): Promise<string | null> {
+  const dir = path.dirname(audioFilePath);
+
+  for (const name of FOLDER_COVER_NAMES) {
+    for (const ext of FOLDER_COVER_EXTS) {
+      const candidate = path.join(dir, `${name}${ext}`);
+      try {
+        const data = await fs.readFile(candidate);
+        const mime = EXT_TO_MIME[ext] ?? 'image/jpeg';
+        return await saveCoverArt([{ data: new Uint8Array(data), format: mime }]);
+      } catch {
+        // File doesn't exist, try next candidate
+      }
+    }
+  }
+
+  return null;
 }

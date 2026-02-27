@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { logger } from '../../config/logger.js';
-import { saveCoverArt } from './cover.service.js';
+import { saveCoverArt, saveFolderCover } from './cover.service.js';
 
 // music-metadata types for the fields we use
 interface IPicture {
@@ -135,7 +135,11 @@ export async function extractMetadata(
     }
   }
 
-  const coverUrl = await saveCoverArt(common.picture);
+  // Try embedded cover first, then fall back to cover image file in the same folder
+let coverUrl = await saveCoverArt(common.picture);
+if (!coverUrl) {
+  coverUrl = await saveFolderCover(filePath);
+}
 
   const ext = path.extname(filePath).slice(1).toLowerCase();
   const audioFormat = format.container || ext || 'unknown';

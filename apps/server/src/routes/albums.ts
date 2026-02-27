@@ -491,6 +491,77 @@ router.post('/:id/match-musicbrainz', async (req, res, next) => {
   }
 });
 
+// ─── POST /api/albums/merge ─────────────────────────────────────────────────
+
+router.post('/merge', async (req, res, next) => {
+  try {
+    const { targetId, sourceIds } = req.body as {
+      targetId?: string;
+      sourceIds?: string[];
+    };
+
+    if (!targetId || !Array.isArray(sourceIds) || sourceIds.length === 0) {
+      res.status(400).json({ error: 'targetId and sourceIds[] are required' });
+      return;
+    }
+
+    // Verify target album exists
+    const target = await prisma.album.findUnique({
+      where: { id: targetId },
+      select: { id: true, title: true, coverUrl: true },
+    });
+    if (!target) {
+      res.status(404).json({ error: 'Target album not found' });
+      return;
+    }
+
+    // Verify source albums exist and are distinct from target
+    const sources = await prisma.album.findMany({
+      where: { id: { in: sourceIds.filter((id) => id !== targetId) } },
+      select: { id: true, title: true, coverUrl: true },
+    });
+    if (sources.length === 0) {
+      res.status(400).json({ error: 'No valid source albums found' });
+      return;
+    }
+
+    // Reassign all tracks from source albums to target album
+    const sourceAlbumIds = sources.map((s) => s.id);
+    await prisma.track.updateMany({
+      where: { albumId: { in: sourceAlbumIds } },
+      data: { albumId: targetId },
+    });
+
+    // If target has no cover, use the first source cover available
+    if (!target.coverUrl) {
+      const fallbackCover = sources.find((s) => s.coverUrl)?.coverUrl;
+      if (fallbackCover) {
+        await prisma.album.update({
+          where: { id: targetId },
+          data: { coverUrl: fallbackCover },
+        });
+      }
+    }
+
+    // Delete the now-empty source albums
+    await prisma.album.deleteMany({ where: { id: { in: sourceAlbumIds } } });
+
+    logger.info(
+      `Albums merged: [${sources.map((s) => `"${s.title}"`).join(', ')}] → "${target.title}"`,
+    );
+
+    res.json({
+      data: {
+        targetId,
+        mergedCount: sources.length,
+        tracksReassigned: true,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ─── GET /api/albums/:id/musicbrainz-candidates ────────────────────────────
 
 router.get('/:id/musicbrainz-candidates', async (req, res, next) => {
