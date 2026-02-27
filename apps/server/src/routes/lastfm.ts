@@ -165,7 +165,17 @@ router.post('/scrobble', async (req, res) => {
     const userId = await getUserId(req);
     if (!userId) return res.status(401).end();
 
-    const { artist, track, album } = req.body;
+    const { artist, track, album, trackId } = req.body;
+
+    // Record play history in DB when trackId is provided
+    if (trackId) {
+      await prisma.playHistory.create({
+        data: { userId, trackId, completed: true },
+      }).catch((err) => {
+        logger.warn('Failed to save play history', { trackId, userId, error: String(err) });
+      });
+    }
+
     await scrobbleQueue.add('scrobble', {
       userId,
       track: { artist, track, album },

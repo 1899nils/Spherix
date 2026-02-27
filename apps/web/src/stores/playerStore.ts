@@ -126,6 +126,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
                     artist: track.artist.name,
                     track: track.title,
                     album: track.album?.title,
+                    trackId: track.id,
                   }),
                 }).catch(() => {}); // Ignore errors
               }

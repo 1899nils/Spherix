@@ -27,6 +27,7 @@ export const scrobbleWorker = new Worker(
     });
 
     if (!userSettings?.lastfmSessionKey) {
+      logger.debug('Skipping Last.fm scrobble — no session key configured for user', { userId });
       return; // No Last.fm account connected
     }
 

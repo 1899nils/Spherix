@@ -232,7 +232,8 @@ export async function scanLibrary(libraryId: string): Promise<ScanProgress> {
             bitrate: meta.bitrate,
             sampleRate: meta.sampleRate,
             channels: meta.channels,
-            musicbrainzId: meta.musicbrainzTrackId,
+            // Only overwrite musicbrainzId if the file has one — never reset an auto-matched ID to null
+            ...(meta.musicbrainzTrackId ? { musicbrainzId: meta.musicbrainzTrackId } : {}),
             missing: false,
           },
         });
