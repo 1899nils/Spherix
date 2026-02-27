@@ -1,4 +1,4 @@
-import { mbFetch, caaFetch } from './client.js';
+import { mbFetch, caaFetch, ensureHttps } from './client.js';
 import type {
   MBRelease,
   MBReleaseSearchResponse,
@@ -83,6 +83,15 @@ export async function searchRecording(
 // ─── Cover Art ──────────────────────────────────────────────────────────────
 
 /**
+ * Pick the best thumbnail URL from a CAA image entry.
+ * Prefers 500px, then large, then the full image. Ensures HTTPS.
+ */
+function pickThumbnailUrl(img: CAAResponse['images'][number]): string {
+  const raw = img.thumbnails['500'] ?? img.thumbnails.large ?? img.image;
+  return ensureHttps(raw);
+}
+
+/**
  * Get the front cover art URL for a release from the Cover Art Archive.
  * Returns the URL string or null if no cover art exists.
  */
@@ -93,12 +102,11 @@ export async function getCoverArtUrl(
     const data = await caaFetch<CAAResponse>(`release/${releaseMbid}`);
     const front = data.images.find((img) => img.front);
     if (front) {
-      return front.thumbnails['500'] ?? front.thumbnails.large ?? front.image;
+      return pickThumbnailUrl(front);
     }
     // Fall back to first image
     if (data.images.length > 0) {
-      const first = data.images[0];
-      return first.thumbnails['500'] ?? first.thumbnails.large ?? first.image;
+      return pickThumbnailUrl(data.images[0]);
     }
     return null;
   } catch {
