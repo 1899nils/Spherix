@@ -36,6 +36,22 @@ router.post('/start', async (req, res) => {
   }
 });
 
+/** Get the currently playing radio track metadata for the current user */
+router.get('/current-track', async (req, res) => {
+  try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const track = radioPoller.getCurrentTrack(userId);
+    res.json({ track }); // { track: { artist, title } | null }
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
 /** Stop ICY metadata polling for the current user */
 router.post('/stop', async (req, res) => {
   try {

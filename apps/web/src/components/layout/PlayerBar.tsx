@@ -31,6 +31,7 @@ export function PlayerBar() {
     isShuffled,
     repeatMode,
     scrobbleActivity,
+    currentRadioTrack,
     togglePlay,
     next,
     prev,
@@ -119,20 +120,31 @@ export function PlayerBar() {
               <div className="min-w-0 flex flex-col gap-0.5">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold truncate text-white">
-                    {'name' in currentTrack ? currentTrack.name : currentTrack.title}
+                    {isRadio
+                      ? (currentRadioTrack?.title ?? ('name' in currentTrack ? currentTrack.name : currentTrack.title))
+                      : currentTrack.title}
                   </p>
                   {getQualityLabel()}
                 </div>
                 <div className="flex flex-col">
                   {isRadio ? (
-                    <p className="text-xs text-pink-400 font-medium animate-pulse">Live Stream</p>
+                    <>
+                      {currentRadioTrack ? (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {currentRadioTrack.artist}
+                        </p>
+                      ) : null}
+                      <p className="text-xs text-pink-400 font-medium animate-pulse">
+                        {'name' in currentTrack ? currentTrack.name : ''} · Live
+                      </p>
+                    </>
                   ) : (
                     <>
                       <p className="text-xs text-muted-foreground truncate hover:text-white transition-colors cursor-pointer">
                         {currentTrack.artist.name}
                       </p>
                       <p className="text-[10px] text-muted-foreground/60 truncate">
-                        {currentTrack.album?.title} 
+                        {currentTrack.album?.title}
                         {currentTrack.album?.year ? ` • ${currentTrack.album.year}` : ''}
                         {currentTrack.album?.label ? ` • ${currentTrack.album.label}` : ''}
                       </p>

@@ -12,6 +12,11 @@ export interface RadioStation {
   isRadio: true;
 }
 
+export interface RadioTrackInfo {
+  artist: string;
+  title: string;
+}
+
 interface PlayerState {
   // Current track or radio
   currentTrack: TrackWithRelations | RadioStation | null;
@@ -29,9 +34,13 @@ interface PlayerState {
   scrobbleActivity: 'idle' | 'scrobbled' | 'error';
   repeatMode: RepeatMode;
 
+  // Live radio metadata (artist/title from ICY polling)
+  currentRadioTrack: RadioTrackInfo | null;
+
   // Internal
   _howl: Howl | null;
   _seekInterval: ReturnType<typeof setInterval> | null;
+  _radioTrackInterval: ReturnType<typeof setInterval> | null;
 
   // Actions
   playTrack: (track: TrackWithRelations, queue?: TrackWithRelations[]) => void;
@@ -56,6 +65,12 @@ function stopSeekUpdates(state: PlayerState) {
   }
 }
 
+function stopRadioTrackPolling(state: PlayerState) {
+  if (state._radioTrackInterval) {
+    clearInterval(state._radioTrackInterval);
+  }
+}
+
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   currentTrack: null,
   queue: [],
@@ -71,8 +86,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   scrobbleActivity: 'idle',
   repeatMode: 'off',
 
+  currentRadioTrack: null,
+
   _howl: null,
   _seekInterval: null,
+  _radioTrackInterval: null,
 
   playTrack: (track, queue) => {
     const state = get();
@@ -80,11 +98,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // Stop radio metadata poller if switching away from radio
     fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
 
-    // Clean up previous howl
+    // Clean up previous howl and radio track polling
     if (state._howl) {
       state._howl.unload();
     }
     stopSeekUpdates(state);
+    stopRadioTrackPolling(state);
+    set({ currentRadioTrack: null, _radioTrackInterval: null });
 
     const newQueue = queue || state.queue;
     const newIndex = newQueue.findIndex((t) => 'id' in t && t.id === track.id);
@@ -182,6 +202,28 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       state._howl.unload();
     }
     stopSeekUpdates(state);
+    stopRadioTrackPolling(state);
+
+    const startRadioTrackPolling = () => {
+      // Poll every 10s to get the currently playing radio track metadata
+      const pollCurrentTrack = () => {
+        fetch('/api/radio/current-track', { credentials: 'include' })
+          .then((r) => r.json())
+          .then((data: { track: { artist: string; title: string } | null }) => {
+            set({ currentRadioTrack: data.track ?? null });
+          })
+          .catch(() => {});
+      };
+      pollCurrentTrack(); // immediate
+      const interval = setInterval(pollCurrentTrack, 10_000);
+      set({ _radioTrackInterval: interval });
+    };
+
+    const stopRadioPolling = () => {
+      stopRadioTrackPolling(get());
+      set({ isPlaying: false, currentRadioTrack: null, _radioTrackInterval: null });
+      fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
+    };
 
     const howl = new Howl({
       src: [station.url],
@@ -197,19 +239,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           body: JSON.stringify({ stationUrl: station.url, stationName: station.name }),
           credentials: 'include',
         }).catch(() => {});
+        startRadioTrackPolling();
       },
-      onpause: () => {
-        set({ isPlaying: false });
-        fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
-      },
-      onstop: () => {
-        set({ isPlaying: false });
-        fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
-      },
-      onend: () => {
-        set({ isPlaying: false });
-        fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
-      },
+      onpause: () => stopRadioPolling(),
+      onstop: () => stopRadioPolling(),
+      onend: () => stopRadioPolling(),
     });
 
     set({
@@ -219,6 +253,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       _howl: howl,
       seek: 0,
       duration: 0,
+      currentRadioTrack: null,
+      _radioTrackInterval: null,
     });
 
     howl.play();
