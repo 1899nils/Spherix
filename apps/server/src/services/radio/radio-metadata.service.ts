@@ -124,15 +124,15 @@ class RadioPollerManager {
   }
 
   /**
-   * Stop polling for a user. Scrobbles the current track if it was
-   * played long enough to qualify.
+   * Stop polling for a user.
+   * Does NOT scrobble — the song was interrupted by the user, not finished.
+   * Scrobbling only happens when a new song is detected in poll().
    */
   stop(userId: string): void {
     const state = this.pollers.get(userId);
     if (!state) return;
 
     if (state.timer) clearInterval(state.timer);
-    this.scrobbleCurrent(state);
     this.pollers.delete(userId);
     logger.info(`Radio metadata polling stopped`, { userId });
   }
