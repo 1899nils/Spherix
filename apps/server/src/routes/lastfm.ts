@@ -116,10 +116,12 @@ router.get('/callback', async (req, res) => {
     });
 
     // Redirect back to settings page in frontend
-    res.redirect('/settings?lastfm=connected');
+    const baseUrl = env.publicUrl || `${req.protocol}://${req.get('host')}`;
+    res.redirect(`${baseUrl}/settings?lastfm=connected`);
   } catch (error) {
     logger.error('Last.fm callback failed', { error: String(error) });
-    res.redirect('/settings?lastfm=error');
+    const baseUrl = env.publicUrl || `${req.protocol}://${req.get('host')}`;
+    res.redirect(`${baseUrl}/settings?lastfm=error`);
   }
 });
 
