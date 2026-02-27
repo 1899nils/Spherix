@@ -74,16 +74,90 @@ async function fetchIcyTitle(streamUrl: string): Promise<string | null> {
 }
 
 /**
- * Parses a StreamTitle string into artist and title.
- * Most stations use "Artist - Title" format.
- * Returns only a title if no separator is found.
+ * Tries to extract artist/title from "Title von Artist" or "Title by Artist" patterns.
  */
-export function parseStreamTitle(raw: string): ParsedTrack {
-  const sep = raw.indexOf(' - ');
-  if (sep !== -1) {
-    return { artist: raw.slice(0, sep).trim(), title: raw.slice(sep + 3).trim() };
+function parseVonBy(text: string): ParsedTrack {
+  const vonIdx = text.indexOf(' von ');
+  if (vonIdx !== -1) {
+    return { artist: text.slice(vonIdx + 5).trim(), title: text.slice(0, vonIdx).trim() };
   }
-  return { artist: '', title: raw.trim() };
+  const byIdx = text.indexOf(' by ');
+  if (byIdx !== -1) {
+    return { artist: text.slice(byIdx + 4).trim(), title: text.slice(0, byIdx).trim() };
+  }
+  return { artist: '', title: text.trim() };
+}
+
+/**
+ * Parses a StreamTitle string into artist and title.
+ * Handles common radio formats:
+ *   "Artist - Title"
+ *   "StationName - Title von Artist"  (German stations prefix their name)
+ *   "Title von Artist" / "Title by Artist"
+ *
+ * @param raw        Raw ICY StreamTitle value
+ * @param stationName  Name of the station, used to strip a leading "StationName - " prefix
+ */
+export function parseStreamTitle(raw: string, stationName?: string): ParsedTrack {
+  let text = raw.trim();
+
+  // Strip a leading "StationName - " prefix (e.g. "HR3 - Sweet about me von Gabriella Cilmi")
+  if (stationName) {
+    const prefix = stationName.toLowerCase() + ' - ';
+    if (text.toLowerCase().startsWith(prefix)) {
+      text = text.slice(prefix.length).trim();
+    }
+  }
+
+  const dashIdx = text.indexOf(' - ');
+  if (dashIdx !== -1) {
+    const part1 = text.slice(0, dashIdx).trim();
+    const part2 = text.slice(dashIdx + 3).trim();
+
+    // If the part before " - " is the station name itself, fall through to von/by parsing
+    if (stationName && part1.toLowerCase() === stationName.toLowerCase()) {
+      return parseVonBy(part2);
+    }
+
+    // Standard "Artist - Title": but check if the title part also has "von/by" embedded
+    // (some stations: "Gabriella Cilmi - Sweet about me" — leave as-is)
+    return { artist: part1, title: part2 };
+  }
+
+  // No " - " separator — try German "Title von Artist" / "Title by Artist"
+  return parseVonBy(text);
+}
+
+/** Non-music keywords that indicate ads, news, jingles, etc. */
+const NON_MUSIC_PATTERNS = [
+  /nachrichten/i,
+  /\bnews\b/i,
+  /werbung/i,
+  /jingle/i,
+  /wetter/i,
+  /verkehr/i,
+  /sport(meldung|news)?/i,
+  /werbepause/i,
+];
+
+/**
+ * Returns true only if the parsed track looks like an actual music track.
+ * Filters out ads, news, station jingles, etc.
+ */
+export function isMusicTrack(track: ParsedTrack, stationName: string, rawTitle: string): boolean {
+  // Must have both artist and title populated
+  if (!track.artist || !track.title) return false;
+
+  // The "title" must not be just the station name
+  if (track.title.toLowerCase() === stationName.toLowerCase()) return false;
+  if (track.artist.toLowerCase() === stationName.toLowerCase()) return false;
+
+  // Reject known non-music patterns in the raw title
+  for (const pattern of NON_MUSIC_PATTERNS) {
+    if (pattern.test(rawTitle)) return false;
+  }
+
+  return true;
 }
 
 // ─── Poller ──────────────────────────────────────────────────────────────────
@@ -93,6 +167,7 @@ interface PollerState {
   stationUrl: string;
   stationName: string;
   currentTitle: string | null;
+  currentParsed: ParsedTrack | null;
   trackStartTime: number | null;
   timer: ReturnType<typeof setInterval> | null;
 }
@@ -112,6 +187,7 @@ class RadioPollerManager {
       stationUrl,
       stationName,
       currentTitle: null,
+      currentParsed: null,
       trackStartTime: null,
       timer: null,
     };
@@ -149,17 +225,26 @@ class RadioPollerManager {
       // Track changed — scrobble the previous one, start the new one
       this.scrobbleCurrent(state);
 
-      const { artist, title } = parseStreamTitle(rawTitle);
+      const parsed = parseStreamTitle(rawTitle, state.stationName);
       state.currentTitle = rawTitle;
       state.trackStartTime = Date.now();
-      logger.info(`Radio track detected: "${rawTitle}"`, { userId });
+
+      // Only update Now Playing / current track if this is actual music
+      if (!isMusicTrack(parsed, state.stationName, rawTitle)) {
+        state.currentParsed = null;
+        logger.info(`Radio non-music content skipped: "${rawTitle}"`, { userId });
+        return;
+      }
+
+      state.currentParsed = parsed;
+      logger.info(`Radio track detected: "${rawTitle}" → ${parsed.artist} – ${parsed.title}`, { userId });
 
       // Update Last.fm Now Playing
       await scrobbleQueue.add('now-playing', {
         userId,
         track: {
-          artist: artist || state.stationName,
-          track: title,
+          artist: parsed.artist,
+          track: parsed.title,
           album: state.stationName,
         },
       });
@@ -172,32 +257,39 @@ class RadioPollerManager {
     if (!state.currentTitle || !state.trackStartTime) return;
 
     const playedSeconds = (Date.now() - state.trackStartTime) / 1000;
-    if (playedSeconds < MIN_SCROBBLE_SECONDS) {
-      state.currentTitle = null;
-      state.trackStartTime = null;
-      return;
+    const parsed = parseStreamTitle(state.currentTitle, state.stationName);
+
+    // Only scrobble if it's music and was played long enough
+    if (
+      playedSeconds >= MIN_SCROBBLE_SECONDS &&
+      isMusicTrack(parsed, state.stationName, state.currentTitle)
+    ) {
+      const timestamp = Math.floor(state.trackStartTime / 1000);
+
+      void scrobbleQueue.add('scrobble', {
+        userId: state.userId,
+        track: {
+          artist: parsed.artist,
+          track: parsed.title,
+          album: state.stationName,
+        },
+        timestamp,
+      });
+
+      logger.info(
+        `Radio scrobble queued: "${state.currentTitle}" (played ${Math.round(playedSeconds)}s)`,
+        { userId: state.userId },
+      );
     }
 
-    const { artist, title } = parseStreamTitle(state.currentTitle);
-    const timestamp = Math.floor(state.trackStartTime / 1000);
-
-    void scrobbleQueue.add('scrobble', {
-      userId: state.userId,
-      track: {
-        artist: artist || state.stationName,
-        track: title,
-        album: state.stationName,
-      },
-      timestamp,
-    });
-
-    logger.info(
-      `Radio scrobble queued: "${state.currentTitle}" (played ${Math.round(playedSeconds)}s)`,
-      { userId: state.userId },
-    );
-
     state.currentTitle = null;
+    state.currentParsed = null;
     state.trackStartTime = null;
+  }
+
+  /** Returns the currently playing track for a user, or null if nothing is playing. */
+  getCurrentTrack(userId: string): ParsedTrack | null {
+    return this.pollers.get(userId)?.currentParsed ?? null;
   }
 }
 
