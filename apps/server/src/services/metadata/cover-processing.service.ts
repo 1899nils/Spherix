@@ -52,26 +52,74 @@ export async function processAndSaveCover(
 }
 
 /**
+ * Ensure a URL uses HTTPS. Cover Art Archive URLs sometimes use http://.
+ */
+function ensureHttps(url: string): string {
+  if (url.startsWith('http://')) {
+    return 'https://' + url.slice(7);
+  }
+  return url;
+}
+
+/**
  * Download a cover image from a URL and process/save it locally.
+ * Handles CAA redirects (307 → Internet Archive) and retries on transient errors.
  * Returns the local URL paths, or null if the download fails.
  */
 export async function downloadAndSaveCover(
   imageUrl: string,
   albumId: string,
 ): Promise<ProcessedCover | null> {
-  try {
-    const res = await fetch(imageUrl, {
-      headers: { 'User-Agent': 'MusicServer/1.0' },
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!res.ok) {
-      logger.warn(`Failed to download cover art: ${res.status} ${res.statusText}`, { imageUrl });
+  const safeUrl = ensureHttps(imageUrl);
+  const maxRetries = 2;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
+        logger.debug(`Cover download retry ${attempt}/${maxRetries} for album ${albumId}`);
+      }
+
+      const res = await fetch(safeUrl, {
+        headers: { 'User-Agent': 'Spherix/1.0' },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(25_000),
+      });
+
+      if (res.status === 503 || res.status === 429) {
+        logger.warn(`Cover download got ${res.status}, retrying...`, { imageUrl: safeUrl, albumId });
+        continue;
+      }
+
+      if (!res.ok) {
+        logger.warn(`Failed to download cover art: ${res.status} ${res.statusText}`, { imageUrl: safeUrl, albumId });
+        return null;
+      }
+
+      const contentType = res.headers.get('content-type') ?? '';
+      if (!contentType.startsWith('image/')) {
+        logger.warn(`Cover art response is not an image: ${contentType}`, { imageUrl: safeUrl, albumId });
+        return null;
+      }
+
+      const buffer = Buffer.from(await res.arrayBuffer());
+      if (buffer.length < 100) {
+        logger.warn(`Cover art response too small (${buffer.length} bytes)`, { imageUrl: safeUrl, albumId });
+        return null;
+      }
+
+      return await processAndSaveCover(buffer, albumId);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (attempt < maxRetries && (msg.includes('timeout') || msg.includes('fetch failed'))) {
+        logger.warn(`Cover download attempt ${attempt + 1} failed, retrying`, { imageUrl: safeUrl, error: msg });
+        continue;
+      }
+      logger.warn('Error downloading cover art', { imageUrl: safeUrl, albumId, error: msg });
       return null;
     }
-    const buffer = Buffer.from(await res.arrayBuffer());
-    return await processAndSaveCover(buffer, albumId);
-  } catch (err) {
-    logger.warn('Error downloading cover art', { imageUrl, error: String(err) });
-    return null;
   }
+
+  logger.warn(`Cover download exhausted retries for album ${albumId}`, { imageUrl: safeUrl });
+  return null;
 }

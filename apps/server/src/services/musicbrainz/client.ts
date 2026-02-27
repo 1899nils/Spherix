@@ -93,6 +93,8 @@ export async function mbFetch<T>(
 
 /**
  * Fetches from the Cover Art Archive (separate API, same rate limit).
+ * Includes retry logic for transient errors (503, timeouts) since
+ * the Internet Archive backend can be intermittently slow.
  */
 export async function caaFetch<T>(path: string): Promise<T> {
   const key = `caa:${path}`;
@@ -107,25 +109,62 @@ export async function caaFetch<T>(path: string): Promise<T> {
   }
 
   const url = `https://coverartarchive.org/${path}`;
+  const maxRetries = 2;
+  let lastError: Error | null = null;
 
-  await waitForRateLimit();
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      const delay = 1000 * attempt;
+      logger.debug(`CAA retry ${attempt}/${maxRetries} after ${delay}ms for ${path}`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
 
-  const res = await fetch(url, {
-    headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
-    signal: AbortSignal.timeout(15_000),
-  });
+    await waitForRateLimit();
 
-  if (!res.ok) {
-    throw new Error(`Cover Art Archive error: ${res.status} ${res.statusText}`);
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(20_000),
+      });
+
+      if (res.status === 503 || res.status === 429) {
+        lastError = new Error(`Cover Art Archive error: ${res.status} ${res.statusText}`);
+        continue;
+      }
+
+      if (!res.ok) {
+        throw new Error(`Cover Art Archive error: ${res.status} ${res.statusText}`);
+      }
+
+      const data = (await res.json()) as T;
+
+      try {
+        await redis.set(key, JSON.stringify(data), 'EX', CACHE_TTL);
+      } catch (err) {
+        logger.warn('Failed to cache CAA response', { error: String(err) });
+      }
+
+      return data;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      // Only retry on timeout or network errors
+      if (err instanceof Error && !err.message.includes('timeout') && !err.message.includes('fetch failed')) {
+        throw err;
+      }
+    }
   }
 
-  const data = (await res.json()) as T;
+  throw lastError ?? new Error(`Cover Art Archive fetch failed for ${path}`);
+}
 
-  try {
-    await redis.set(key, JSON.stringify(data), 'EX', CACHE_TTL);
-  } catch (err) {
-    logger.warn('Failed to cache CAA response', { error: String(err) });
+/**
+ * Ensure a URL uses HTTPS. Cover Art Archive sometimes returns http:// URLs
+ * that need to be upgraded to https://.
+ */
+export function ensureHttps(url: string): string {
+  if (url.startsWith('http://')) {
+    return 'https://' + url.slice(7);
   }
-
-  return data;
+  return url;
 }

@@ -3,7 +3,7 @@ import { lastfmService } from '../services/lastfm/lastfm.service.js';
 import { scrobbleQueue } from '../services/lastfm/scrobble.queue.js';
 import { prisma } from '../config/database.js';
 import { logger } from '../config/logger.js';
-import { env } from '../config/env.js';
+import { getServerSettings } from './settings.js';
 
 const router: Router = Router();
 
@@ -87,7 +87,8 @@ router.get('/auth-url', async (req, res) => {
       return;
     }
 
-    const baseUrl = env.publicUrl || `${req.protocol}://${req.get('host')}`;
+    const serverSettings = await getServerSettings();
+    const baseUrl = serverSettings.publicUrl || `${req.protocol}://${req.get('host')}`;
     const callbackUrl = `${baseUrl}/api/lastfm/callback?userId=${userId}`;
     const url = lastfmService.getAuthUrl(settings.lastfmApiKey, callbackUrl);
     res.json({ data: { url } });
@@ -116,11 +117,13 @@ router.get('/callback', async (req, res) => {
     });
 
     // Redirect back to settings page in frontend
-    const baseUrl = env.publicUrl || `${req.protocol}://${req.get('host')}`;
+    const serverSettings = await getServerSettings();
+    const baseUrl = serverSettings.publicUrl || `${req.protocol}://${req.get('host')}`;
     res.redirect(`${baseUrl}/settings?lastfm=connected`);
   } catch (error) {
     logger.error('Last.fm callback failed', { error: String(error) });
-    const baseUrl = env.publicUrl || `${req.protocol}://${req.get('host')}`;
+    const serverSettings = await getServerSettings().catch(() => ({ publicUrl: '' }));
+    const baseUrl = serverSettings.publicUrl || `${req.protocol}://${req.get('host')}`;
     res.redirect(`${baseUrl}/settings?lastfm=error`);
   }
 });

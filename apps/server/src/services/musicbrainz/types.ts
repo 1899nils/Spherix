@@ -215,5 +215,5 @@ export interface MatchCandidate {
 export interface MatchResult {
   query: LocalAlbum;
   candidates: MatchCandidate[];
-  autoMatch: MatchCandidate | null; // non-null if confidence > 90
+  autoMatch: MatchCandidate | null; // non-null if confidence >= 80
 }
