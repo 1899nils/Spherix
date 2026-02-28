@@ -183,13 +183,22 @@ router.post('/scrobble', async (req, res) => {
       });
     }
 
-    await scrobbleQueue.add('scrobble', {
-      userId,
-      track: { artist, track, album },
-      timestamp: Math.floor(Date.now() / 1000),
-    });
+    // Only queue the Last.fm job when the user actually has a session key configured
+    const settings = await prisma.userSettings.findUnique({
+      where: { userId },
+      select: { lastfmSessionKey: true },
+    }).catch(() => null);
+    const lastfmEnabled = !!settings?.lastfmSessionKey;
 
-    res.json({ success: true });
+    if (lastfmEnabled) {
+      await scrobbleQueue.add('scrobble', {
+        userId,
+        track: { artist, track, album },
+        timestamp: Math.floor(Date.now() / 1000),
+      });
+    }
+
+    res.json({ success: true, lastfmEnabled });
   } catch (error) {
     res.status(500).json({ error: String(error) });
   }

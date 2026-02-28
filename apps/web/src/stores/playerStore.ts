@@ -150,9 +150,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
                     album: track.album?.title,
                     trackId: track.id,
                   }),
-                }).then(() => {
-                  set({ scrobbleActivity: 'scrobbled' });
-                  setTimeout(() => set({ scrobbleActivity: 'idle' }), 4000);
+                }).then(async (res) => {
+                  const data = await res.json().catch(() => ({}));
+                  // Only show 'scrobbled' when Last.fm is actually configured and queued
+                  if (data.lastfmEnabled) {
+                    set({ scrobbleActivity: 'scrobbled' });
+                    setTimeout(() => set({ scrobbleActivity: 'idle' }), 4000);
+                  }
                 }).catch(() => {
                   set({ scrobbleActivity: 'error' });
                   setTimeout(() => set({ scrobbleActivity: 'idle' }), 4000);
