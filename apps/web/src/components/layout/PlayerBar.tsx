@@ -255,7 +255,7 @@ export function PlayerBar() {
             <Slider
               value={isRadio ? 100 : seek}
               max={isRadio ? 100 : (duration || 1)}
-              onChange={isRadio ? undefined : seekTo}
+              onChange={seekTo}
               className={`flex-1 ${isRadio ? 'opacity-50 pointer-events-none' : ''}`}
             />
             <span className="text-[10px] font-medium text-muted-foreground w-10 tabular-nums">
