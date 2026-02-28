@@ -11,16 +11,24 @@ router.get('/', async (req, res, next) => {
     const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 50));
     const skip = (page - 1) * pageSize;
 
+    const where = {
+      OR: [
+        { albums: { some: {} } },
+        { tracks: { some: {} } },
+      ],
+    };
+
     const [artists, total] = await Promise.all([
       prisma.artist.findMany({
         skip,
         take: pageSize,
+        where,
         include: {
           _count: { select: { albums: true, tracks: true } },
         },
         orderBy: { sortName: 'asc' },
       }),
-      prisma.artist.count(),
+      prisma.artist.count({ where }),
     ]);
 
     const data: ArtistWithRelations[] = artists.map((a: typeof artists[number]) => ({
