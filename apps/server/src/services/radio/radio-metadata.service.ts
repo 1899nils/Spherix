@@ -305,7 +305,7 @@ class RadioPollerManager {
 
       // Build canonical artist string, preserving join phrases (e.g. " feat. ")
       const canonicalArtist =
-        recording['artist-credit']?.map((c) => c.name + c.joinphrase).join('') ?? parsed.artist;
+        recording['artist-credit']?.map((c) => c.name + (c.joinphrase ?? '')).join('') ?? parsed.artist;
 
       const resolved: ResolvedTrack = {
         artist: canonicalArtist,
