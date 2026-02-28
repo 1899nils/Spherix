@@ -7,3 +7,4 @@ export * from './types/api.js';
 export * from './types/library.js';
 export * from './types/starred.js';
 export * from './types/playHistory.js';
+export * from './types/podcast.js';
