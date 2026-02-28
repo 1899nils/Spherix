@@ -2,8 +2,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 import { logger } from '../../config/logger.js';
+import { env } from '../../config/env.js';
 
-const COVERS_BASE = '/data/covers';
+const COVERS_BASE = path.join(env.dataDir, 'covers');
 
 interface ProcessedCover {
   /** URL path for the 500x500 cover */

@@ -6,8 +6,9 @@ export interface IPicture {
   format: string;
 }
 import { logger } from '../../config/logger.js';
+import { env } from '../../config/env.js';
 
-const COVERS_DIR = '/data/covers';
+const COVERS_DIR = path.join(env.dataDir, 'covers');
 
 const MIME_TO_EXT: Record<string, string> = {
   'image/jpeg': '.jpg',
