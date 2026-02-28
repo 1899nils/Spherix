@@ -14,6 +14,8 @@ import { RecentlyAdded } from '@/pages/RecentlyAdded';
 import { Songs } from '@/pages/Songs';
 import { Browse } from '@/pages/Browse';
 import { Radio } from '@/pages/Radio';
+import { Podcasts } from '@/pages/Podcasts';
+import { PodcastDetail } from '@/pages/PodcastDetail';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,6 +45,8 @@ export function App() {
             <Route path="/songs" element={<Songs />} />
             <Route path="/playlists" element={<Playlists />} />
             <Route path="/playlists/:id" element={<PlaylistDetail />} />
+            <Route path="/podcasts" element={<Podcasts />} />
+            <Route path="/podcasts/:id" element={<PodcastDetail />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Routes>

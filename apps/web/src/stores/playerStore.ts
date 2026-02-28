@@ -12,15 +12,25 @@ export interface RadioStation {
   isRadio: true;
 }
 
+export interface PodcastEpisodePlayerItem {
+  id: string;
+  title: string;
+  audioUrl: string;
+  imageUrl?: string | null;
+  podcastTitle: string;
+  duration?: number | null;
+  isPodcast: true;
+}
+
 export interface RadioTrackInfo {
   artist: string;
   title: string;
 }
 
 interface PlayerState {
-  // Current track or radio
-  currentTrack: TrackWithRelations | RadioStation | null;
-  queue: (TrackWithRelations | RadioStation)[];
+  // Current track or radio or podcast episode
+  currentTrack: TrackWithRelations | RadioStation | PodcastEpisodePlayerItem | null;
+  queue: (TrackWithRelations | RadioStation | PodcastEpisodePlayerItem)[];
   queueIndex: number;
 
   // Playback state
@@ -45,6 +55,7 @@ interface PlayerState {
   // Actions
   playTrack: (track: TrackWithRelations, queue?: TrackWithRelations[]) => void;
   playStream: (station: RadioStation) => void;
+  playPodcastEpisode: (episode: PodcastEpisodePlayerItem) => void;
   play: () => void;
   pause: () => void;
   togglePlay: () => void;
@@ -268,6 +279,52 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     howl.play();
   },
 
+  playPodcastEpisode: (episode) => {
+    const state = get();
+
+    fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
+
+    if (state._howl) state._howl.unload();
+    stopSeekUpdates(state);
+    stopRadioTrackPolling(state);
+    set({ currentRadioTrack: null, _radioTrackInterval: null });
+
+    const howl = new Howl({
+      src: [episode.audioUrl],
+      html5: true,
+      format: ['mp3', 'm4a', 'ogg', 'aac'],
+      volume: state.isMuted ? 0 : state.volume,
+      onplay: () => {
+        const { _seekInterval: stale } = get();
+        if (stale) clearInterval(stale);
+        set({ isPlaying: true, duration: howl.duration(), hasScrobbled: false });
+        const interval = setInterval(() => {
+          if (howl.playing()) {
+            set({ seek: howl.seek() as number });
+          }
+        }, 1000);
+        set({ _seekInterval: interval });
+      },
+      onpause: () => set({ isPlaying: false }),
+      onstop: () => set({ isPlaying: false }),
+      onend: () => {
+        stopSeekUpdates(get());
+        set({ isPlaying: false, seek: 0 });
+      },
+      onload: () => set({ duration: howl.duration() }),
+    });
+
+    set({
+      currentTrack: episode,
+      queue: [episode],
+      queueIndex: 0,
+      _howl: howl,
+      seek: 0,
+    });
+
+    howl.play();
+  },
+
   play: () => {
     const { _howl, currentTrack } = get();
     if (_howl) {
@@ -275,6 +332,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     } else if (currentTrack) {
       if ('isRadio' in currentTrack) {
         get().playStream(currentTrack);
+      } else if ('isPodcast' in currentTrack) {
+        get().playPodcastEpisode(currentTrack);
       } else {
         get().playTrack(currentTrack);
       }
@@ -319,6 +378,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const nextItem = queue[nextIndex];
     if ('isRadio' in nextItem) {
       get().playStream(nextItem);
+    } else if ('isPodcast' in nextItem) {
+      get().playPodcastEpisode(nextItem);
     } else {
       get().playTrack(nextItem, queue as TrackWithRelations[]);
     }
@@ -345,6 +406,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const prevItem = queue[prevIndex];
     if ('isRadio' in prevItem) {
       get().playStream(prevItem);
+    } else if ('isPodcast' in prevItem) {
+      get().playPodcastEpisode(prevItem);
     } else {
       get().playTrack(prevItem, queue as TrackWithRelations[]);
     }

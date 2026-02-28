@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Plus,
   Pin,
+  Headphones,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -35,6 +36,7 @@ const sections = [
       { to: '/', icon: PlayCircle, label: 'Jetzt hören' },
       { to: '/browse', icon: LayoutGrid, label: 'Entdecken' },
       { to: '/radio', icon: Radio, label: 'Radio' },
+      { to: '/podcasts', icon: Headphones, label: 'Podcasts' },
     ],
   },
   {

@@ -1,4 +1,4 @@
-import { usePlayerStore, type RadioStation } from '@/stores/playerStore';
+import { usePlayerStore, type RadioStation, type PodcastEpisodePlayerItem } from '@/stores/playerStore';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -53,6 +53,7 @@ export function PlayerBar() {
   const lastfmUsername = lastfmData?.data?.username;
 
   const isRadio = !!(currentTrack && 'isRadio' in currentTrack);
+  const isPodcast = !!(currentTrack && 'isPodcast' in currentTrack);
 
   const getQualityLabel = () => {
     if (!currentTrack) return null;
@@ -60,6 +61,13 @@ export function PlayerBar() {
       return (
         <span className="text-[10px] py-0 px-1.5 h-4 bg-pink-500/20 border border-pink-500/30 text-pink-400 font-bold tracking-wider rounded flex items-center">
           LIVE
+        </span>
+      );
+    }
+    if ('isPodcast' in currentTrack) {
+      return (
+        <span className="text-[10px] py-0 px-1.5 h-4 bg-orange-500/20 border border-orange-500/30 text-orange-400 font-bold tracking-wider rounded flex items-center">
+          PODCAST
         </span>
       );
     }
@@ -97,6 +105,16 @@ export function PlayerBar() {
                   ) : (
                     <div className="text-2xl">📻</div>
                   )
+                ) : 'isPodcast' in currentTrack ? (
+                  (currentTrack as PodcastEpisodePlayerItem).imageUrl ? (
+                    <img
+                      src={(currentTrack as PodcastEpisodePlayerItem).imageUrl!}
+                      alt={currentTrack.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-2xl">🎙️</div>
+                  )
                 ) : (
                   currentTrack.album?.coverUrl ? (
                     <img
@@ -110,7 +128,7 @@ export function PlayerBar() {
                     </div>
                   )
                 )}
-                {!isRadio && (
+                {!isRadio && !isPodcast && (
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <Info className="h-5 w-5 text-white" />
                   </div>
@@ -138,6 +156,10 @@ export function PlayerBar() {
                         {'name' in currentTrack ? currentTrack.name : ''} · Live
                       </p>
                     </>
+                  ) : isPodcast ? (
+                    <p className="text-xs text-orange-400 truncate">
+                      {(currentTrack as PodcastEpisodePlayerItem).podcastTitle}
+                    </p>
                   ) : (
                     <>
                       <p className="text-xs text-muted-foreground truncate hover:text-white transition-colors cursor-pointer">
@@ -180,7 +202,7 @@ export function PlayerBar() {
                 size="icon"
                 className="h-10 w-10 hover:bg-white/10 rounded-full"
                 onClick={prev}
-                disabled={!currentTrack || isRadio}
+                disabled={!currentTrack || isRadio || isPodcast}
               >
                 <SkipBack className="h-5 w-5 fill-current" />
               </Button>
@@ -206,7 +228,7 @@ export function PlayerBar() {
                 size="icon"
                 className="h-10 w-10 hover:bg-white/10 rounded-full"
                 onClick={next}
-                disabled={!currentTrack || isRadio}
+                disabled={!currentTrack || isRadio || isPodcast}
               >
                 <SkipForward className="h-5 w-5 fill-current" />
               </Button>
@@ -218,7 +240,7 @@ export function PlayerBar() {
                 size="icon"
                 className="h-8 w-8 hover:bg-white/10"
                 onClick={cycleRepeat}
-                disabled={isRadio}
+                disabled={isRadio || isPodcast}
               >
                 <RepeatIcon className={`h-4 w-4 transition-all ${repeatMode !== 'off' ? 'text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'text-muted-foreground'}`} />
               </Button>
@@ -233,7 +255,7 @@ export function PlayerBar() {
             <Slider
               value={isRadio ? 100 : seek}
               max={isRadio ? 100 : (duration || 1)}
-              onChange={seekTo}
+              onChange={isRadio ? undefined : seekTo}
               className={`flex-1 ${isRadio ? 'opacity-50 pointer-events-none' : ''}`}
             />
             <span className="text-[10px] font-medium text-muted-foreground w-10 tabular-nums">
