@@ -154,11 +154,18 @@ router.post('/now-playing', async (req, res) => {
     const userId = await getUserId(req);
     if (!userId) return res.status(401).end();
 
-    const { artist, track, album, duration } = req.body;
-    await scrobbleQueue.add('now-playing', {
-      userId,
-      track: { artist, track, album, duration },
-    });
+    const settings = await prisma.userSettings.findUnique({
+      where: { userId },
+      select: { lastfmSessionKey: true },
+    }).catch(() => null);
+
+    if (settings?.lastfmSessionKey) {
+      const { artist, track, album, duration } = req.body;
+      await scrobbleQueue.add('now-playing', {
+        userId,
+        track: { artist, track, album, duration },
+      });
+    }
 
     res.json({ success: true });
   } catch (error) {

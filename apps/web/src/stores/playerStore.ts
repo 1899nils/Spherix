@@ -114,6 +114,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       html5: true,
       volume: state.isMuted ? 0 : state.volume,
       onplay: () => {
+        // Clear any stale seek interval before creating a new one (e.g. after resume/rebuffer)
+        const { _seekInterval: stale } = get();
+        if (stale) clearInterval(stale);
+
         set({ isPlaying: true, duration: howl.duration(), hasScrobbled: false });
 
         // Update Now Playing on Last.fm

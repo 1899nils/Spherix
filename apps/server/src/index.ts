@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
 import crypto from 'node:crypto';
+import path from 'node:path';
 import { RedisStore } from 'connect-redis';
 import { env } from './config/env.js';
 import { redis } from './config/redis.js';
@@ -40,8 +41,8 @@ app.use(
   }),
 );
 
-// Serve cover art from /data/covers as /api/covers/:filename
-app.use('/api/covers', express.static('/data/covers', {
+// Serve cover art from {dataDir}/covers as /api/covers/:filename
+app.use('/api/covers', express.static(path.join(env.dataDir, 'covers'), {
   maxAge: '7d',
   immutable: true,
 }));
