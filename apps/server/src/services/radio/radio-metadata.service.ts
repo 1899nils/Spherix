@@ -245,7 +245,6 @@ class RadioPollerManager {
         track: {
           artist: parsed.artist,
           track: parsed.title,
-          album: state.stationName,
         },
       });
     } catch (err) {
@@ -271,7 +270,6 @@ class RadioPollerManager {
         track: {
           artist: parsed.artist,
           track: parsed.title,
-          album: state.stationName,
         },
         timestamp,
       });
