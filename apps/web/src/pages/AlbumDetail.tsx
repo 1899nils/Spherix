@@ -79,7 +79,7 @@ export function AlbumDetail() {
           <h1 className="text-3xl font-bold truncate">{album.title}</h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Link
-              to={`/artists/${album.artist.id}`}
+              to={`/music/artists/${album.artist.id}`}
               className="font-medium text-foreground hover:underline"
             >
               {album.artist.name}
