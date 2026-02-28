@@ -11,16 +11,24 @@ router.get('/', async (req, res, next) => {
     const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 50));
     const skip = (page - 1) * pageSize;
 
+    const where = {
+      OR: [
+        { albums: { some: {} } },
+        { tracks: { some: {} } },
+      ],
+    };
+
     const [artists, total] = await Promise.all([
       prisma.artist.findMany({
         skip,
         take: pageSize,
+        where,
         include: {
           _count: { select: { albums: true, tracks: true } },
         },
         orderBy: { sortName: 'asc' },
       }),
-      prisma.artist.count(),
+      prisma.artist.count({ where }),
     ]);
 
     const data: ArtistWithRelations[] = artists.map((a: typeof artists[number]) => ({
@@ -49,7 +57,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-/** Get artist detail with albums */
+/** Get artist detail with albums and top tracks */
 router.get('/:id', async (req, res, next) => {
   try {
     const artist = await prisma.artist.findUnique({
@@ -61,6 +69,14 @@ router.get('/:id', async (req, res, next) => {
             _count: { select: { tracks: true } },
           },
           orderBy: { year: 'desc' },
+        },
+        tracks: {
+          take: 10,
+          orderBy: { trackNumber: 'asc' },
+          include: {
+            artist: { select: { id: true, name: true } },
+            album: { select: { id: true, title: true, coverUrl: true, year: true, label: true } },
+          },
         },
       },
     });
@@ -88,6 +104,12 @@ router.get('/:id', async (req, res, next) => {
       trackCount: a._count.tracks,
     }));
 
+    const tracks = artist.tracks.map((t: typeof artist.tracks[number]) => ({
+      ...t,
+      fileSize: t.fileSize.toString(),
+      createdAt: t.createdAt.toISOString(),
+    }));
+
     res.json({
       data: {
         id: artist.id,
@@ -100,6 +122,79 @@ router.get('/:id', async (req, res, next) => {
         albumCount: artist._count.albums,
         trackCount: artist._count.tracks,
         albums,
+        tracks,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Fetch artist metadata from TheAudioDB (biography + image) and persist */
+router.post('/:id/fetch-metadata', async (req, res, next) => {
+  try {
+    const artist = await prisma.artist.findUnique({ where: { id: String(req.params.id) } });
+    if (!artist) {
+      res.status(404).json({ error: 'Artist not found' });
+      return;
+    }
+
+    type AudioDBEntry = {
+      strBiographyDE?: string;
+      strBiographyEN?: string;
+      strArtistThumb?: string;
+    };
+
+    let entry: AudioDBEntry | null = null;
+
+    // Prefer lookup by MusicBrainz ID for best accuracy
+    if (artist.musicbrainzId) {
+      const url = `https://www.theaudiodb.com/api/v1/json/2/artist-mb.php?i=${encodeURIComponent(artist.musicbrainzId)}`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      if (r.ok) {
+        const json = await r.json() as { artists?: AudioDBEntry[] };
+        entry = json.artists?.[0] ?? null;
+      }
+    }
+
+    // Fallback: search by name
+    if (!entry) {
+      const url = `https://www.theaudiodb.com/api/v1/json/2/search.php?s=${encodeURIComponent(artist.name)}`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      if (r.ok) {
+        const json = await r.json() as { artists?: AudioDBEntry[] };
+        entry = json.artists?.[0] ?? null;
+      }
+    }
+
+    if (!entry) {
+      res.status(404).json({ error: 'Keine Metadaten bei TheAudioDB gefunden' });
+      return;
+    }
+
+    const biography = entry.strBiographyDE || entry.strBiographyEN || null;
+    const imageUrl = entry.strArtistThumb || null;
+
+    const updated = await prisma.artist.update({
+      where: { id: String(req.params.id) },
+      data: {
+        ...(biography ? { biography } : {}),
+        ...(imageUrl ? { imageUrl } : {}),
+      },
+      include: { _count: { select: { albums: true, tracks: true } } },
+    });
+
+    res.json({
+      data: {
+        id: updated.id,
+        name: updated.name,
+        sortName: updated.sortName,
+        biography: updated.biography,
+        imageUrl: updated.imageUrl,
+        musicbrainzId: updated.musicbrainzId,
+        externalIds: updated.externalIds as Record<string, string> | null,
+        albumCount: updated._count.albums,
+        trackCount: updated._count.tracks,
       },
     });
   } catch (error) {

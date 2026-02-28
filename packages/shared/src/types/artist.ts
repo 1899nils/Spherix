@@ -1,4 +1,5 @@
 import { AlbumWithRelations } from './album.js';
+import { TrackWithRelations } from './track.js';
 
 export interface Artist {
   id: string;
@@ -17,4 +18,5 @@ export interface ArtistWithRelations extends Artist {
 
 export interface ArtistDetail extends ArtistWithRelations {
   albums: AlbumWithRelations[];
+  tracks: TrackWithRelations[];
 }
