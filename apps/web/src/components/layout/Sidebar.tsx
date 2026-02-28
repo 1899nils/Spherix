@@ -26,7 +26,6 @@ import {
   Headphones,
   Film,
   Tv,
-  BookOpen,
   Tag,
   Bookmark,
   Heart,
