@@ -139,7 +139,7 @@ async function fetchAndParseFeed(feedUrl: string): Promise<{ channel: ParsedChan
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
 /** List all subscribed podcasts */
-router.get('/', async (req, res, next) => {
+router.get('/', async (_req, res, next) => {
   try {
     const podcasts = await prisma.podcast.findMany({
       orderBy: { subscribedAt: 'desc' },
