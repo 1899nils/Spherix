@@ -63,8 +63,10 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    # Backend API proxy
-    location /api {
+    # Backend API proxy — ^~ prevents regex location blocks below from
+    # intercepting /api/covers/*.jpg and similar image URLs before they
+    # reach the Node.js backend.
+    location ^~ /api {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -75,12 +77,21 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
+    # Subsonic API proxy (same reason as above)
+    location ^~ /rest {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
     # SPA support: Route everything else to index.html
     location / {
         try_files $uri $uri/ /index.html;
     }
 
-    # Static assets caching
+    # Static assets caching (only for frontend build artifacts, not API routes)
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
