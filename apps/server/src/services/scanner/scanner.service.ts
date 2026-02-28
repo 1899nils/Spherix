@@ -310,8 +310,8 @@ export async function scanLibrary(libraryId: string): Promise<ScanProgress> {
       OR: [
         // Albums not yet linked to MusicBrainz → attempt full auto-match
         { musicbrainzId: null },
-        // Albums already linked but missing cover art → retry cover download
-        { musicbrainzId: { not: null }, coverUrl: null },
+        // Albums already linked → validate cover file exists on disk, re-download if missing
+        { musicbrainzId: { not: null } },
       ],
       tracks: { some: { filePath: { startsWith: library.path }, missing: false } },
     },
@@ -322,7 +322,7 @@ export async function scanLibrary(libraryId: string): Promise<ScanProgress> {
   progress.matchedAlbums = 0;
   progress.autoLinkedAlbums = 0;
   scannerEvents.emitProgress(progress);
-  logger.info(`Auto-matching ${albumsToMatch.length} albums against MusicBrainz (threshold: 98%)`);
+  logger.info(`MusicBrainz phase: ${albumsToMatch.length} albums (matching unlinked, validating covers for linked)`);
 
   for (const album of albumsToMatch) {
     try {

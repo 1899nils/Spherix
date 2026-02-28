@@ -17,6 +17,8 @@ function AlbumCard({
   selected: boolean;
   onToggle: (id: string) => void;
 }) {
+  const [coverError, setCoverError] = useState(false);
+
   const inner = (
     <div
       className={`group flex flex-col rounded-lg bg-muted/30 p-3 transition-colors relative
@@ -38,11 +40,12 @@ function AlbumCard({
 
       {/* Cover */}
       <div className="aspect-square rounded-md overflow-hidden bg-muted mb-3">
-        {album.coverUrl ? (
+        {album.coverUrl && !coverError ? (
           <img
             src={album.coverUrl}
             alt={album.title}
             className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={() => setCoverError(true)}
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center text-muted-foreground">
