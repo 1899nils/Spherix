@@ -38,6 +38,17 @@ export async function autoMatchAlbum(albumId: string): Promise<AutoMatchResult> 
   }
 
   if (album.musicbrainzId) {
+    // Already linked but may be missing cover art — try to download it
+    if (!album.coverUrl) {
+      const coverUrl = await getCoverArtUrl(album.musicbrainzId);
+      if (coverUrl) {
+        const saved = await downloadAndSaveCover(coverUrl, album.id);
+        if (saved) {
+          await prisma.album.update({ where: { id: albumId }, data: { coverUrl: saved.url500 } });
+          logger.info(`Downloaded missing cover art for already-linked album "${album.title}" (${albumId})`);
+        }
+      }
+    }
     return { albumId, matched: false, reason: 'Already linked' };
   }
 

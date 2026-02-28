@@ -307,7 +307,12 @@ export async function scanLibrary(libraryId: string): Promise<ScanProgress> {
 
   const albumsToMatch = await prisma.album.findMany({
     where: {
-      musicbrainzId: null,
+      OR: [
+        // Albums not yet linked to MusicBrainz → attempt full auto-match
+        { musicbrainzId: null },
+        // Albums already linked but missing cover art → retry cover download
+        { musicbrainzId: { not: null }, coverUrl: null },
+      ],
       tracks: { some: { filePath: { startsWith: library.path }, missing: false } },
     },
     select: { id: true, title: true },
