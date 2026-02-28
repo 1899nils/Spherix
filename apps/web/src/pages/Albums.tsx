@@ -65,7 +65,7 @@ function AlbumCard({
 
   // Wrap in Link only when not in select mode
   if (!selectable) {
-    return <Link to={`/albums/${album.id}`}>{inner}</Link>;
+    return <Link to={`/music/albums/${album.id}`}>{inner}</Link>;
   }
   return inner;
 }

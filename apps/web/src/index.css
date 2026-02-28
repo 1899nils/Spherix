@@ -2,6 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Section accent colours ──────────────────────────────────────────────── */
+/* Default: music (purple). Overridden by [data-section] on <html>.          */
+:root {
+  --section-accent: 262 83% 77%;
+}
+[data-section="music"] {
+  --section-accent: 262 83% 77%;
+}
+[data-section="video"] {
+  --section-accent: 213 94% 68%;
+}
+[data-section="audiobook"] {
+  --section-accent: 45 93% 47%;
+}
+
+/* Active sidebar nav link — styled via CSS so the accent colour is dynamic */
+.nav-active {
+  background-color: hsl(var(--section-accent) / 0.12) !important;
+  color: hsl(var(--section-accent)) !important;
+}
+.nav-active:hover {
+  background-color: hsl(var(--section-accent) / 0.18) !important;
+}
+
+/* Slider progress bar uses section accent */
+.slider-progress {
+  background-color: hsl(var(--section-accent));
+}
+.slider-thumb {
+  background-color: hsl(var(--section-accent));
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

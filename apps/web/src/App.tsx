@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Home } from '@/pages/Home';
@@ -16,6 +16,10 @@ import { Browse } from '@/pages/Browse';
 import { Radio } from '@/pages/Radio';
 import { Podcasts } from '@/pages/Podcasts';
 import { PodcastDetail } from '@/pages/PodcastDetail';
+import { VideoHome } from '@/pages/video/VideoHome';
+import { Movies } from '@/pages/video/Movies';
+import { Series } from '@/pages/video/Series';
+import { AudiobooksHome } from '@/pages/audiobooks/AudiobooksHome';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,20 +37,35 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<MainLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/browse" element={<Browse />} />
-            <Route path="/radio" element={<Radio />} />
-            <Route path="/recently-added" element={<RecentlyAdded />} />
-            <Route path="/library" element={<Library />} />
-            <Route path="/albums" element={<Albums />} />
-            <Route path="/albums/:id" element={<AlbumDetail />} />
-            <Route path="/artists" element={<Artists />} />
-            <Route path="/artists/:id" element={<ArtistDetail />} />
-            <Route path="/songs" element={<Songs />} />
-            <Route path="/playlists" element={<Playlists />} />
-            <Route path="/playlists/:id" element={<PlaylistDetail />} />
-            <Route path="/podcasts" element={<Podcasts />} />
-            <Route path="/podcasts/:id" element={<PodcastDetail />} />
+            {/* Root redirect */}
+            <Route path="/" element={<Navigate to="/music" replace />} />
+
+            {/* ── Music ─────────────────────────────────────────── */}
+            <Route path="/music" element={<Home />} />
+            <Route path="/music/browse" element={<Browse />} />
+            <Route path="/music/radio" element={<Radio />} />
+            <Route path="/music/recently-added" element={<RecentlyAdded />} />
+            <Route path="/music/library" element={<Library />} />
+            <Route path="/music/albums" element={<Albums />} />
+            <Route path="/music/albums/:id" element={<AlbumDetail />} />
+            <Route path="/music/artists" element={<Artists />} />
+            <Route path="/music/artists/:id" element={<ArtistDetail />} />
+            <Route path="/music/songs" element={<Songs />} />
+            <Route path="/music/playlists" element={<Playlists />} />
+            <Route path="/music/playlists/:id" element={<PlaylistDetail />} />
+            <Route path="/music/podcasts" element={<Podcasts />} />
+            <Route path="/music/podcasts/:id" element={<PodcastDetail />} />
+
+            {/* ── Video ─────────────────────────────────────────── */}
+            <Route path="/video" element={<VideoHome />} />
+            <Route path="/video/movies" element={<Movies />} />
+            <Route path="/video/series" element={<Series />} />
+
+            {/* ── Audiobooks ────────────────────────────────────── */}
+            <Route path="/audiobooks" element={<AudiobooksHome />} />
+            <Route path="/audiobooks/recent" element={<AudiobooksHome />} />
+
+            {/* Settings (section-independent) */}
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Routes>

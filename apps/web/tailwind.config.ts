@@ -45,6 +45,7 @@ export default {
           DEFAULT: 'hsl(var(--player))',
           foreground: 'hsl(var(--player-foreground))',
         },
+        'section-accent': 'hsl(var(--section-accent))',
       },
       borderRadius: {
         lg: 'var(--radius)',

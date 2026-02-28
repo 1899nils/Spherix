@@ -58,11 +58,11 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
           className="relative h-1 w-full rounded-full bg-muted group-hover:h-1.5 transition-all"
         >
           <div
-            className="absolute h-full rounded-full bg-foreground group-hover:bg-primary transition-colors"
+            className="absolute h-full rounded-full slider-progress transition-colors"
             style={{ width: `${percentage}%` }}
           />
           <div
-            className="absolute top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-1/2 -translate-y-1/2 h-3 w-3 rounded-full slider-thumb opacity-0 group-hover:opacity-100 transition-opacity"
             style={{ left: `${percentage}%`, transform: `translate(-50%, -50%)` }}
           />
         </div>

@@ -10,7 +10,7 @@ import { Plus, Headphones } from 'lucide-react';
 function PodcastCard({ podcast }: { podcast: Podcast }) {
   return (
     <Link
-      to={`/podcasts/${podcast.id}`}
+      to={`/music/podcasts/${podcast.id}`}
       className="group flex flex-col rounded-lg bg-muted/30 p-3 hover:bg-muted/60 transition-colors"
     >
       <div className="aspect-square rounded-md overflow-hidden bg-muted mb-3">

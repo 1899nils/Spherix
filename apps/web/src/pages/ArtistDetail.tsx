@@ -12,7 +12,7 @@ import { Play, Pause, Disc3, Mic2, Pencil, Download, Music } from 'lucide-react'
 function DiscographyCard({ album }: { album: AlbumWithRelations }) {
   return (
     <Link
-      to={`/albums/${album.id}`}
+      to={`/music/albums/${album.id}`}
       className="group flex flex-col rounded-lg bg-muted/30 p-3 hover:bg-muted/60 transition-colors"
     >
       <div className="aspect-square rounded-md overflow-hidden bg-muted mb-3">

@@ -7,7 +7,7 @@ import { Mic2 } from 'lucide-react';
 function ArtistCard({ artist }: { artist: ArtistWithRelations }) {
   return (
     <Link
-      to={`/artists/${artist.id}`}
+      to={`/music/artists/${artist.id}`}
       className="group flex flex-col items-center rounded-lg bg-muted/30 p-4 hover:bg-muted/60 transition-colors"
     >
       {/* Avatar */}
