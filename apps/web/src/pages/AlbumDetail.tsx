@@ -14,6 +14,7 @@ export function AlbumDetail() {
   const { id } = useParams<{ id: string }>();
   const [editOpen, setEditOpen] = useState(false);
   const [mbOpen, setMbOpen] = useState(false);
+  const [coverError, setCoverError] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['album', id],
@@ -58,11 +59,12 @@ export function AlbumDetail() {
       <div className="flex gap-6 items-end">
         {/* Cover */}
         <div className="h-48 w-48 rounded-lg overflow-hidden bg-muted shrink-0 shadow-lg">
-          {album.coverUrl ? (
+          {album.coverUrl && !coverError ? (
             <img
               src={album.coverUrl}
               alt={album.title}
               className="h-full w-full object-cover"
+              onError={() => setCoverError(true)}
             />
           ) : (
             <div className="h-full w-full flex items-center justify-center text-muted-foreground">

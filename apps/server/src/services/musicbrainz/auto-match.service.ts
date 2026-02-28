@@ -1,9 +1,26 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { prisma } from '../../config/database.js';
 import { logger } from '../../config/logger.js';
+import { env } from '../../config/env.js';
 import { matchAlbum } from './match.service.js';
 import { getReleaseById, getCoverArtUrl } from './musicbrainz.service.js';
 import { downloadAndSaveCover } from '../metadata/cover-processing.service.js';
 import { writeTags } from '../metadata/tagwriter.service.js';
+
+/**
+ * Returns true if the file referenced by a /api/covers/... URL exists on disk.
+ */
+async function coverFileExists(coverUrl: string): Promise<boolean> {
+  const relativePath = coverUrl.replace(/^\/api\/covers\//, '');
+  const filePath = path.join(env.dataDir, 'covers', relativePath);
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const AUTO_LINK_THRESHOLD = 98;
 
@@ -38,14 +55,22 @@ export async function autoMatchAlbum(albumId: string): Promise<AutoMatchResult> 
   }
 
   if (album.musicbrainzId) {
-    // Already linked but may be missing cover art — try to download it
-    if (!album.coverUrl) {
-      const coverUrl = await getCoverArtUrl(album.musicbrainzId);
-      if (coverUrl) {
-        const saved = await downloadAndSaveCover(coverUrl, album.id);
+    // Already linked — check whether cover art is present AND the file exists on disk.
+    // Re-download from the Cover Art Archive if either condition is not met.
+    const needsCover =
+      !album.coverUrl || !(await coverFileExists(album.coverUrl));
+
+    if (needsCover) {
+      const remoteUrl = await getCoverArtUrl(album.musicbrainzId);
+      if (remoteUrl) {
+        const saved = await downloadAndSaveCover(remoteUrl, album.id);
         if (saved) {
           await prisma.album.update({ where: { id: albumId }, data: { coverUrl: saved.url500 } });
-          logger.info(`Downloaded missing cover art for already-linked album "${album.title}" (${albumId})`);
+          logger.info(
+            album.coverUrl
+              ? `Re-downloaded missing cover file for album "${album.title}" (${albumId})`
+              : `Downloaded cover art for album "${album.title}" (${albumId})`,
+          );
         }
       }
     }
