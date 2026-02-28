@@ -1,8 +1,13 @@
 import { logger } from '../../config/logger.js';
 import { scrobbleQueue } from '../lastfm/scrobble.queue.js';
+import { lastfmService } from '../lastfm/lastfm.service.js';
+import { prisma } from '../../config/database.js';
 
 const POLL_INTERVAL_MS = 30_000; // Poll every 30 seconds
-const MIN_SCROBBLE_SECONDS = 30; // Last.fm: scrobble if listened >= 30s
+/** Fallback minimum listen time when track duration is unknown */
+const MIN_SCROBBLE_SECONDS = 30;
+/** Scrobble only after listening to this fraction of the track */
+const MIN_SCROBBLE_RATIO = 0.8;
 
 export interface ParsedTrack {
   artist: string;
@@ -168,6 +173,8 @@ interface PollerState {
   stationName: string;
   currentTitle: string | null;
   currentParsed: ParsedTrack | null;
+  /** Duration of the currently playing track in seconds (fetched from Last.fm), or null if unknown */
+  trackDuration: number | null;
   trackStartTime: number | null;
   timer: ReturnType<typeof setInterval> | null;
 }
@@ -188,6 +195,7 @@ class RadioPollerManager {
       stationName,
       currentTitle: null,
       currentParsed: null,
+      trackDuration: null,
       trackStartTime: null,
       timer: null,
     };
@@ -228,6 +236,7 @@ class RadioPollerManager {
       const parsed = parseStreamTitle(rawTitle, state.stationName);
       state.currentTitle = rawTitle;
       state.trackStartTime = Date.now();
+      state.trackDuration = null; // reset until fetched for the new track
 
       // Only update Now Playing / current track if this is actual music
       if (!isMusicTrack(parsed, state.stationName, rawTitle)) {
@@ -239,16 +248,57 @@ class RadioPollerManager {
       state.currentParsed = parsed;
       logger.info(`Radio track detected: "${rawTitle}" → ${parsed.artist} – ${parsed.title}`, { userId });
 
-      // Update Last.fm Now Playing
-      await scrobbleQueue.add('now-playing', {
-        userId,
-        track: {
-          artist: parsed.artist,
-          track: parsed.title,
-        },
-      });
+      // Update Last.fm Now Playing immediately — bypass the queue to avoid any lag
+      void this.sendNowPlayingDirect(state.userId, parsed);
+
+      // Fetch track duration from Last.fm in the background for the 80% scrobble threshold
+      void this.fetchAndStoreTrackDuration(state, parsed);
     } catch (err) {
       logger.warn(`Radio metadata poll error`, { userId, error: String(err) });
+    }
+  }
+
+  /**
+   * Send a "Now Playing" update directly to Last.fm, bypassing the BullMQ queue.
+   * This ensures there is zero lag between track detection and Last.fm being updated.
+   */
+  private async sendNowPlayingDirect(userId: string, parsed: ParsedTrack): Promise<void> {
+    try {
+      const settings = await prisma.userSettings.findUnique({
+        where: { userId },
+        select: { lastfmSessionKey: true, lastfmApiKey: true, lastfmApiSecret: true },
+      });
+      if (!settings?.lastfmSessionKey) return;
+
+      await lastfmService.updateNowPlaying(
+        settings.lastfmSessionKey,
+        { artist: parsed.artist, track: parsed.title },
+        { apiKey: settings.lastfmApiKey, apiSecret: settings.lastfmApiSecret },
+      );
+      logger.debug(`Radio now-playing sent: ${parsed.artist} – ${parsed.title}`, { userId });
+    } catch (err) {
+      logger.warn('Radio: failed to update Last.fm now playing', { userId, error: String(err) });
+    }
+  }
+
+  /**
+   * Fetch and cache the track's duration from Last.fm so the scrobble threshold
+   * can be calculated as 80% of the actual track length.
+   */
+  private async fetchAndStoreTrackDuration(state: PollerState, parsed: ParsedTrack): Promise<void> {
+    const duration = await lastfmService.getTrackDuration(parsed.artist, parsed.title);
+    // Only store if this is still the same track (state may have changed while we awaited)
+    if (
+      state.currentParsed?.artist === parsed.artist &&
+      state.currentParsed?.title === parsed.title
+    ) {
+      state.trackDuration = duration;
+      if (duration) {
+        logger.debug(
+          `Radio track duration: ${parsed.artist} – ${parsed.title} = ${Math.round(duration)}s`,
+          { userId: state.userId },
+        );
+      }
     }
   }
 
@@ -258,9 +308,16 @@ class RadioPollerManager {
     const playedSeconds = (Date.now() - state.trackStartTime) / 1000;
     const parsed = parseStreamTitle(state.currentTitle, state.stationName);
 
+    // Determine minimum listen time:
+    // - If we know the track duration, require 80% of it
+    // - Otherwise fall back to a 30-second minimum
+    const minSeconds = state.trackDuration != null
+      ? state.trackDuration * MIN_SCROBBLE_RATIO
+      : MIN_SCROBBLE_SECONDS;
+
     // Only scrobble if it's music and was played long enough
     if (
-      playedSeconds >= MIN_SCROBBLE_SECONDS &&
+      playedSeconds >= minSeconds &&
       isMusicTrack(parsed, state.stationName, state.currentTitle)
     ) {
       const timestamp = Math.floor(state.trackStartTime / 1000);
@@ -275,13 +332,14 @@ class RadioPollerManager {
       });
 
       logger.info(
-        `Radio scrobble queued: "${state.currentTitle}" (played ${Math.round(playedSeconds)}s)`,
+        `Radio scrobble queued: "${state.currentTitle}" (played ${Math.round(playedSeconds)}s / threshold ${Math.round(minSeconds)}s)`,
         { userId: state.userId },
       );
     }
 
     state.currentTitle = null;
     state.currentParsed = null;
+    state.trackDuration = null;
     state.trackStartTime = null;
   }
 

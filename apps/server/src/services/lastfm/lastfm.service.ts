@@ -129,5 +129,19 @@ export const lastfmService = {
       timestamp: String(Math.round(timestamp)),
       ...(track.album ? { album: track.album } : {}),
     }, 'POST', config);
-  }
+  },
+
+  /**
+   * Look up a track's duration (in seconds) via Last.fm's track.getInfo endpoint.
+   * Uses the global API key — no session required. Returns null if not found.
+   */
+  async getTrackDuration(artist: string, track: string): Promise<number | null> {
+    try {
+      const data: any = await lastfmRequest('track.getInfo', { artist, track }, 'GET');
+      const ms = parseInt(data?.track?.duration ?? '0', 10);
+      return ms > 0 ? ms / 1000 : null;
+    } catch {
+      return null;
+    }
+  },
 };
