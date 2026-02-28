@@ -26,8 +26,14 @@ import {
   Headphones,
   Film,
   Tv,
-  Clapperboard,
   BookOpen,
+  Tag,
+  Bookmark,
+  Heart,
+  Users,
+  Library,
+  MonitorPlay,
+  Play,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -39,42 +45,73 @@ type NavSection = { title: string; items: { to: string; icon: React.ElementType;
 
 const MUSIC_NAV: NavSection[] = [
   {
-    title: 'Entdecken',
+    title: 'Mediathek',
     items: [
-      { to: '/music',               icon: PlayCircle,  label: 'Jetzt hören' },
-      { to: '/music/browse',        icon: LayoutGrid,  label: 'Entdecken' },
-      { to: '/music/radio',         icon: Radio,       label: 'Radio' },
-      { to: '/music/podcasts',      icon: Headphones,  label: 'Podcasts' },
+      { to: '/music',                icon: PlayCircle, label: 'Jetzt hören' },
+      { to: '/music/recently-added', icon: Clock,      label: 'Zuletzt hinzugefügt' },
+      { to: '/music/artists',        icon: Mic2,       label: 'Künstler' },
+      { to: '/music/albums',         icon: Disc3,      label: 'Alben' },
+      { to: '/music/songs',          icon: Music,      label: 'Titel' },
     ],
   },
   {
-    title: 'Mediathek',
+    title: 'Entdecken',
     items: [
-      { to: '/music/recently-added', icon: Clock,  label: 'Zuletzt hinzugefügt' },
-      { to: '/music/artists',        icon: Mic2,   label: 'Künstler' },
-      { to: '/music/albums',         icon: Disc3,  label: 'Alben' },
-      { to: '/music/songs',          icon: Music,  label: 'Titel' },
+      { to: '/music/browse',    icon: LayoutGrid, label: 'Entdecken' },
+      { to: '/music/radio',     icon: Radio,      label: 'Radio' },
+      { to: '/music/podcasts',  icon: Headphones, label: 'Podcasts' },
     ],
   },
 ];
 
 const VIDEO_NAV: NavSection[] = [
   {
-    title: 'Video',
+    title: 'Mediathek',
     items: [
-      { to: '/video',         icon: Clapperboard, label: 'Übersicht' },
-      { to: '/video/movies',  icon: Film,         label: 'Filme' },
-      { to: '/video/series',  icon: Tv,           label: 'Serien' },
+      { to: '/video/recently-added', icon: Clock,       label: 'Zuletzt hinzugefügt' },
+      { to: '/video/movies',         icon: Film,        label: 'Filme' },
+      { to: '/video/series',         icon: Tv,          label: 'Serien' },
+      { to: '/video/continue',       icon: MonitorPlay, label: 'Weiterschauen' },
+    ],
+  },
+  {
+    title: 'Entdecken',
+    items: [
+      { to: '/video/browse',  icon: LayoutGrid, label: 'Entdecken' },
+      { to: '/video/genres',  icon: Tag,        label: 'Genres' },
+    ],
+  },
+  {
+    title: 'Sammlungen',
+    items: [
+      { to: '/video/watchlist',  icon: Bookmark, label: 'Watchlist' },
+      { to: '/video/favorites',  icon: Heart,    label: 'Favoriten' },
     ],
   },
 ];
 
 const AUDIOBOOK_NAV: NavSection[] = [
   {
-    title: 'Hörbücher',
+    title: 'Mediathek',
     items: [
-      { to: '/audiobooks',        icon: BookOpen, label: 'Meine Hörbücher' },
-      { to: '/audiobooks/recent', icon: Clock,    label: 'Zuletzt gehört' },
+      { to: '/audiobooks/recent',   icon: Clock,    label: 'Zuletzt gehört' },
+      { to: '/audiobooks',          icon: Library,  label: 'Alle Hörbücher' },
+      { to: '/audiobooks/authors',  icon: Users,    label: 'Autoren' },
+      { to: '/audiobooks/continue', icon: Play,     label: 'Weiterhören' },
+    ],
+  },
+  {
+    title: 'Entdecken',
+    items: [
+      { to: '/audiobooks/browse',  icon: LayoutGrid, label: 'Entdecken' },
+      { to: '/audiobooks/genres',  icon: Tag,        label: 'Genres' },
+    ],
+  },
+  {
+    title: 'Sammlungen',
+    items: [
+      { to: '/audiobooks/bookmarks', icon: Bookmark, label: 'Lesezeichen' },
+      { to: '/audiobooks/favorites', icon: Heart,    label: 'Favoriten' },
     ],
   },
 ];
@@ -141,7 +178,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   <NavLink
                     key={to}
                     to={to}
-                    end={to === '/music' || to === '/video' || to === '/audiobooks'}
+                    end={to === '/music' || to === '/audiobooks' || to === '/audiobooks/recent'}
                     className={({ isActive }) =>
                       cn(
                         'group flex items-center gap-3 rounded-md px-3 py-1.5 text-[13px] font-medium transition-all duration-200 relative',

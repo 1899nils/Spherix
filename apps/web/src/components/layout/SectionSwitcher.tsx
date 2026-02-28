@@ -17,8 +17,8 @@ const SECTIONS: {
 
 const ROOT_ROUTES: Record<AppSection, string> = {
   music:     '/music',
-  video:     '/video',
-  audiobook: '/audiobooks',
+  video:     '/video/recently-added',
+  audiobook: '/audiobooks/recent',
 };
 
 interface Props {

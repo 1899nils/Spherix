@@ -19,7 +19,20 @@ import { PodcastDetail } from '@/pages/PodcastDetail';
 import { VideoHome } from '@/pages/video/VideoHome';
 import { Movies } from '@/pages/video/Movies';
 import { Series } from '@/pages/video/Series';
+import { VideoRecentlyAdded } from '@/pages/video/RecentlyAdded';
+import { ContinueWatching } from '@/pages/video/ContinueWatching';
+import { VideoBrowse } from '@/pages/video/VideoBrowse';
+import { VideoGenres } from '@/pages/video/VideoGenres';
+import { VideoWatchlist } from '@/pages/video/VideoWatchlist';
+import { VideoFavorites } from '@/pages/video/VideoFavorites';
 import { AudiobooksHome } from '@/pages/audiobooks/AudiobooksHome';
+import { AudiobooksAll } from '@/pages/audiobooks/All';
+import { AudiobooksAuthors } from '@/pages/audiobooks/Authors';
+import { AudiobooksContinue } from '@/pages/audiobooks/Continue';
+import { AudiobooksBrowse } from '@/pages/audiobooks/Browse';
+import { AudiobooksGenres } from '@/pages/audiobooks/Genres';
+import { AudiobooksBookmarks } from '@/pages/audiobooks/Bookmarks';
+import { AudiobooksFavorites } from '@/pages/audiobooks/Favorites';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,12 +71,24 @@ export function App() {
 
             {/* ── Video ─────────────────────────────────────────── */}
             <Route path="/video" element={<VideoHome />} />
+            <Route path="/video/recently-added" element={<VideoRecentlyAdded />} />
             <Route path="/video/movies" element={<Movies />} />
             <Route path="/video/series" element={<Series />} />
+            <Route path="/video/continue" element={<ContinueWatching />} />
+            <Route path="/video/browse" element={<VideoBrowse />} />
+            <Route path="/video/genres" element={<VideoGenres />} />
+            <Route path="/video/watchlist" element={<VideoWatchlist />} />
+            <Route path="/video/favorites" element={<VideoFavorites />} />
 
             {/* ── Audiobooks ────────────────────────────────────── */}
-            <Route path="/audiobooks" element={<AudiobooksHome />} />
+            <Route path="/audiobooks" element={<AudiobooksAll />} />
             <Route path="/audiobooks/recent" element={<AudiobooksHome />} />
+            <Route path="/audiobooks/authors" element={<AudiobooksAuthors />} />
+            <Route path="/audiobooks/continue" element={<AudiobooksContinue />} />
+            <Route path="/audiobooks/browse" element={<AudiobooksBrowse />} />
+            <Route path="/audiobooks/genres" element={<AudiobooksGenres />} />
+            <Route path="/audiobooks/bookmarks" element={<AudiobooksBookmarks />} />
+            <Route path="/audiobooks/favorites" element={<AudiobooksFavorites />} />
 
             {/* Settings (section-independent) */}
             <Route path="/settings" element={<Settings />} />
