@@ -164,6 +164,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Section Switcher */}
       <SectionSwitcher collapsed={collapsed} />
 
+      {/* Section logo */}
+      {!collapsed && (
+        <div className="flex items-center justify-center px-4 pt-4 pb-1 shrink-0">
+          <img
+            src={`/logo-${section}.png`}
+            alt={section}
+            className="h-14 w-auto object-contain drop-shadow-md"
+          />
+        </div>
+      )}
+
       {/* Navigation */}
       <ScrollArea className="flex-1">
         <div className="py-3 flex flex-col gap-5">
