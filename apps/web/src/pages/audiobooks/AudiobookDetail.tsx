@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAudiobookPlayerStore } from '@/stores/audiobookPlayerStore';
 import { Button } from '@/components/ui/button';
@@ -15,20 +15,13 @@ interface AudiobookDetailResponse {
 export function AudiobookDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-
-  const { currentBook, chapterIndex, isPlaying, playBook, pause, togglePlay } =
+  const { currentBook, chapterIndex, isPlaying, playBook, togglePlay } =
     useAudiobookPlayerStore();
 
   const { data, isLoading } = useQuery({
     queryKey: ['audiobook', id],
     queryFn: () => api.get<AudiobookDetailResponse>(`/audiobooks/${id}`),
     enabled: !!id,
-  });
-
-  const progressMutation = useMutation({
-    mutationFn: (position: number) =>
-      api.post(`/audiobooks/${id}/progress`, { position }),
   });
 
   const book = data?.data;
@@ -71,7 +64,7 @@ export function AudiobookDetail() {
         chapters: book.chapters ?? [],
       },
       chIdx,
-      chIdx === 0 && book.listenProgress > 0 ? book.listenProgress : 0,
+      chIdx === 0 && (book.listenProgress ?? 0) > 0 ? (book.listenProgress ?? 0) : 0,
     );
   };
 
@@ -147,7 +140,7 @@ export function AudiobookDetail() {
           )}
 
           {/* Progress bar */}
-          {book.listenProgress > 0 && book.duration && (
+          {book.listenProgress != null && book.listenProgress > 0 && book.duration && (
             <div className="space-y-1 max-w-xs">
               <ProgressBar value={book.listenProgress / book.duration} />
               <p className="text-xs text-muted-foreground">
@@ -166,7 +159,7 @@ export function AudiobookDetail() {
               <><Pause className="h-5 w-5 fill-current" /> Pause</>
             ) : (
               <><Play className="h-5 w-5 fill-current" />
-                {book.listenProgress > 60 ? 'Weiterhören' : 'Abspielen'}
+                {(book.listenProgress ?? 0) > 60 ? 'Weiterhören' : 'Abspielen'}
               </>
             )}
           </Button>
