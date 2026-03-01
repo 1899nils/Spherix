@@ -3,15 +3,15 @@
 @tailwind utilities;
 
 /* ─── Section accent colours ──────────────────────────────────────────────── */
-/* Default: music (purple). Overridden by [data-section] on <html>.          */
+/* Default: music (red). Overridden by [data-section] on <html>.             */
 :root {
-  --section-accent: 262 83% 77%;
+  --section-accent: 357 92% 47%;
 }
 [data-section="music"] {
-  --section-accent: 262 83% 77%;
+  --section-accent: 357 92% 47%;
 }
 [data-section="video"] {
-  --section-accent: 213 94% 68%;
+  --section-accent: 255 92% 76%;
 }
 [data-section="audiobook"] {
   --section-accent: 45 93% 47%;
