@@ -226,6 +226,145 @@ model StarredArtist {
   @@map("starred_artists")
 }
 
+// ─── Genre ───────────────────────────────────────────────────────────────────
+
+model Genre {
+  id         String      @id @default(uuid())
+  name       String      @unique
+
+  movies     Movie[]     @relation("MovieGenres")
+  series     Series[]    @relation("SeriesGenres")
+  audiobooks Audiobook[] @relation("AudiobookGenres")
+
+  @@map("genres")
+}
+
+// ─── Movies ──────────────────────────────────────────────────────────────────
+
+model Movie {
+  id            String   @id @default(uuid())
+  title         String
+  sortTitle     String?  @map("sort_title")
+  year          Int?
+  runtime       Int?
+  overview      String?
+  posterPath    String?  @map("poster_path")
+  backdropPath  String?  @map("backdrop_path")
+  filePath      String   @unique @map("file_path")
+  fileSize      BigInt?  @map("file_size")
+  codec         String?
+  resolution    String?
+  watched       Boolean  @default(false)
+  watchProgress Int?     @map("watch_progress")
+  addedAt       DateTime @default(now()) @map("added_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  genres Genre[] @relation("MovieGenres")
+
+  @@index([title])
+  @@index([year])
+  @@index([addedAt])
+  @@map("movies")
+}
+
+// ─── Series ──────────────────────────────────────────────────────────────────
+
+model Series {
+  id           String   @id @default(uuid())
+  title        String
+  sortTitle    String?  @map("sort_title")
+  year         Int?
+  overview     String?
+  posterPath   String?  @map("poster_path")
+  backdropPath String?  @map("backdrop_path")
+  addedAt      DateTime @default(now()) @map("added_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  genres  Genre[]  @relation("SeriesGenres")
+  seasons Season[]
+
+  @@index([title])
+  @@index([year])
+  @@map("series")
+}
+
+model Season {
+  id       String @id @default(uuid())
+  number   Int
+  seriesId String @map("series_id")
+
+  series   Series    @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episodes Episode[]
+
+  @@unique([seriesId, number])
+  @@index([seriesId])
+  @@map("seasons")
+}
+
+model Episode {
+  id            String   @id @default(uuid())
+  title         String
+  number        Int
+  seasonId      String   @map("season_id")
+  overview      String?
+  runtime       Int?
+  filePath      String   @unique @map("file_path")
+  fileSize      BigInt?  @map("file_size")
+  codec         String?
+  resolution    String?
+  thumbnailPath String?  @map("thumbnail_path")
+  watched       Boolean  @default(false)
+  watchProgress Int?     @map("watch_progress")
+  addedAt       DateTime @default(now()) @map("added_at")
+
+  season Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@unique([seasonId, number])
+  @@index([seasonId])
+  @@map("episodes")
+}
+
+// ─── Audiobooks ──────────────────────────────────────────────────────────────
+
+model Audiobook {
+  id             String   @id @default(uuid())
+  title          String
+  sortTitle      String?  @map("sort_title")
+  author         String?
+  narrator       String?
+  year           Int?
+  duration       Int?
+  overview       String?
+  coverPath      String?  @map("cover_path")
+  filePath       String?  @map("file_path")
+  listenProgress Int?     @map("listen_progress")
+  addedAt        DateTime @default(now()) @map("added_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  genres   Genre[]            @relation("AudiobookGenres")
+  chapters AudiobookChapter[]
+
+  @@index([title])
+  @@index([author])
+  @@map("audiobooks")
+}
+
+model AudiobookChapter {
+  id          String    @id @default(uuid())
+  title       String
+  number      Int
+  audiobookId String    @map("audiobook_id")
+  startTime   Int       @map("start_time")
+  endTime     Int?      @map("end_time")
+  filePath    String?   @map("file_path")
+
+  audiobook Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
+
+  @@unique([audiobookId, number])
+  @@index([audiobookId])
+  @@map("audiobook_chapters")
+}
+
 // ─── Podcasts ────────────────────────────────────────────────────────────────
 
 model Podcast {
