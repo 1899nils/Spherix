@@ -17,4 +17,8 @@ export const env = {
   publicUrl: process.env.PUBLIC_URL || '',
   /** Root for persisted data. Override with DATA_DIR in .env for local dev (e.g. DATA_DIR=./data). */
   dataDir: process.env.DATA_DIR || '/data',
+  /** Mount paths for the three media libraries. */
+  musicPath:     process.env.MUSIC_PATH     || '/music',
+  videoPath:     process.env.VIDEO_PATH     || '/videos',
+  audiobookPath: process.env.AUDIOBOOK_PATH || '/audiobooks',
 } as const;
