@@ -9,7 +9,6 @@ import type { Playlist } from '@musicserver/shared';
 import { useUIStore } from '@/stores/uiStore';
 import { useSectionStore } from '@/stores/sectionStore';
 import { SectionSwitcher } from './SectionSwitcher';
-import { SpherixLogo } from '@/components/ui/SpherixLogo';
 import {
   PlayCircle,
   LayoutGrid,
@@ -152,7 +151,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     >
       {/* Logo / Header */}
       <div className="flex items-center gap-3 px-4 h-14 shrink-0">
-        <SpherixLogo className="h-8 w-8 shrink-0 text-section-accent" />
+        <img
+          src={`/logo-${section}.png`}
+          alt="Spherix"
+          className="h-8 w-8 shrink-0 object-contain"
+        />
         {!collapsed && (
           <span className="font-bold text-xl tracking-tight text-white">Spherix</span>
         )}
