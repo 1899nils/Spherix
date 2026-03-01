@@ -21,6 +21,9 @@ import lastfmRouter from './routes/lastfm.js';
 import radioRouter from './routes/radio.js';
 import settingsRouter from './routes/settings.js';
 import podcastsRouter from './routes/podcasts.js';
+import moviesRouter from './routes/video/movies.js';
+import { seriesRouter, episodesRouter } from './routes/video/series.js';
+import audiobooksRouter from './routes/audiobooks/audiobooks.js';
 import subsonicRouter from './subsonic/index.js';
 
 const app = express();
@@ -60,6 +63,86 @@ app.use('/api/lastfm', lastfmRouter);
 app.use('/api/radio', radioRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/podcasts', podcastsRouter);
+
+// ── Video ─────────────────────────────────────────────────────────────────────
+app.use('/api/video/movies',   moviesRouter);
+app.use('/api/video/series',   seriesRouter);
+app.use('/api/video/episodes', episodesRouter);
+
+// Video overview endpoints: genres, recently added, continue watching
+app.get('/api/video/genres', async (_req, res, next) => {
+  try {
+    const genres = await prisma.genre.findMany({
+      where:   { OR: [{ movies: { some: {} } }, { series: { some: {} } }] },
+      select:  {
+        id: true, name: true,
+        _count: { select: { movies: true, series: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+    res.json({
+      data: genres.map(g => ({
+        id:    g.id,
+        name:  g.name,
+        count: g._count.movies + g._count.series,
+      })),
+    });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/video/recent', async (req, res, next) => {
+  try {
+    const limit = Math.min(50, parseInt(req.query.limit as string) || 20);
+    const [movies, series] = await Promise.all([
+      prisma.movie.findMany({
+        take:    limit,
+        orderBy: { addedAt: 'desc' },
+        include: { genres: { select: { id: true, name: true } } },
+      }),
+      prisma.series.findMany({
+        take:    limit,
+        orderBy: { addedAt: 'desc' },
+        include: { genres: { select: { id: true, name: true } } },
+      }),
+    ]);
+
+    // Merge and sort by addedAt, return top `limit` items
+    const combined = [
+      ...movies.map(m => ({ ...m, fileSize: m.fileSize?.toString() ?? null, type: 'movie'  as const })),
+      ...series.map(s => ({                                                   ...s, type: 'series' as const })),
+    ].sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime()).slice(0, limit);
+
+    res.json({ data: combined });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/video/continue', async (_req, res, next) => {
+  try {
+    const [movies, episodes] = await Promise.all([
+      prisma.movie.findMany({
+        where:   { watchProgress: { gt: 0 }, watched: false },
+        include: { genres: { select: { id: true, name: true } } },
+        orderBy: { updatedAt: 'desc' },
+        take:    20,
+      }),
+      prisma.episode.findMany({
+        where:   { watchProgress: { gt: 0 }, watched: false },
+        include: { season: { include: { series: { select: { id: true, title: true, posterPath: true } } } } },
+        orderBy: { addedAt: 'desc' },
+        take:    20,
+      }),
+    ]);
+    res.json({
+      data: {
+        movies:   movies.map(m => ({ ...m, fileSize: m.fileSize?.toString() ?? null })),
+        episodes,
+      },
+    });
+  } catch (error) { next(error); }
+});
+
+// ── Audiobooks ────────────────────────────────────────────────────────────────
+app.use('/api/audiobooks', audiobooksRouter);
 
 // Subsonic API (compatible with Subsonic/Airsonic clients)
 app.use('/rest', subsonicRouter);
