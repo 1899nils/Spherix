@@ -5,8 +5,12 @@ import { MediaCard } from '@/components/ui/MediaCard';
 import { Tv } from 'lucide-react';
 import type { Series as SeriesType } from '@musicserver/shared';
 
+interface SeriesWithCount extends SeriesType {
+  _count?: { seasons: number; episodes: number };
+}
+
 interface SeriesResponse {
-  data: SeriesType[];
+  data: SeriesWithCount[];
   total: number;
 }
 

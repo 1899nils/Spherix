@@ -19,7 +19,7 @@ export function SeriesDetail() {
   const queryClient = useQueryClient();
   const { setActiveVideo } = useVideoPlayerStore();
 
-  const [activeEpisode, setActiveEpisode] = useState<{ id: string; title: string; seasonNumber: number; episodeNumber: number; runtime: number | null } | null>(null);
+  const [activeEpisode, setActiveEpisode] = useState<{ id: string; title: string; seasonNum: number; episodeNum: number; runtime: number | null } | null>(null);
   const [openSeason, setOpenSeason] = useState<number | null>(1);
 
   const { data, isLoading } = useQuery({
@@ -90,7 +90,7 @@ export function SeriesDetail() {
         /* ── Episode player ───────────────────────────────────── */
         <VideoPlayer
           src={`/api/video/episodes/${activeEpisode.id}/stream`}
-          title={`S${String(activeEpisode.seasonNumber).padStart(2, '0')}E${String(activeEpisode.episodeNumber).padStart(2, '0')} · ${activeEpisode.title}`}
+          title={`S${String(activeEpisode.seasonNum).padStart(2, '0')}E${String(activeEpisode.episodeNum).padStart(2, '0')} · ${activeEpisode.title}`}
           subtitle={series.title}
           posterUrl={series.posterPath}
           onClose={handleClosePlayer}
@@ -145,21 +145,21 @@ export function SeriesDetail() {
                 {/* Season header */}
                 <button
                   className="w-full flex items-center justify-between px-5 py-4 bg-white/5 hover:bg-white/10 transition-colors"
-                  onClick={() => setOpenSeason(openSeason === season.seasonNumber ? null : season.seasonNumber)}
+                  onClick={() => setOpenSeason(openSeason === season.number ? null : season.number)}
                 >
                   <span className="font-semibold">
-                    Staffel {season.seasonNumber}
+                    Staffel {season.number}
                     <span className="ml-2 text-sm text-muted-foreground font-normal">
                       {season.episodes?.length ?? 0} Folge{(season.episodes?.length ?? 0) !== 1 ? 'n' : ''}
                     </span>
                   </span>
-                  {openSeason === season.seasonNumber
+                  {openSeason === season.number
                     ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                 </button>
 
                 {/* Episodes */}
-                {openSeason === season.seasonNumber && (
+                {openSeason === season.number && (
                   <div className="divide-y divide-white/5">
                     {(season.episodes ?? []).map((ep) => (
                       <div
@@ -167,7 +167,7 @@ export function SeriesDetail() {
                         className="flex items-center gap-4 px-5 py-3 hover:bg-white/5 transition-colors group"
                       >
                         <span className="text-xs text-muted-foreground tabular-nums w-8 shrink-0">
-                          {ep.episodeNumber}
+                          {ep.number}
                         </span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{ep.title}</p>
@@ -186,8 +186,8 @@ export function SeriesDetail() {
                             handlePlayEpisode({
                               id: ep.id,
                               title: ep.title,
-                              seasonNumber: season.seasonNumber,
-                              episodeNumber: ep.episodeNumber,
+                              seasonNum: season.number,
+                              episodeNum: ep.number,
                               runtime: ep.runtime ?? null,
                             })
                           }

@@ -17,7 +17,7 @@ export function MovieDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { setActiveVideo, activeVideo } = useVideoPlayerStore();
+  const { setActiveVideo } = useVideoPlayerStore();
   const [showPlayer, setShowPlayer] = useState(false);
 
   const { data, isLoading } = useQuery({
