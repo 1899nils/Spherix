@@ -40,7 +40,7 @@ const POSTER_EXTS  = ['.jpg', '.jpeg', '.png', '.webp'];
 
 async function walkVideoFiles(dir: string): Promise<string[]> {
   const results: string[] = [];
-  let entries: Awaited<ReturnType<typeof fs.readdir>>;
+  let entries;
   try {
     entries = await fs.readdir(dir, { withFileTypes: true });
   } catch {
@@ -181,7 +181,7 @@ export async function scanVideoLibrary(): Promise<VideoScanProgress> {
             data:   { title: seriesName, sortTitle: seriesName.toLowerCase(), posterPath },
             select: { id: true },
           });
-        } else if (posterPath && !series) {
+        } else if (posterPath) {
           await prisma.series.update({ where: { id: series.id }, data: { posterPath } });
         }
 

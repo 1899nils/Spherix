@@ -15,7 +15,7 @@
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
-import * as mm from 'music-metadata';
+import { parseFile as mmParseFile } from 'music-metadata';
 import { prisma } from '../../config/database.js';
 import { logger } from '../../config/logger.js';
 import { env } from '../../config/env.js';
@@ -35,26 +35,24 @@ const COVER_EXTS  = ['.jpg', '.jpeg', '.png', '.webp'];
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function listAudioFiles(dir: string): Promise<string[]> {
-  let entries: Awaited<ReturnType<typeof fs.readdir>>;
   try {
-    entries = await fs.readdir(dir, { withFileTypes: true });
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    return entries
+      .filter(e => e.isFile() && AUDIO_EXTS.has(path.extname(e.name).toLowerCase()))
+      .map(e => path.join(dir, e.name))
+      .sort(); // natural order keeps chapters in sequence
   } catch {
     return [];
   }
-  return entries
-    .filter(e => e.isFile() && AUDIO_EXTS.has(path.extname(e.name).toLowerCase()))
-    .map(e => path.join(dir, e.name))
-    .sort(); // natural order keeps chapters in sequence
 }
 
 async function listSubdirs(dir: string): Promise<string[]> {
-  let entries: Awaited<ReturnType<typeof fs.readdir>>;
   try {
-    entries = await fs.readdir(dir, { withFileTypes: true });
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    return entries.filter(e => e.isDirectory()).map(e => path.join(dir, e.name));
   } catch {
     return [];
   }
-  return entries.filter(e => e.isDirectory()).map(e => path.join(dir, e.name));
 }
 
 /**
@@ -101,7 +99,7 @@ async function readTags(filePath: string): Promise<{
   chapters: Array<{ title: string; startTime: number; endTime?: number }>;
 }> {
   try {
-    const meta = await mm.parseFile(filePath, { duration: true, skipCovers: false });
+    const meta = await mmParseFile(filePath, { duration: true, skipCovers: false });
     const c    = meta.common;
     const f    = meta.format;
 
