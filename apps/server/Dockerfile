@@ -1,4 +1,6 @@
 FROM node:20-alpine AS base
+# ffmpeg provides ffprobe — used by the video scanner for codec/resolution/duration extraction
+RUN apk add --no-cache ffmpeg
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 

@@ -9,7 +9,11 @@ import { redis } from './config/redis.js';
 import { connectDatabase, prisma } from './config/database.js';
 import { logger } from './config/logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
-import { startScanWorker, stopScanWorker } from './services/scanner/index.js';
+import {
+  startScanWorker, stopScanWorker,
+  startVideoScanWorker, stopVideoScanWorker, enqueueVideoScan,
+  startAudiobookScanWorker, stopAudiobookScanWorker, enqueueAudiobookScan,
+} from './services/scanner/index.js';
 import healthRouter from './routes/health.js';
 import tracksRouter from './routes/tracks.js';
 import albumsRouter from './routes/albums.js';
@@ -144,6 +148,21 @@ app.get('/api/video/continue', async (_req, res, next) => {
 // ── Audiobooks ────────────────────────────────────────────────────────────────
 app.use('/api/audiobooks', audiobooksRouter);
 
+// ── Scan trigger routes (admin) ───────────────────────────────────────────────
+app.post('/api/video/scan', async (_req, res, next) => {
+  try {
+    const jobId = await enqueueVideoScan();
+    res.json({ ok: true, jobId });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/audiobooks/scan', async (_req, res, next) => {
+  try {
+    const jobId = await enqueueAudiobookScan();
+    res.json({ ok: true, jobId });
+  } catch (error) { next(error); }
+});
+
 // Subsonic API (compatible with Subsonic/Airsonic clients)
 app.use('/rest', subsonicRouter);
 
@@ -181,6 +200,8 @@ async function main() {
   await connectDatabase();
   await ensureDefaultUser();
   startScanWorker();
+  startVideoScanWorker();
+  startAudiobookScanWorker();
 
   const server = app.listen(env.port, () => {
     logger.info(`Server running on port ${env.port} [${env.nodeEnv}]`);
@@ -189,7 +210,7 @@ async function main() {
   // Graceful shutdown
   const shutdown = async () => {
     logger.info('Shutting down...');
-    await stopScanWorker();
+    await Promise.all([stopScanWorker(), stopVideoScanWorker(), stopAudiobookScanWorker()]);
     server.close();
     process.exit(0);
   };
