@@ -10,9 +10,9 @@ const SECTIONS: {
   accent: string;    // used for inline style on the active indicator
   accentBg: string;  // tailwind-safe class: needs to be literal
 }[] = [
-  { id: 'music',     label: 'Musik',      icon: Music,       accent: 'hsl(262 83% 77%)', accentBg: 'music' },
-  { id: 'video',     label: 'Video',      icon: Clapperboard, accent: 'hsl(213 94% 68%)', accentBg: 'video' },
-  { id: 'audiobook', label: 'Hörbücher',  icon: BookOpen,    accent: 'hsl(45 93% 47%)',  accentBg: 'audiobook' },
+  { id: 'music',     label: 'Musik',      icon: Music,        accent: 'hsl(357 92% 47%)', accentBg: 'music' },
+  { id: 'video',     label: 'Video',      icon: Clapperboard, accent: 'hsl(255 92% 76%)', accentBg: 'video' },
+  { id: 'audiobook', label: 'Hörbücher',  icon: BookOpen,     accent: 'hsl(45 93% 47%)',  accentBg: 'audiobook' },
 ];
 
 const ROOT_ROUTES: Record<AppSection, string> = {
