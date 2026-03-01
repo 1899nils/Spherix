@@ -18,7 +18,9 @@ import { Podcasts } from '@/pages/Podcasts';
 import { PodcastDetail } from '@/pages/PodcastDetail';
 import { VideoHome } from '@/pages/video/VideoHome';
 import { Movies } from '@/pages/video/Movies';
+import { MovieDetail } from '@/pages/video/MovieDetail';
 import { Series } from '@/pages/video/Series';
+import { SeriesDetail } from '@/pages/video/SeriesDetail';
 import { VideoRecentlyAdded } from '@/pages/video/RecentlyAdded';
 import { ContinueWatching } from '@/pages/video/ContinueWatching';
 import { VideoBrowse } from '@/pages/video/VideoBrowse';
@@ -33,6 +35,8 @@ import { AudiobooksBrowse } from '@/pages/audiobooks/Browse';
 import { AudiobooksGenres } from '@/pages/audiobooks/Genres';
 import { AudiobooksBookmarks } from '@/pages/audiobooks/Bookmarks';
 import { AudiobooksFavorites } from '@/pages/audiobooks/Favorites';
+import { AudiobookDetail } from '@/pages/audiobooks/AudiobookDetail';
+import { AuthorDetail } from '@/pages/audiobooks/AuthorDetail';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,7 +77,9 @@ export function App() {
             <Route path="/video" element={<VideoHome />} />
             <Route path="/video/recently-added" element={<VideoRecentlyAdded />} />
             <Route path="/video/movies" element={<Movies />} />
+            <Route path="/video/movies/:id" element={<MovieDetail />} />
             <Route path="/video/series" element={<Series />} />
+            <Route path="/video/series/:id" element={<SeriesDetail />} />
             <Route path="/video/continue" element={<ContinueWatching />} />
             <Route path="/video/browse" element={<VideoBrowse />} />
             <Route path="/video/genres" element={<VideoGenres />} />
@@ -84,11 +90,13 @@ export function App() {
             <Route path="/audiobooks" element={<AudiobooksAll />} />
             <Route path="/audiobooks/recent" element={<AudiobooksHome />} />
             <Route path="/audiobooks/authors" element={<AudiobooksAuthors />} />
+            <Route path="/audiobooks/authors/:name" element={<AuthorDetail />} />
             <Route path="/audiobooks/continue" element={<AudiobooksContinue />} />
             <Route path="/audiobooks/browse" element={<AudiobooksBrowse />} />
             <Route path="/audiobooks/genres" element={<AudiobooksGenres />} />
             <Route path="/audiobooks/bookmarks" element={<AudiobooksBookmarks />} />
             <Route path="/audiobooks/favorites" element={<AudiobooksFavorites />} />
+            <Route path="/audiobooks/:id" element={<AudiobookDetail />} />
 
             {/* Settings (section-independent) */}
             <Route path="/settings" element={<Settings />} />

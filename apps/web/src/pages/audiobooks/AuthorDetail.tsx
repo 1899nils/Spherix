@@ -1,30 +1,43 @@
-import { useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { MediaCard } from '@/components/ui/MediaCard';
-import { Play, Library } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Library } from 'lucide-react';
 import type { Audiobook } from '@musicserver/shared';
 
-interface ContinueResponse {
+interface AudiobooksResponse {
   data: Audiobook[];
+  total: number;
 }
 
-export function AudiobooksContinue() {
+export function AuthorDetail() {
+  const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
+  const decodedName = name ? decodeURIComponent(name) : '';
 
   const { data, isLoading } = useQuery({
-    queryKey: ['audiobooks-continue'],
-    queryFn: () => api.get<ContinueResponse>('/audiobooks/continue'),
+    queryKey: ['audiobooks-by-author', decodedName],
+    queryFn: () =>
+      api.get<AudiobooksResponse>(`/audiobooks?author=${encodeURIComponent(decodedName)}&pageSize=100`),
+    enabled: !!decodedName,
   });
 
   const books = data?.data ?? [];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Play className="h-6 w-6 text-section-accent" />
-        <h1 className="text-2xl font-bold">Weiterhören</h1>
-      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-2 text-muted-foreground hover:text-white"
+        onClick={() => navigate('/audiobooks/authors')}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Alle Autoren
+      </Button>
+
+      <h1 className="text-2xl font-bold">{decodedName}</h1>
 
       {isLoading && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -37,21 +50,13 @@ export function AudiobooksContinue() {
         </div>
       )}
 
-      {!isLoading && books.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-3">
-          <Play className="h-12 w-12 opacity-30" />
-          <p>Kein aktives Hörbuch</p>
-          <p className="text-xs opacity-60">Fang mit einem Hörbuch an!</p>
-        </div>
-      )}
-
       {!isLoading && books.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {books.map((book) => (
             <MediaCard
               key={book.id}
               title={book.title}
-              subtitle={book.author ?? undefined}
+              year={book.year}
               imageUrl={book.coverPath}
               progress={book.duration && book.listenProgress ? book.listenProgress / book.duration : undefined}
               aspect="square"
