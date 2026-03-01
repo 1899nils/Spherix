@@ -70,7 +70,7 @@ router.get('/recent', async (req, res, next) => {
 
 // ─── GET /api/audiobooks/continue ────────────────────────────────────────────
 
-router.get('/continue', async (req, res, next) => {
+router.get('/continue', async (_req, res, next) => {
   try {
     const books = await prisma.audiobook.findMany({
       where:   { listenProgress: { gt: 0 } },
@@ -110,7 +110,7 @@ router.get('/authors', async (req, res, next) => {
 
 // ─── GET /api/audiobooks/genres ───────────────────────────────────────────────
 
-router.get('/genres', async (req, res, next) => {
+router.get('/genres', async (_req, res, next) => {
   try {
     const genres = await prisma.genre.findMany({
       where:   { audiobooks: { some: {} } },
