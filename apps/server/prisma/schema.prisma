@@ -35,6 +35,7 @@ model UserSettings {
   lastfmApiSecret  String? @map("lastfm_api_secret")
   lastfmUsername    String? @map("lastfm_username")
   lastfmSessionKey String? @map("lastfm_session_key")
+  tmdbApiKey       String? @map("tmdb_api_key")
   theme            String  @default("dark")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -250,6 +251,8 @@ model Movie {
   overview      String?
   posterPath    String?  @map("poster_path")
   backdropPath  String?  @map("backdrop_path")
+  tmdbId        Int?     @map("tmdb_id")
+  rating        Float?
   filePath      String   @unique @map("file_path")
   fileSize      BigInt?  @map("file_size")
   codec         String?
@@ -277,6 +280,8 @@ model Series {
   overview     String?
   posterPath   String?  @map("poster_path")
   backdropPath String?  @map("backdrop_path")
+  tmdbId       Int?     @map("tmdb_id")
+  rating       Float?
   addedAt      DateTime @default(now()) @map("added_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
