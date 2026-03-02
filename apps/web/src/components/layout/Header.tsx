@@ -1,9 +1,9 @@
 import { Search, Settings as SettingsIcon, User } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { useUIStore } from '@/stores/uiStore';
 
 export function Header() {
-  const setSettingsOpen = useUIStore((state) => state.setSettingsOpen);
+  const navigate = useNavigate();
 
   return (
     <header className="h-16 flex items-center justify-between px-8 bg-background/50 backdrop-blur-md sticky top-0 z-40 border-b border-white/5">
@@ -22,11 +22,11 @@ export function Header() {
 
       {/* Right: Settings & User */}
       <div className="w-1/4 flex justify-end items-center gap-3">
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           className="hover:bg-white/10 rounded-full"
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => navigate('/settings')}
         >
           <SettingsIcon className="h-5 w-5 text-muted-foreground hover:text-white transition-colors" />
         </Button>
@@ -35,8 +35,6 @@ export function Header() {
           <User className="h-5 w-5 text-muted-foreground hover:text-white transition-colors" />
         </Button>
       </div>
-
     </header>
   );
 }
-
