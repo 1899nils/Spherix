@@ -165,7 +165,6 @@ ENV NODE_ENV=production
 ENV DATABASE_URL=postgresql://musicserver:musicserver@localhost:5432/musicserver
 ENV REDIS_URL=redis://localhost:6379
 
-VOLUME ["/music", "/data"]
 EXPOSE 80 3000
 
 ENTRYPOINT ["/sbin/tini", "--", "/docker-entrypoint.sh"]
