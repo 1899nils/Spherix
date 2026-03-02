@@ -18,6 +18,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Save,
+  Clapperboard,
+  BookOpen,
 } from 'lucide-react';
 
 interface ApiData<T> {
@@ -31,6 +33,11 @@ interface ServerSettingsData {
     nodeEnv: string;
     databaseStatus: string;
     redisStatus: string;
+  };
+  paths: {
+    music: string;
+    video: string;
+    audiobook: string;
   };
   stats: {
     albums: number;
@@ -200,6 +207,14 @@ export function Settings() {
   const scanLibrary = useMutation({
     mutationFn: (id: string) =>
       api.post<ApiData<{ jobId: string }>>(`/libraries/${id}/scan`, {}),
+  });
+
+  const scanVideo = useMutation({
+    mutationFn: () => api.post<ApiData<{ jobId: string }>>('/video/scan', {}),
+  });
+
+  const scanAudiobooks = useMutation({
+    mutationFn: () => api.post<ApiData<{ jobId: string }>>('/audiobooks/scan', {}),
   });
 
   const libraries = librariesData?.data ?? [];
@@ -465,6 +480,76 @@ export function Settings() {
             Bibliothek hinzufügen
           </Button>
         </div>
+      </section>
+
+      {/* ─── Video-Mediathek ──────────────────────────────────────────────── */}
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold">Video-Mediathek</h2>
+        <div className="flex items-center justify-between rounded-lg border border-border p-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <Clapperboard className="h-5 w-5 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="font-medium">Filme &amp; Serien</p>
+              <p className="text-sm text-muted-foreground truncate">
+                {settingsData?.data?.paths?.video ?? '/videos'}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => scanVideo.mutate()}
+            disabled={scanVideo.isPending}
+          >
+            {scanVideo.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-1" />
+            )}
+            {scanVideo.isPending ? 'Scannt…' : 'Scannen'}
+          </Button>
+        </div>
+        {scanVideo.isSuccess && (
+          <p className="text-sm text-green-400 flex items-center gap-1">
+            <CheckCircle2 className="h-4 w-4" /> Scan gestartet
+          </p>
+        )}
+      </section>
+
+      {/* ─── Hörbücher-Mediathek ───────────────────────────────────────────── */}
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold">Hörbücher-Mediathek</h2>
+        <div className="flex items-center justify-between rounded-lg border border-border p-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <BookOpen className="h-5 w-5 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="font-medium">Hörbücher</p>
+              <p className="text-sm text-muted-foreground truncate">
+                {settingsData?.data?.paths?.audiobook ?? '/audiobooks'}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => scanAudiobooks.mutate()}
+            disabled={scanAudiobooks.isPending}
+          >
+            {scanAudiobooks.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-1" />
+            )}
+            {scanAudiobooks.isPending ? 'Scannt…' : 'Scannen'}
+          </Button>
+        </div>
+        {scanAudiobooks.isSuccess && (
+          <p className="text-sm text-green-400 flex items-center gap-1">
+            <CheckCircle2 className="h-4 w-4" /> Scan gestartet
+          </p>
+        )}
       </section>
 
       {/* ─── Radio Einstellungen ───────────────────────────────────────────── */}

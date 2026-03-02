@@ -67,6 +67,12 @@ router.get('/', async (_req, res, next) => {
           databaseStatus: dbStatus,
           redisStatus,
         },
+        // Configured media paths (from env)
+        paths: {
+          music: env.musicPath,
+          video: env.videoPath,
+          audiobook: env.audiobookPath,
+        },
         // Stats
         stats: {
           albums: albumCount,
