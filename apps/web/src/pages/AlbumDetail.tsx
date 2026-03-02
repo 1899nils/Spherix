@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { formatDuration } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
-import { MetadataEditModal } from '@/components/MetadataEditModal';
+import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import { MusicBrainzLinkModal } from '@/components/MusicBrainzLinkModal';
 import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations } from '@musicserver/shared';
 import { Play, Pause, Disc3, Pencil, ExternalLink } from 'lucide-react';
@@ -14,6 +14,7 @@ export function AlbumDetail() {
   const { id } = useParams<{ id: string }>();
   const [editOpen, setEditOpen] = useState(false);
   const [mbOpen, setMbOpen] = useState(false);
+  const [editTrackId, setEditTrackId] = useState<string | null>(null);
   const [coverError, setCoverError] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -52,6 +53,38 @@ export function AlbumDetail() {
 
   // Group tracks by disc if multi-disc
   const hasMultipleDiscs = new Set(tracks.map((t: TrackWithRelations) => t.discNumber)).size > 1;
+
+  // Build initialData for the album editor
+  const albumEditorData = {
+    title:        album.title,
+    artistName:   album.artist.name,
+    year:         album.year,
+    genre:        album.genre,
+    label:        album.label,
+    country:      album.country,
+    coverUrl:     album.coverUrl,
+    totalTracks:  album.totalTracks,
+    totalDiscs:   album.totalDiscs,
+    musicbrainzId: album.musicbrainzId,
+  };
+
+  // Build initialData for the selected track editor
+  const editTrack = editTrackId ? tracks.find((t: TrackWithRelations) => t.id === editTrackId) : null;
+  const trackEditorData = editTrack ? {
+    title:        editTrack.title,
+    artistName:   editTrack.artist.name,
+    trackNumber:  editTrack.trackNumber,
+    discNumber:   editTrack.discNumber,
+    lyrics:       editTrack.lyrics,
+    format:       editTrack.format,
+    bitrate:      editTrack.bitrate,
+    sampleRate:   editTrack.sampleRate,
+    channels:     editTrack.channels,
+    duration:     editTrack.duration,
+    fileSize:     editTrack.fileSize,
+    filePath:     editTrack.filePath,
+    musicbrainzId: editTrack.musicbrainzId,
+  } : {};
 
   return (
     <div className="space-y-6">
@@ -119,9 +152,10 @@ export function AlbumDetail() {
       {/* Track List */}
       <div className="border border-border rounded-lg overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-[auto_1fr_80px] gap-4 px-4 py-2 text-xs text-muted-foreground uppercase tracking-wider border-b border-border bg-muted/30">
+        <div className="grid grid-cols-[auto_1fr_auto_80px] gap-4 px-4 py-2 text-xs text-muted-foreground uppercase tracking-wider border-b border-border bg-muted/30">
           <span className="w-8">#</span>
           <span>Titel</span>
+          <span className="w-6" />
           <span className="text-right">Dauer</span>
         </div>
 
@@ -139,7 +173,7 @@ export function AlbumDetail() {
                 </div>
               )}
               <div
-                className={`group grid grid-cols-[auto_1fr_80px] gap-4 px-4 py-2 text-sm hover:bg-muted/50 cursor-pointer transition-colors ${isCurrent ? 'bg-muted/30' : ''}`}
+                className={`group grid grid-cols-[auto_1fr_auto_80px] gap-4 px-4 py-2 text-sm hover:bg-muted/50 cursor-pointer transition-colors ${isCurrent ? 'bg-muted/30' : ''}`}
                 onClick={() => handlePlayTrack(track)}
               >
                 <span className="w-8 text-muted-foreground flex items-center">
@@ -158,6 +192,17 @@ export function AlbumDetail() {
                     </p>
                   )}
                 </div>
+                {/* Per-track edit button */}
+                <button
+                  className="w-6 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditTrackId(track.id);
+                  }}
+                  title="Track-Metadaten bearbeiten"
+                >
+                  <Pencil className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                </button>
                 <span className="text-muted-foreground text-right self-center tabular-nums">
                   {formatDuration(track.duration)}
                 </span>
@@ -175,21 +220,29 @@ export function AlbumDetail() {
         </div>
       )}
 
-      {/* Metadata Edit Modal */}
-      {editOpen && (
-        <MetadataEditModal
-          type="album"
-          id={album.id}
-          initialData={{
-            title: album.title,
-            year: album.year,
-            genre: album.genre,
-          }}
+      {/* Album Metadata Editor */}
+      {editOpen && id && (
+        <MediaMetadataEditor
+          isOpen={editOpen}
           onClose={() => setEditOpen(false)}
+          type="album"
+          id={id}
+          initialData={albumEditorData}
           onOpenMusicBrainz={() => {
             setEditOpen(false);
             setMbOpen(true);
           }}
+        />
+      )}
+
+      {/* Track Metadata Editor */}
+      {editTrackId && editTrack && (
+        <MediaMetadataEditor
+          isOpen={!!editTrackId}
+          onClose={() => setEditTrackId(null)}
+          type="track"
+          id={editTrackId}
+          initialData={trackEditorData}
         />
       )}
 
