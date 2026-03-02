@@ -7,9 +7,10 @@ services:
     restart: unless-stopped
     environment:
       - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
-      - PUBLIC_URL=${PUBLIC_URL}
-      - LASTFM_API_KEY=${LASTFM_API_KEY}
-      - LASTFM_API_SECRET=${LASTFM_API_SECRET}
+      - PUBLIC_URL=${PUBLIC_URL:-}
+      - LASTFM_API_KEY=${LASTFM_API_KEY:-}
+      - LASTFM_API_SECRET=${LASTFM_API_SECRET:-}
+      - TMDB_API_KEY=${TMDB_API_KEY:-}
       - MUSIC_PATH=/music
       - VIDEO_PATH=/videos
       - AUDIOBOOK_PATH=/audiobooks
@@ -17,10 +18,7 @@ services:
       - "80:80"
       - "3000:3000"
     volumes:
-      - spherix_data:/data
+      - ./data:/data
       - /pfad/zu/deiner/musik:/music:ro
       - /pfad/zu/deinen/videos:/videos:ro
       - /pfad/zu/deinen/hoerbuechern:/audiobooks:ro
-
-volumes:
-  spherix_data:
