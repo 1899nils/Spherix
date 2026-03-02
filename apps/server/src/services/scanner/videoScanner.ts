@@ -18,6 +18,7 @@ import { logger } from '../../config/logger.js';
 import { env } from '../../config/env.js';
 import { probeVideo } from './ffprobe.js';
 import { saveCoverArt, saveFolderCover } from './cover.service.js';
+import { searchMovie, searchSeries, fetchGenreMap } from '../metadata/tmdb.service.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -95,6 +96,78 @@ async function findPoster(dirs: string[]): Promise<string | null> {
   return null;
 }
 
+// ─── TMDb enrichment ──────────────────────────────────────────────────────────
+
+async function syncGenres(
+  type: 'movie' | 'tv',
+  genreIds: number[],
+  apiKey: string,
+): Promise<{ id: string }[]> {
+  if (genreIds.length === 0) return [];
+  const genreMap = await fetchGenreMap(type, apiKey);
+  const result: { id: string }[] = [];
+  for (const gid of genreIds) {
+    const name = genreMap.get(gid);
+    if (!name) continue;
+    const genre = await prisma.genre.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+      select: { id: true },
+    });
+    result.push(genre);
+  }
+  return result;
+}
+
+async function enrichMovie(
+  movieId: string,
+  title: string,
+  year: number | null,
+  localPoster: string | null,
+  apiKey: string,
+): Promise<void> {
+  const hit = await searchMovie(title, year, apiKey);
+  if (!hit) return;
+
+  const genres = await syncGenres('movie', hit.genreIds, apiKey);
+  await prisma.movie.update({
+    where: { id: movieId },
+    data: {
+      tmdbId:      hit.tmdbId,
+      overview:    hit.overview || undefined,
+      posterPath:  localPoster ?? hit.posterPath ?? undefined,
+      backdropPath: hit.backdropPath ?? undefined,
+      rating:      hit.rating || undefined,
+      genres:      genres.length > 0 ? { connect: genres } : undefined,
+    },
+  });
+}
+
+async function enrichSeries(
+  seriesId: string,
+  title: string,
+  year: number | null,
+  localPoster: string | null,
+  apiKey: string,
+): Promise<void> {
+  const hit = await searchSeries(title, year, apiKey);
+  if (!hit) return;
+
+  const genres = await syncGenres('tv', hit.genreIds, apiKey);
+  await prisma.series.update({
+    where: { id: seriesId },
+    data: {
+      tmdbId:      hit.tmdbId,
+      overview:    hit.overview || undefined,
+      posterPath:  localPoster ?? hit.posterPath ?? undefined,
+      backdropPath: hit.backdropPath ?? undefined,
+      rating:      hit.rating || undefined,
+      genres:      genres.length > 0 ? { connect: genres } : undefined,
+    },
+  });
+}
+
 // ─── Main scanner ─────────────────────────────────────────────────────────────
 
 export interface VideoScanProgress {
@@ -120,6 +193,16 @@ export async function scanVideoLibrary(): Promise<VideoScanProgress> {
     progress.phase   = 'done';
     progress.message = `VIDEO_PATH (${rootPath}) not found — skipping`;
     return progress;
+  }
+
+  // Fetch TMDb API key from the first user that has one configured
+  const tmdbSettings = await prisma.userSettings.findFirst({
+    where:  { tmdbApiKey: { not: null } },
+    select: { tmdbApiKey: true },
+  });
+  const tmdbApiKey = tmdbSettings?.tmdbApiKey ?? null;
+  if (tmdbApiKey) {
+    logger.info('[VideoScanner] TMDb enrichment enabled');
   }
 
   logger.info(`[VideoScanner] Scanning ${rootPath}`);
@@ -175,12 +258,19 @@ export async function scanVideoLibrary(): Promise<VideoScanProgress> {
         const posterPath = await findPoster([seriesDir, seasonDir]);
 
         // Upsert series
-        let series = await prisma.series.findFirst({ where: { title: seriesName }, select: { id: true } });
+        let series = await prisma.series.findFirst({ where: { title: seriesName }, select: { id: true, tmdbId: true } });
         if (!series) {
           series = await prisma.series.create({
             data:   { title: seriesName, sortTitle: seriesName.toLowerCase(), posterPath },
-            select: { id: true },
+            select: { id: true, tmdbId: true },
           });
+          if (tmdbApiKey && !series.tmdbId) {
+            try {
+              await enrichSeries(series.id, seriesName, null, posterPath, tmdbApiKey);
+            } catch (e) {
+              logger.warn(`[VideoScanner] TMDb enrichment failed for series "${seriesName}": ${e}`);
+            }
+          }
         } else if (posterPath) {
           await prisma.series.update({ where: { id: series.id }, data: { posterPath } });
         }
@@ -221,7 +311,7 @@ export async function scanVideoLibrary(): Promise<VideoScanProgress> {
         const posterPath   = await findPoster([movieDir]) ??
                              await saveFolderCover(filePath);
 
-        await prisma.movie.create({
+        const movie = await prisma.movie.create({
           data: {
             title,
             sortTitle:   title.toLowerCase(),
@@ -233,7 +323,16 @@ export async function scanVideoLibrary(): Promise<VideoScanProgress> {
             runtime:     probe.runtime,
             posterPath,
           },
+          select: { id: true },
         });
+
+        if (tmdbApiKey) {
+          try {
+            await enrichMovie(movie.id, title, year, posterPath, tmdbApiKey);
+          } catch (e) {
+            logger.warn(`[VideoScanner] TMDb enrichment failed for movie "${title}": ${e}`);
+          }
+        }
 
         progress.movies++;
       }

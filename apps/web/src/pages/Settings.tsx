@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import type { Library } from '@musicserver/shared';
 import { useUIStore } from '@/stores/uiStore';
 import {
-  FolderOpen,
   Loader2,
   RefreshCw,
   Music2,
@@ -74,8 +72,6 @@ function StatusDot({ status }: { status: string }) {
 }
 
 export function Settings() {
-  const [newLibName, setNewLibName] = useState('');
-  const [newLibPath, setNewLibPath] = useState('');
   const radioRegion = useUIStore((state) => state.radioRegion);
   const setRadioRegion = useUIStore((state) => state.setRadioRegion);
 
@@ -110,13 +106,6 @@ export function Settings() {
 
   const serverInfo = settingsData?.data?.server;
   const stats = settingsData?.data?.stats;
-
-  // ─── Libraries ──────────────────────────────────────────────────────────────
-
-  const { data: librariesData, refetch } = useQuery({
-    queryKey: ['libraries'],
-    queryFn: () => api.get<ApiData<Library[]>>('/libraries'),
-  });
 
   // ─── Last.fm ────────────────────────────────────────────────────────────────
 
@@ -188,25 +177,49 @@ export function Settings() {
     onSuccess: () => refetchLastfm(),
   });
 
-  const [createError, setCreateError] = useState('');
+  // ─── TMDb ────────────────────────────────────────────────────────────────────
 
-  const createLibrary = useMutation({
-    mutationFn: (data: { name: string; path: string }) =>
-      api.post<ApiData<Library>>('/libraries', data),
+  const { data: tmdbData, refetch: refetchTmdb } = useQuery({
+    queryKey: ['tmdb-status'],
+    queryFn: () => api.get<ApiData<{ configured: boolean; apiKey: string | null }>>('/tmdb/status'),
+  });
+
+  const [localTmdbApiKey, setLocalTmdbApiKey] = useState('');
+  const [tmdbFeedback, setTmdbFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  useEffect(() => {
+    if (tmdbData?.data) {
+      setLocalTmdbApiKey(tmdbData.data.apiKey || '');
+    }
+  }, [tmdbData]);
+
+  const saveTmdbConfig = useMutation({
+    mutationFn: (data: { apiKey: string }) => api.post('/tmdb/config', data),
     onSuccess: () => {
-      setNewLibName('');
-      setNewLibPath('');
-      setCreateError('');
-      refetch();
+      setTmdbFeedback({ type: 'success', message: 'TMDb API-Key gespeichert!' });
+      refetchTmdb();
+      setTimeout(() => setTmdbFeedback(null), 3000);
     },
     onError: (err: Error) => {
-      setCreateError(err.message || 'Bibliothek konnte nicht hinzugefügt werden');
+      setTmdbFeedback({ type: 'error', message: `Fehler: ${err.message}` });
     },
   });
 
-  const scanLibrary = useMutation({
-    mutationFn: (id: string) =>
-      api.post<ApiData<{ jobId: string }>>(`/libraries/${id}/scan`, {}),
+  const testTmdbConfig = useMutation({
+    mutationFn: (data: { apiKey: string }) => api.post('/tmdb/test-config', data),
+    onSuccess: () => {
+      setTmdbFeedback({ type: 'success', message: 'API-Key ist gültig!' });
+      setTimeout(() => setTmdbFeedback(null), 3000);
+    },
+    onError: (err: Error) => {
+      setTmdbFeedback({ type: 'error', message: `Test fehlgeschlagen: ${err.message}` });
+    },
+  });
+
+  // ─── Scanner mutations ───────────────────────────────────────────────────────
+
+  const scanMusic = useMutation({
+    mutationFn: () => api.post<ApiData<{ jobId: string }>>('/libraries/scan', {}),
   });
 
   const scanVideo = useMutation({
@@ -217,7 +230,6 @@ export function Settings() {
     mutationFn: () => api.post<ApiData<{ jobId: string }>>('/audiobooks/scan', {}),
   });
 
-  const libraries = librariesData?.data ?? [];
   const lastfm = lastfmData?.data;
 
   return (
@@ -411,75 +423,107 @@ export function Settings() {
         </div>
       </section>
 
-      {/* ─── Musik-Bibliotheken ────────────────────────────────────────────── */}
+      {/* ─── TMDb Einstellungen ────────────────────────────────────────────── */}
 
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Musik-Bibliotheken</h2>
-        {libraries.length > 0 && (
-          <div className="space-y-2">
-            {libraries.map((lib: Library) => (
-              <div
-                key={lib.id}
-                className="flex items-center justify-between rounded-lg border border-border p-4"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <FolderOpen className="h-5 w-5 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{lib.name}</p>
-                    <p className="text-sm text-muted-foreground truncate">{lib.path}</p>
-                    {lib.lastScannedAt && (
-                      <p className="text-xs text-muted-foreground">
-                        Zuletzt gescannt: {new Date(lib.lastScannedAt).toLocaleString('de-DE')}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => scanLibrary.mutate(lib.id)}
-                  disabled={scanLibrary.isPending}
-                >
-                  {scanLibrary.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                  )}
-                  Scannen
-                </Button>
-              </div>
-            ))}
+        <h2 className="text-xl font-semibold">TMDb Einstellungen</h2>
+        <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 bg-blue-500/10 rounded-xl flex items-center justify-center">
+              <Clapperboard className="h-6 w-6 text-blue-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-white">The Movie Database</p>
+              <p className="text-sm text-muted-foreground">
+                {tmdbData?.data?.configured
+                  ? 'API-Key konfiguriert — Metadaten werden beim nächsten Scan abgerufen.'
+                  : 'Hinterlege deinen API-Key, um Filmbeschreibungen, Poster und Bewertungen automatisch zu laden.'}
+              </p>
+            </div>
+            {tmdbData?.data?.configured && (
+              <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-3 py-1 shrink-0">
+                Konfiguriert ✓
+              </span>
+            )}
           </div>
-        )}
 
-        <div className="rounded-lg border border-border p-4 space-y-3">
-          <h3 className="text-sm font-medium">Neue Bibliothek hinzufügen</h3>
           <div className="space-y-2">
+            <label className="text-xs text-zinc-400 font-medium">API-Key</label>
             <input
-              type="text"
-              placeholder="Name (z.B. Meine Musik)"
-              value={newLibName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewLibName(e.target.value)}
-              className="w-full rounded-md border border-input bg-black px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring text-white"
-            />
-            <input
-              type="text"
-              placeholder="Pfad (z.B. /music)"
-              value={newLibPath}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewLibPath(e.target.value)}
-              className="w-full rounded-md border border-input bg-black px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring text-white"
+              type="password"
+              value={localTmdbApiKey}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalTmdbApiKey(e.target.value)}
+              placeholder="TMDb API-Key"
+              className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
             />
           </div>
-          {createError && <p className="text-sm text-red-500">{createError}</p>}
+
+          {tmdbFeedback && (
+            <p className={`text-sm flex items-center gap-1 ${tmdbFeedback.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+              {tmdbFeedback.type === 'success'
+                ? <CheckCircle2 className="h-4 w-4" />
+                : <AlertCircle className="h-4 w-4" />}
+              {tmdbFeedback.message}
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-3">
+            <Button
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
+              onClick={() => saveTmdbConfig.mutate({ apiKey: localTmdbApiKey })}
+              disabled={saveTmdbConfig.isPending || !localTmdbApiKey}
+            >
+              {saveTmdbConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Speichern
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="font-bold"
+              onClick={() => testTmdbConfig.mutate({ apiKey: localTmdbApiKey })}
+              disabled={testTmdbConfig.isPending || !localTmdbApiKey}
+            >
+              {testTmdbConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Verbindung testen
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Musik-Mediathek ───────────────────────────────────────────────── */}
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold">Musik-Mediathek</h2>
+        <div className="flex items-center justify-between rounded-lg border border-border p-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <Music className="h-5 w-5 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="font-medium">Musik</p>
+              <p className="text-sm text-muted-foreground truncate">
+                {settingsData?.data?.paths?.music ?? '/music'}
+              </p>
+            </div>
+          </div>
           <Button
-            onClick={() => createLibrary.mutate({ name: newLibName, path: newLibPath })}
-            disabled={!newLibName || !newLibPath || createLibrary.isPending}
+            variant="outline"
             size="sm"
+            onClick={() => scanMusic.mutate()}
+            disabled={scanMusic.isPending}
           >
-            {createLibrary.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-            Bibliothek hinzufügen
+            {scanMusic.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-1" />
+            )}
+            {scanMusic.isPending ? 'Scannt…' : 'Scannen'}
           </Button>
         </div>
+        {scanMusic.isSuccess && (
+          <p className="text-sm text-green-400 flex items-center gap-1">
+            <CheckCircle2 className="h-4 w-4" /> Scan gestartet
+          </p>
+        )}
       </section>
 
       {/* ─── Video-Mediathek ──────────────────────────────────────────────── */}
