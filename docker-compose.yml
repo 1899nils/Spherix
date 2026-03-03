@@ -1,8 +1,6 @@
 services:
   spherix:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/1899nils/spherix:latest
     container_name: spherix
     restart: unless-stopped
     environment:
@@ -19,14 +17,22 @@ services:
       - "3000:3000"
     volumes:
       # ── Persistente Daten ──────────────────────────────────────────────
-      # DATA_PATH steuert wo Spherix seine Daten ablegt.
-      # Standard: ./data  (neben dieser docker-compose.yml)
-      # Für Unraid/NAS: DATA_PATH=/mnt/user/appdata/spherix in .env setzen
-      # WICHTIG: data/ niemals manuell löschen und KEIN "docker compose down -v"!
-      - ${DATA_PATH:-./data}:/data
+      # spherix_data ist ein Docker-verwaltetes Volume — bleibt auch bei
+      # Container-Updates, Neuerstellungen und Reboots erhalten.
+      # Nur "docker volume rm spherix_data" löscht es wirklich.
+      #
+      # Für eigenen Pfad (Unraid/NAS/Synology): diese Zeile ersetzen durch:
+      #   - /mnt/user/appdata/spherix:/data
+      - spherix_data:/data
 
       # ── Mediatheken ────────────────────────────────────────────────────
       # Pfade in .env konfigurieren (MUSIC_DIR, VIDEO_DIR, AUDIOBOOK_DIR)
-      - ${MUSIC_DIR:-/pfad/zu/deiner/musik}:/music:ro
-      - ${VIDEO_DIR:-/pfad/zu/deinen/videos}:/videos:ro
-      - ${AUDIOBOOK_DIR:-/pfad/zu/deinen/hoerbuechern}:/audiobooks:ro
+      - ${MUSIC_DIR:-/tmp/spherix-music}:/music:ro
+      - ${VIDEO_DIR:-/tmp/spherix-videos}:/videos:ro
+      - ${AUDIOBOOK_DIR:-/tmp/spherix-audiobooks}:/audiobooks:ro
+
+# Docker-verwaltetes Volume — wird automatisch angelegt und niemals
+# automatisch gelöscht (außer mit "docker volume rm spherix_data").
+volumes:
+  spherix_data:
+    name: spherix_data
