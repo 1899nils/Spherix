@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../config/database.js';
-import { radioPoller } from '../services/radio/radio-metadata.service.js';
+import { radioPoller, type ParsedTrack } from '../services/radio/radio-metadata.service.js';
 
 const router: Router = Router();
 
@@ -50,6 +50,39 @@ router.get('/current-track', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: String(error) });
   }
+});
+
+/**
+ * SSE endpoint — pushes track changes to the client in real-time.
+ * The client connects once; whenever the server detects a new song it
+ * immediately sends `data: { track }` without the client having to poll.
+ */
+router.get('/events', async (req, res) => {
+  const userId = await getUserId(req);
+  if (!userId) {
+    res.status(401).end();
+    return;
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // disable nginx buffering
+  res.flushHeaders();
+
+  // Send the current track immediately so the client doesn't have to wait
+  const current = radioPoller.getCurrentTrack(userId);
+  res.write(`data: ${JSON.stringify({ track: current })}\n\n`);
+
+  const send = (track: ParsedTrack | null) => {
+    res.write(`data: ${JSON.stringify({ track })}\n\n`);
+  };
+
+  radioPoller.subscribe(userId, send);
+
+  req.on('close', () => {
+    radioPoller.unsubscribe(userId, send);
+  });
 });
 
 /** Stop ICY metadata polling for the current user */
