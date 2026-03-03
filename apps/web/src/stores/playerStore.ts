@@ -50,7 +50,7 @@ interface PlayerState {
   // Internal
   _howl: Howl | null;
   _seekInterval: ReturnType<typeof setInterval> | null;
-  _radioTrackInterval: ReturnType<typeof setInterval> | null;
+  _radioEventSource: EventSource | null;
 
   // Actions
   playTrack: (track: TrackWithRelations, queue?: TrackWithRelations[]) => void;
@@ -77,8 +77,8 @@ function stopSeekUpdates(state: PlayerState) {
 }
 
 function stopRadioTrackPolling(state: PlayerState) {
-  if (state._radioTrackInterval) {
-    clearInterval(state._radioTrackInterval);
+  if (state._radioEventSource) {
+    state._radioEventSource.close();
   }
 }
 
@@ -101,7 +101,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   _howl: null,
   _seekInterval: null,
-  _radioTrackInterval: null,
+  _radioEventSource: null,
 
   playTrack: (track, queue) => {
     const state = get();
@@ -115,7 +115,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
     stopSeekUpdates(state);
     stopRadioTrackPolling(state);
-    set({ currentRadioTrack: null, _radioTrackInterval: null });
+    set({ currentRadioTrack: null, _radioEventSource: null });
 
     const newQueue = queue || state.queue;
     const newIndex = newQueue.findIndex((t) => 'id' in t && t.id === track.id);
@@ -224,23 +224,24 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     stopRadioTrackPolling(state);
 
     const startRadioTrackPolling = () => {
-      // Poll every 10s to get the currently playing radio track metadata
-      const pollCurrentTrack = () => {
-        fetch('/api/radio/current-track', { credentials: 'include' })
-          .then((r) => r.json())
-          .then((data: { track: { artist: string; title: string } | null }) => {
-            set({ currentRadioTrack: data.track ?? null });
-          })
-          .catch(() => {});
+      // Connect to SSE — the server pushes track changes instantly instead of polling
+      const es = new EventSource('/api/radio/events', { withCredentials: true });
+      es.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data as string) as {
+            track: { artist: string; title: string } | null;
+          };
+          set({ currentRadioTrack: data.track ?? null });
+        } catch {
+          // ignore malformed frames
+        }
       };
-      pollCurrentTrack(); // immediate
-      const interval = setInterval(pollCurrentTrack, 10_000);
-      set({ _radioTrackInterval: interval });
+      set({ _radioEventSource: es });
     };
 
     const stopRadioPolling = () => {
       stopRadioTrackPolling(get());
-      set({ isPlaying: false, currentRadioTrack: null, _radioTrackInterval: null });
+      set({ isPlaying: false, currentRadioTrack: null, _radioEventSource: null });
       fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
     };
 
@@ -273,7 +274,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       seek: 0,
       duration: 0,
       currentRadioTrack: null,
-      _radioTrackInterval: null,
+      _radioEventSource: null,
     });
 
     howl.play();
@@ -287,7 +288,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (state._howl) state._howl.unload();
     stopSeekUpdates(state);
     stopRadioTrackPolling(state);
-    set({ currentRadioTrack: null, _radioTrackInterval: null });
+    set({ currentRadioTrack: null, _radioEventSource: null });
 
     const howl = new Howl({
       src: [episode.audioUrl],

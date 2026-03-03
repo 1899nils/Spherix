@@ -4,7 +4,7 @@ import { lastfmService, type LastfmTrackInfo } from '../lastfm/lastfm.service.js
 import { searchRecording } from '../musicbrainz/musicbrainz.service.js';
 import { prisma } from '../../config/database.js';
 
-const POLL_INTERVAL_MS = 30_000; // Poll every 30 seconds
+const POLL_INTERVAL_MS = 10_000; // Poll every 10 seconds
 /** Fallback minimum listen time when track duration is unknown */
 const MIN_SCROBBLE_SECONDS = 30;
 /** Scrobble only after listening to this fraction of the track */
@@ -195,6 +195,22 @@ interface PollerState {
 
 class RadioPollerManager {
   private readonly pollers = new Map<string, PollerState>();
+  private readonly listeners = new Map<string, Set<(track: ParsedTrack | null) => void>>();
+
+  /** Subscribe to real-time track changes for a user (used by SSE). */
+  subscribe(userId: string, cb: (track: ParsedTrack | null) => void): void {
+    if (!this.listeners.has(userId)) this.listeners.set(userId, new Set());
+    this.listeners.get(userId)!.add(cb);
+  }
+
+  /** Unsubscribe a previously registered callback. */
+  unsubscribe(userId: string, cb: (track: ParsedTrack | null) => void): void {
+    this.listeners.get(userId)?.delete(cb);
+  }
+
+  private notifyListeners(userId: string, track: ParsedTrack | null): void {
+    this.listeners.get(userId)?.forEach((cb) => cb(track));
+  }
 
   /**
    * Start polling ICY metadata for a user's radio station.
@@ -231,6 +247,7 @@ class RadioPollerManager {
 
     if (state.timer) clearInterval(state.timer);
     this.pollers.delete(userId);
+    this.notifyListeners(userId, null);
     logger.info(`Radio metadata polling stopped`, { userId });
   }
 
@@ -254,11 +271,13 @@ class RadioPollerManager {
       // Only update Now Playing / current track if this is actual music
       if (!isMusicTrack(parsed, state.stationName, rawTitle)) {
         state.currentParsed = null;
+        this.notifyListeners(userId, null);
         logger.info(`Radio non-music content skipped: "${rawTitle}"`, { userId });
         return;
       }
 
       state.currentParsed = parsed;
+      this.notifyListeners(userId, parsed);
       logger.info(`Radio track detected: "${rawTitle}" → ${parsed.artist} – ${parsed.title}`, { userId });
 
       // 1) Send now-playing immediately with ICY-parsed names — zero lag
