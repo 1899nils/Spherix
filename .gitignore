@@ -19,6 +19,7 @@ prisma/migrations/**/migration_lock.toml
 .DS_Store
 Thumbs.db
 
-# Docker volumes
+# Docker data (bind-mount directory — never commit, never git clean -fd this!)
+data/
 pgdata
 redisdata
