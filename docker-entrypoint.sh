@@ -59,8 +59,13 @@ if [ ! -f "/data/postgres/PG_VERSION" ]; then
   echo "listen_addresses = 'localhost'" >> /data/postgres/postgresql.conf
 
   # Temporär starten für User/DB-Anlage
-  su postgres -c "pg_ctl -D /data/postgres -l /data/logs/postgres.log start -w" \
-    >> /data/logs/postgres.log 2>&1
+  su postgres -c "pg_ctl -D /data/postgres -l /data/logs/postgres.log start -w"
+  # Warten bis PostgreSQL Verbindungen akzeptiert
+  i=0
+  while ! su postgres -c "pg_isready -q" 2>/dev/null; do
+    [ $i -ge 30 ] && { echo "  ✗ PostgreSQL startet nicht (Timeout)"; exit 1; }
+    sleep 1; i=$((i+1))
+  done
   su postgres -c "psql -c \"CREATE USER musicserver WITH PASSWORD 'musicserver';\""
   su postgres -c "psql -c \"CREATE DATABASE musicserver OWNER musicserver;\""
   su postgres -c "pg_ctl -D /data/postgres stop -m fast -w" \
@@ -89,6 +94,16 @@ echo "[4/6] Temporäre Services für Migrationen..."
 
 su postgres -c "pg_ctl -D /data/postgres -l /data/logs/postgres.log start -w" \
   >> /data/logs/postgres.log 2>&1
+
+# Recovery: Benutzer/Datenbank anlegen falls Initialisierung vorher fehlgeschlagen
+if ! su postgres -c "psql -tAc \"SELECT 1 FROM pg_roles WHERE rolname='musicserver'\"" 2>/dev/null | grep -q 1; then
+  echo "  ! Benutzer 'musicserver' fehlt — wird angelegt..."
+  su postgres -c "psql -c \"CREATE USER musicserver WITH PASSWORD 'musicserver';\""
+fi
+if ! su postgres -c "psql -tAc \"SELECT 1 FROM pg_database WHERE datname='musicserver'\"" 2>/dev/null | grep -q 1; then
+  echo "  ! Datenbank 'musicserver' fehlt — wird angelegt..."
+  su postgres -c "psql -c \"CREATE DATABASE musicserver OWNER musicserver;\""
+fi
 
 redis-server --dir /data/redis --appendonly yes --daemonize yes \
   >> /data/logs/redis.log 2>&1
