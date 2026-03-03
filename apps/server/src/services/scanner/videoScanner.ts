@@ -181,8 +181,8 @@ export interface VideoScanProgress {
   message?: string;
 }
 
-export async function scanVideoLibrary(): Promise<VideoScanProgress> {
-  const rootPath = env.videoPath;
+export async function scanVideoLibrary(overridePath?: string): Promise<VideoScanProgress> {
+  const rootPath = overridePath ?? env.videoPath;
   const progress: VideoScanProgress = {
     phase: 'discovering', total: 0, done: 0,
     movies: 0, episodes: 0, skipped: 0, errors: 0,

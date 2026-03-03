@@ -5,7 +5,11 @@ import { scanVideoLibrary } from './videoScanner.js';
 
 const QUEUE_NAME = 'video-scan';
 
-export const videoScanQueue = new Queue(QUEUE_NAME, {
+interface VideoScanJobData {
+  rootPath?: string;
+}
+
+export const videoScanQueue = new Queue<VideoScanJobData>(QUEUE_NAME, {
   connection: { url: env.redisUrl },
   defaultJobOptions: {
     attempts:         1,
@@ -14,16 +18,17 @@ export const videoScanQueue = new Queue(QUEUE_NAME, {
   },
 });
 
-let worker: Worker | null = null;
+let worker: Worker<VideoScanJobData> | null = null;
 
 export function startVideoScanWorker(): void {
   if (worker) return;
 
-  worker = new Worker(
+  worker = new Worker<VideoScanJobData>(
     QUEUE_NAME,
-    async (_job: Job) => {
-      logger.info('[VideoScanWorker] Starting video library scan');
-      return await scanVideoLibrary();
+    async (job: Job<VideoScanJobData>) => {
+      const rootPath = job.data.rootPath ?? env.videoPath;
+      logger.info(`[VideoScanWorker] Starting video library scan at ${rootPath}`);
+      return await scanVideoLibrary(rootPath);
     },
     {
       connection:  { url: env.redisUrl },
@@ -41,14 +46,14 @@ export function startVideoScanWorker(): void {
   logger.info('Video scan worker started');
 }
 
-export async function enqueueVideoScan(): Promise<string> {
+export async function enqueueVideoScan(rootPath?: string): Promise<string> {
   const active = await videoScanQueue.getJobs(['active', 'waiting']);
   if (active.length > 0) {
     logger.info('[VideoScanQueue] Scan already queued, skipping');
     return active[0].id!;
   }
-  const job = await videoScanQueue.add('scan', {});
-  logger.info(`[VideoScanQueue] Enqueued video scan job ${job.id}`);
+  const job = await videoScanQueue.add('scan', { rootPath });
+  logger.info(`[VideoScanQueue] Enqueued video scan job ${job.id} (path: ${rootPath ?? 'default'})`);
   return job.id!;
 }
 

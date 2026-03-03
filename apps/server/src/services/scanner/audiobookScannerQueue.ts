@@ -5,7 +5,11 @@ import { scanAudiobookLibrary } from './audiobookScanner.js';
 
 const QUEUE_NAME = 'audiobook-scan';
 
-export const audiobookScanQueue = new Queue(QUEUE_NAME, {
+interface AudiobookScanJobData {
+  rootPath?: string;
+}
+
+export const audiobookScanQueue = new Queue<AudiobookScanJobData>(QUEUE_NAME, {
   connection: { url: env.redisUrl },
   defaultJobOptions: {
     attempts:         1,
@@ -14,16 +18,17 @@ export const audiobookScanQueue = new Queue(QUEUE_NAME, {
   },
 });
 
-let worker: Worker | null = null;
+let worker: Worker<AudiobookScanJobData> | null = null;
 
 export function startAudiobookScanWorker(): void {
   if (worker) return;
 
-  worker = new Worker(
+  worker = new Worker<AudiobookScanJobData>(
     QUEUE_NAME,
-    async (_job: Job) => {
-      logger.info('[AudiobookScanWorker] Starting audiobook library scan');
-      return await scanAudiobookLibrary();
+    async (job: Job<AudiobookScanJobData>) => {
+      const rootPath = job.data.rootPath ?? env.audiobookPath;
+      logger.info(`[AudiobookScanWorker] Starting audiobook library scan at ${rootPath}`);
+      return await scanAudiobookLibrary(rootPath);
     },
     {
       connection:  { url: env.redisUrl },
@@ -41,14 +46,14 @@ export function startAudiobookScanWorker(): void {
   logger.info('Audiobook scan worker started');
 }
 
-export async function enqueueAudiobookScan(): Promise<string> {
+export async function enqueueAudiobookScan(rootPath?: string): Promise<string> {
   const active = await audiobookScanQueue.getJobs(['active', 'waiting']);
   if (active.length > 0) {
     logger.info('[AudiobookScanQueue] Scan already queued, skipping');
     return active[0].id!;
   }
-  const job = await audiobookScanQueue.add('scan', {});
-  logger.info(`[AudiobookScanQueue] Enqueued audiobook scan job ${job.id}`);
+  const job = await audiobookScanQueue.add('scan', { rootPath });
+  logger.info(`[AudiobookScanQueue] Enqueued audiobook scan job ${job.id} (path: ${rootPath ?? 'default'})`);
   return job.id!;
 }
 
