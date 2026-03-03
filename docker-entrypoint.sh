@@ -69,7 +69,7 @@ if [ ! -f "/data/postgres/PG_VERSION" ]; then
   echo "  ✓ PostgreSQL initialisiert und Benutzer angelegt"
 else
   # PostgreSQL-Versionsprüfung
-  PG_BIN_VERSION=$(postgres --version 2>/dev/null | grep -oP '\d+' | head -1)
+  PG_BIN_VERSION=$(postgres --version 2>/dev/null | awk '{print $3}' | cut -d. -f1)
   PG_DATA_VERSION=$(cat /data/postgres/PG_VERSION | cut -d. -f1)
 
   if [ "$PG_BIN_VERSION" != "$PG_DATA_VERSION" ]; then
