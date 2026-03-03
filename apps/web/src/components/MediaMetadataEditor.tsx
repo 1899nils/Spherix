@@ -4,7 +4,7 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
   X, Loader2, FileText, Image as ImageIcon, Info,
-  Music, AlignLeft, Lock, Search, Upload,
+  Music, AlignLeft, Lock, Search, Upload, Film, Tv, Headphones,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 export interface MediaMetadataEditorProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'album' | 'track';
+  type: 'album' | 'track' | 'movie' | 'series' | 'episode' | 'audiobook';
   id: string;
   initialData: Record<string, unknown>;
   onOpenMusicBrainz?: () => void;
@@ -40,6 +40,37 @@ const TRACK_TABS: Tab[] = [
   { id: 'lyrics',  label: 'Lyrics',    icon: AlignLeft },
   { id: 'info',    label: 'Info',      icon: Info },
 ];
+
+const MOVIE_TABS: Tab[] = [
+  { id: 'general', label: 'Allgemein', icon: Film },
+  { id: 'info',    label: 'Info',      icon: Info },
+];
+
+const SERIES_TABS: Tab[] = [
+  { id: 'general', label: 'Allgemein', icon: Tv },
+  { id: 'info',    label: 'Info',      icon: Info },
+];
+
+const EPISODE_TABS: Tab[] = [
+  { id: 'general', label: 'Allgemein', icon: Film },
+  { id: 'info',    label: 'Info',      icon: Info },
+];
+
+const AUDIOBOOK_TABS: Tab[] = [
+  { id: 'general', label: 'Allgemein', icon: Headphones },
+  { id: 'info',    label: 'Info',      icon: Info },
+];
+
+function getTabsForType(type: MediaMetadataEditorProps['type']): Tab[] {
+  switch (type) {
+    case 'album':     return ALBUM_TABS;
+    case 'track':     return TRACK_TABS;
+    case 'movie':     return MOVIE_TABS;
+    case 'series':    return SERIES_TABS;
+    case 'episode':   return EPISODE_TABS;
+    case 'audiobook': return AUDIOBOOK_TABS;
+  }
+}
 
 // ── Field label with optional lock icon ──────────────────────────────────────
 
@@ -305,13 +336,153 @@ function TrackInfoTab({ form }: { form: Record<string, string> }) {
   );
 }
 
+// ── Movie tab panels ──────────────────────────────────────────────────────────
+
+function MovieGeneralTab({ form, onChange }: {
+  form: Record<string, string>;
+  onChange: (key: string, val: string) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} />
+      <div className="grid grid-cols-2 gap-4">
+        <NumberField label="Jahr"            value={form.year ?? ''}    onChange={v => onChange('year', v)} />
+        <NumberField label="Laufzeit (Min.)" value={form.runtime ?? ''} onChange={v => onChange('runtime', v)} />
+      </div>
+      <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={6} />
+    </div>
+  );
+}
+
+function MovieInfoTab({ form }: { form: Record<string, string> }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <ReadonlyField label="Codec"     value={form.codec ?? ''} />
+        <ReadonlyField label="Auflösung" value={form.resolution ?? ''} />
+      </div>
+      {form.tmdbId && <ReadonlyField label="TMDb ID" value={form.tmdbId} />}
+      <div>
+        <FieldLabel label="Dateipfad" />
+        <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-xs text-muted-foreground break-all">
+          {form.filePath || '–'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Series tab panels ─────────────────────────────────────────────────────────
+
+function SeriesGeneralTab({ form, onChange }: {
+  form: Record<string, string>;
+  onChange: (key: string, val: string) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} />
+      <NumberField label="Jahr" value={form.year ?? ''} onChange={v => onChange('year', v)} />
+      <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={6} />
+    </div>
+  );
+}
+
+function SeriesInfoTab({ form }: { form: Record<string, string> }) {
+  return (
+    <div className="space-y-4">
+      {form.tmdbId && <ReadonlyField label="TMDb ID" value={form.tmdbId} />}
+      <div className="rounded-md bg-muted/40 border border-border p-3 text-xs text-muted-foreground">
+        <p>Weitere Metadaten werden beim nächsten Scan automatisch aktualisiert.</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Episode tab panels ────────────────────────────────────────────────────────
+
+function EpisodeGeneralTab({ form, onChange }: {
+  form: Record<string, string>;
+  onChange: (key: string, val: string) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} />
+      <div className="grid grid-cols-2 gap-4">
+        <NumberField label="Folge-Nr."        value={form.number ?? ''}  onChange={v => onChange('number', v)} />
+        <NumberField label="Laufzeit (Min.)"  value={form.runtime ?? ''} onChange={v => onChange('runtime', v)} />
+      </div>
+      <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={5} />
+    </div>
+  );
+}
+
+function EpisodeInfoTab({ form }: { form: Record<string, string> }) {
+  const formatFileSize = (bytes: string) => {
+    const n = parseInt(bytes);
+    if (!n) return '–';
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <ReadonlyField label="Codec"      value={form.codec ?? ''} />
+        <ReadonlyField label="Auflösung"  value={form.resolution ?? ''} />
+      </div>
+      <ReadonlyField label="Dateigröße" value={formatFileSize(form.fileSize ?? '')} />
+    </div>
+  );
+}
+
+// ── Audiobook tab panels ──────────────────────────────────────────────────────
+
+function AudiobookGeneralTab({ form, onChange }: {
+  form: Record<string, string>;
+  onChange: (key: string, val: string) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} />
+      <div className="grid grid-cols-2 gap-4">
+        <TextField   label="Autor" value={form.author ?? ''} onChange={v => onChange('author', v)} />
+        <NumberField label="Jahr"  value={form.year ?? ''}   onChange={v => onChange('year', v)} />
+      </div>
+      <TextField label="Sprecher" value={form.narrator ?? ''} onChange={v => onChange('narrator', v)} />
+      <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={5} />
+    </div>
+  );
+}
+
+function AudiobookInfoTab({ form }: { form: Record<string, string> }) {
+  const formatDurationSecs = (secs: string) => {
+    const n = parseInt(secs);
+    if (!n) return '–';
+    const h = Math.floor(n / 3600);
+    const m = Math.floor((n % 3600) / 60);
+    return h > 0 ? `${h}h ${m}min` : `${m}min`;
+  };
+
+  return (
+    <div className="space-y-4">
+      <ReadonlyField label="Gesamtdauer" value={formatDurationSecs(form.duration ?? '')} />
+      <div>
+        <FieldLabel label="Dateipfad" />
+        <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-xs text-muted-foreground break-all">
+          {form.filePath || '–'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function MediaMetadataEditor({
   isOpen, onClose, type, id, initialData, onOpenMusicBrainz,
 }: MediaMetadataEditorProps) {
   const queryClient = useQueryClient();
-  const tabs = type === 'album' ? ALBUM_TABS : TRACK_TABS;
+  const tabs = getTabsForType(type);
   const [activeTab, setActiveTab] = useState<TabId>(tabs[0].id);
 
   // Flatten initialData to string form for controlled inputs
@@ -334,7 +505,7 @@ export function MediaMetadataEditor({
   // Build payload: only changed fields
   const buildPayload = () => {
     const changes: Record<string, unknown> = {};
-    const numericKeys = ['year', 'trackNumber', 'discNumber'];
+    const numericKeys = ['year', 'trackNumber', 'discNumber', 'runtime', 'number'];
     for (const k of Object.keys(form)) {
       const newVal = form[k];
       const oldVal = toStr(initialData[k]);
@@ -349,10 +520,21 @@ export function MediaMetadataEditor({
     return changes;
   };
 
-  const endpoint = type === 'album' ? `/albums/${id}` : `/tracks/${id}`;
-  const queryKeys = type === 'album'
-    ? [['album', id], ['albums']]
-    : [['album'], ['tracks']];
+  const endpoint =
+    type === 'album'     ? `/albums/${id}` :
+    type === 'track'     ? `/tracks/${id}` :
+    type === 'movie'     ? `/video/movies/${id}` :
+    type === 'series'    ? `/video/series/${id}` :
+    type === 'episode'   ? `/video/episodes/${id}` :
+    `/audiobooks/${id}`;
+
+  const queryKeys: string[][] =
+    type === 'album'     ? [['album', id], ['albums']] :
+    type === 'track'     ? [['album'], ['tracks']] :
+    type === 'movie'     ? [['movie', id], ['movies']] :
+    type === 'series'    ? [['series', id]] :
+    type === 'episode'   ? [['series']] :
+    [['audiobook', id], ['audiobooks']];
 
   const mutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => api.patch(endpoint, data),
@@ -373,11 +555,15 @@ export function MediaMetadataEditor({
     }
   };
 
-  const title = type === 'album'
-    ? (initialData.title as string || 'Album')
-    : (initialData.title as string || 'Track');
+  const title = (initialData.title as string) || type;
 
-  const typeLabel = type === 'album' ? 'Album' : 'Track';
+  const typeLabel =
+    type === 'album'     ? 'Album' :
+    type === 'track'     ? 'Track' :
+    type === 'movie'     ? 'Film' :
+    type === 'series'    ? 'Serie' :
+    type === 'episode'   ? 'Episode' :
+    'Hörbuch';
 
   if (!isOpen) return null;
 
@@ -451,13 +637,45 @@ export function MediaMetadataEditor({
             {type === 'track' && activeTab === 'info' && (
               <TrackInfoTab form={form} />
             )}
+
+            {/* Movie tabs */}
+            {type === 'movie' && activeTab === 'general' && (
+              <MovieGeneralTab form={form} onChange={handleChange} />
+            )}
+            {type === 'movie' && activeTab === 'info' && (
+              <MovieInfoTab form={form} />
+            )}
+
+            {/* Series tabs */}
+            {type === 'series' && activeTab === 'general' && (
+              <SeriesGeneralTab form={form} onChange={handleChange} />
+            )}
+            {type === 'series' && activeTab === 'info' && (
+              <SeriesInfoTab form={form} />
+            )}
+
+            {/* Episode tabs */}
+            {type === 'episode' && activeTab === 'general' && (
+              <EpisodeGeneralTab form={form} onChange={handleChange} />
+            )}
+            {type === 'episode' && activeTab === 'info' && (
+              <EpisodeInfoTab form={form} />
+            )}
+
+            {/* Audiobook tabs */}
+            {type === 'audiobook' && activeTab === 'general' && (
+              <AudiobookGeneralTab form={form} onChange={handleChange} />
+            )}
+            {type === 'audiobook' && activeTab === 'info' && (
+              <AudiobookInfoTab form={form} />
+            )}
           </div>
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-border shrink-0">
           <div className="text-xs text-muted-foreground">
-            {isLocked && (
+            {isLocked && (type === 'album' || type === 'track') && (
               <span className="flex items-center gap-1">
                 <Lock className="h-3 w-3" />
                 MusicBrainz-verknüpft

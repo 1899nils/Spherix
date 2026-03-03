@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -5,7 +6,8 @@ import { useAudiobookPlayerStore } from '@/stores/audiobookPlayerStore';
 import { Button } from '@/components/ui/button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { formatDuration, formatHoursMinutes } from '@/lib/utils';
-import { Play, Pause, ArrowLeft, Library, Headphones } from 'lucide-react';
+import { Play, Pause, ArrowLeft, Library, Headphones, Pencil } from 'lucide-react';
+import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import type { AudiobookDetail as AudiobookDetailType } from '@musicserver/shared';
 
 interface AudiobookDetailResponse {
@@ -17,6 +19,7 @@ export function AudiobookDetail() {
   const navigate = useNavigate();
   const { currentBook, chapterIndex, isPlaying, playBook, togglePlay } =
     useAudiobookPlayerStore();
+  const [showEditor, setShowEditor] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['audiobook', id],
@@ -149,22 +152,52 @@ export function AudiobookDetail() {
             </div>
           )}
 
-          {/* Play button */}
-          <Button
-            size="lg"
-            className="gap-2 bg-section-accent hover:bg-section-accent/90 text-white shadow-lg"
-            onClick={() => (isThisBook ? togglePlay() : handlePlay(0))}
-          >
-            {isThisBook && isPlaying ? (
-              <><Pause className="h-5 w-5 fill-current" /> Pause</>
-            ) : (
-              <><Play className="h-5 w-5 fill-current" />
-                {(book.listenProgress ?? 0) > 60 ? 'Weiterhören' : 'Abspielen'}
-              </>
-            )}
-          </Button>
+          {/* Play / Edit buttons */}
+          <div className="flex items-center gap-3">
+            <Button
+              size="lg"
+              className="gap-2 bg-section-accent hover:bg-section-accent/90 text-white shadow-lg"
+              onClick={() => (isThisBook ? togglePlay() : handlePlay(0))}
+            >
+              {isThisBook && isPlaying ? (
+                <><Pause className="h-5 w-5 fill-current" /> Pause</>
+              ) : (
+                <><Play className="h-5 w-5 fill-current" />
+                  {(book.listenProgress ?? 0) > 60 ? 'Weiterhören' : 'Abspielen'}
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-10 w-10"
+              onClick={() => setShowEditor(true)}
+              title="Metadaten bearbeiten"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Metadata editor */}
+      {book && (
+        <MediaMetadataEditor
+          isOpen={showEditor}
+          onClose={() => setShowEditor(false)}
+          type="audiobook"
+          id={book.id}
+          initialData={{
+            title:    book.title,
+            author:   book.author,
+            year:     book.year,
+            narrator: book.narrator,
+            overview: book.overview,
+            duration: book.duration,
+            filePath: book.filePath,
+          }}
+        />
+      )}
 
       {/* Chapter list */}
       {hasChapters && (
