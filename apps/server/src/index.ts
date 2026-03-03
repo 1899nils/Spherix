@@ -24,7 +24,7 @@ import playlistsRouter from './routes/playlists.js';
 import lastfmRouter from './routes/lastfm.js';
 import tmdbRouter from './routes/tmdb.js';
 import radioRouter from './routes/radio.js';
-import settingsRouter from './routes/settings.js';
+import settingsRouter, { getMediaPaths } from './routes/settings.js';
 import podcastsRouter from './routes/podcasts.js';
 import moviesRouter from './routes/video/movies.js';
 import { seriesRouter, episodesRouter } from './routes/video/series.js';
@@ -153,15 +153,17 @@ app.use('/api/audiobooks', audiobooksRouter);
 // ── Scan trigger routes (admin) ───────────────────────────────────────────────
 app.post('/api/video/scan', async (_req, res, next) => {
   try {
-    const jobId = await enqueueVideoScan();
-    res.json({ ok: true, jobId });
+    const paths = await getMediaPaths(null);
+    const jobId = await enqueueVideoScan(paths.video);
+    res.json({ ok: true, jobId, path: paths.video });
   } catch (error) { next(error); }
 });
 
 app.post('/api/audiobooks/scan', async (_req, res, next) => {
   try {
-    const jobId = await enqueueAudiobookScan();
-    res.json({ ok: true, jobId });
+    const paths = await getMediaPaths(null);
+    const jobId = await enqueueAudiobookScan(paths.audiobook);
+    res.json({ ok: true, jobId, path: paths.audiobook });
   } catch (error) { next(error); }
 });
 

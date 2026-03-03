@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../config/database.js';
-import { env } from '../config/env.js';
 import { enqueueScan, scanQueue } from '../services/scanner/index.js';
+import { getMediaPaths } from './settings.js';
 
 const router: Router = Router();
 
@@ -37,17 +37,21 @@ router.post('/', async (req, res, next) => {
 
 /**
  * POST /api/libraries/scan
- * Find-or-create the default music library (env.musicPath) and enqueue a scan.
+ * Find-or-create the music library using the user-configured path (or env default)
+ * and enqueue a scan.
  */
 router.post('/scan', async (_req, res, next) => {
   try {
+    const paths = await getMediaPaths(null);
+    const musicPath = paths.music;
+
     const library = await prisma.library.upsert({
-      where: { path: env.musicPath },
+      where:  { path: musicPath },
       update: {},
-      create: { name: 'Musik', path: env.musicPath },
+      create: { name: 'Musik', path: musicPath },
     });
     const jobId = await enqueueScan(library.id);
-    res.json({ data: { jobId, message: 'Scan queued' } });
+    res.json({ data: { jobId, path: musicPath, message: 'Scan queued' } });
   } catch (error) {
     next(error);
   }

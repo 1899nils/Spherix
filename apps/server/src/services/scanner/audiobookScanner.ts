@@ -146,8 +146,8 @@ export interface AudiobookScanProgress {
   message?: string;
 }
 
-export async function scanAudiobookLibrary(): Promise<AudiobookScanProgress> {
-  const rootPath = env.audiobookPath;
+export async function scanAudiobookLibrary(overridePath?: string): Promise<AudiobookScanProgress> {
+  const rootPath = overridePath ?? env.audiobookPath;
   const progress: AudiobookScanProgress = {
     phase: 'discovering', total: 0, done: 0,
     books: 0, chapters: 0, skipped: 0, errors: 0,

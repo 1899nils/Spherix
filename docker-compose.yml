@@ -18,7 +18,15 @@ services:
       - "80:80"
       - "3000:3000"
     volumes:
-      - ./data:/data
-      - /pfad/zu/deiner/musik:/music:ro
-      - /pfad/zu/deinen/videos:/videos:ro
-      - /pfad/zu/deinen/hoerbuechern:/audiobooks:ro
+      # ── Persistente Daten ──────────────────────────────────────────────
+      # DATA_PATH steuert wo Spherix seine Daten ablegt.
+      # Standard: ./data  (neben dieser docker-compose.yml)
+      # Für Unraid/NAS: DATA_PATH=/mnt/user/appdata/spherix in .env setzen
+      # WICHTIG: data/ niemals manuell löschen und KEIN "docker compose down -v"!
+      - ${DATA_PATH:-./data}:/data
+
+      # ── Mediatheken ────────────────────────────────────────────────────
+      # Pfade in .env konfigurieren (MUSIC_DIR, VIDEO_DIR, AUDIOBOOK_DIR)
+      - ${MUSIC_DIR:-/pfad/zu/deiner/musik}:/music:ro
+      - ${VIDEO_DIR:-/pfad/zu/deinen/videos}:/videos:ro
+      - ${AUDIOBOOK_DIR:-/pfad/zu/deinen/hoerbuechern}:/audiobooks:ro

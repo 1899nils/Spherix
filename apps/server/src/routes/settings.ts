@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { redis } from '../config/redis.js';
 import { prisma } from '../config/database.js';
 import { env } from '../config/env.js';
@@ -32,13 +32,38 @@ export async function getServerSettings(): Promise<ServerSettings> {
   };
 }
 
+/** Resolve user ID from session or fall back to first user in DB. */
+async function getUserId(req: Request): Promise<string | null> {
+  const sessionUserId = (req.session as unknown as Record<string, unknown>)?.userId as string | undefined;
+  if (sessionUserId) return sessionUserId;
+  const user = await prisma.user.findFirst({ select: { id: true } });
+  return user?.id ?? null;
+}
+
+/** Read media paths from UserSettings, falling back to env defaults. */
+export async function getMediaPaths(userId: string | null) {
+  const row = userId
+    ? await prisma.userSettings.findUnique({
+        where: { userId },
+        select: { musicPath: true, videoPath: true, audiobookPath: true },
+      })
+    : null;
+  return {
+    music:     row?.musicPath     ?? env.musicPath,
+    video:     row?.videoPath     ?? env.videoPath,
+    audiobook: row?.audiobookPath ?? env.audiobookPath,
+  };
+}
+
 /**
  * GET /api/settings
  * Returns server settings + read-only server info + library stats.
  */
-router.get('/', async (_req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
     const settings = await getServerSettings();
+    const userId = await getUserId(req);
+    const paths = await getMediaPaths(userId);
 
     // Read-only server info
     const redisStatus = redis.status === 'ready' ? 'ok' : 'error';
@@ -60,18 +85,14 @@ router.get('/', async (_req, res, next) => {
       data: {
         // Editable settings
         publicUrl: settings.publicUrl,
+        // Configurable media paths (UI-editable, env vars are factory defaults)
+        paths,
         // Read-only server info
         server: {
           port: env.port,
           nodeEnv: env.nodeEnv,
           databaseStatus: dbStatus,
           redisStatus,
-        },
-        // Configured media paths (from env)
-        paths: {
-          music: env.musicPath,
-          video: env.videoPath,
-          audiobook: env.audiobookPath,
         },
         // Stats
         stats: {
@@ -88,21 +109,42 @@ router.get('/', async (_req, res, next) => {
 
 /**
  * PUT /api/settings
- * Update editable server settings (stored in Redis).
+ * Update server settings (Redis) and media paths (DB UserSettings).
  */
 router.put('/', async (req, res, next) => {
   try {
-    const { publicUrl } = req.body;
+    const { publicUrl, musicPath, videoPath, audiobookPath } = req.body;
 
+    // Server-level settings → Redis
     const current = await getServerSettings();
     const updated: ServerSettings = {
       publicUrl: publicUrl !== undefined ? String(publicUrl).trim() : current.publicUrl,
     };
-
     await redis.set(SETTINGS_KEY, JSON.stringify(updated));
-    logger.info('Server settings updated', { publicUrl: updated.publicUrl });
 
-    res.json({ data: updated });
+    // Media paths → UserSettings in DB
+    const userId = await getUserId(req);
+    if (userId && (musicPath !== undefined || videoPath !== undefined || audiobookPath !== undefined)) {
+      const toVal = (v: unknown) => (v === '' || v == null ? null : String(v).trim());
+      await prisma.userSettings.upsert({
+        where:  { userId },
+        update: {
+          ...(musicPath     !== undefined && { musicPath:     toVal(musicPath) }),
+          ...(videoPath     !== undefined && { videoPath:     toVal(videoPath) }),
+          ...(audiobookPath !== undefined && { audiobookPath: toVal(audiobookPath) }),
+        },
+        create: {
+          userId,
+          musicPath:     toVal(musicPath),
+          videoPath:     toVal(videoPath),
+          audiobookPath: toVal(audiobookPath),
+        },
+      });
+    }
+
+    logger.info('Settings updated', { publicUrl: updated.publicUrl, musicPath, videoPath, audiobookPath });
+    const paths = await getMediaPaths(userId);
+    res.json({ data: { ...updated, paths } });
   } catch (error) {
     next(error);
   }
