@@ -86,6 +86,24 @@ seriesRouter.get('/:id', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// ─── PATCH /api/video/series/:id ─────────────────────────────────────────────
+
+seriesRouter.patch('/:id', async (req, res, next) => {
+  try {
+    const { title, year, overview } = req.body;
+    const series = await prisma.series.update({
+      where: { id: req.params.id },
+      data: {
+        ...(title    !== undefined ? { title }    : {}),
+        ...(year     !== undefined ? { year }     : {}),
+        ...(overview !== undefined ? { overview } : {}),
+      },
+      include: genreInclude,
+    });
+    res.json({ data: series });
+  } catch (error) { next(error); }
+});
+
 // ─── GET /api/video/episodes/:id ─────────────────────────────────────────────
 
 episodesRouter.get('/:id', async (req, res, next) => {
@@ -97,6 +115,26 @@ episodesRouter.get('/:id', async (req, res, next) => {
     if (!episode) { res.status(404).json({ error: 'Episode not found' }); return; }
 
     // Omit filePath from detail response
+    const { filePath: _fp, ...safe } = episode;
+    void _fp;
+    res.json({ data: { ...safe, fileSize: safe.fileSize != null ? String(safe.fileSize) : null } });
+  } catch (error) { next(error); }
+});
+
+// ─── PATCH /api/video/episodes/:id ───────────────────────────────────────────
+
+episodesRouter.patch('/:id', async (req, res, next) => {
+  try {
+    const { title, number, overview, runtime } = req.body;
+    const episode = await prisma.episode.update({
+      where: { id: req.params.id },
+      data: {
+        ...(title    !== undefined ? { title }    : {}),
+        ...(number   !== undefined ? { number }   : {}),
+        ...(overview !== undefined ? { overview } : {}),
+        ...(runtime  !== undefined ? { runtime }  : {}),
+      },
+    });
     const { filePath: _fp, ...safe } = episode;
     void _fp;
     res.json({ data: { ...safe, fileSize: safe.fileSize != null ? String(safe.fileSize) : null } });

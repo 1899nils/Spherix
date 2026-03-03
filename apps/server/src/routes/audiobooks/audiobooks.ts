@@ -137,6 +137,26 @@ router.get('/:id', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// ─── PATCH /api/audiobooks/:id ───────────────────────────────────────────────
+
+router.patch('/:id', async (req, res, next) => {
+  try {
+    const { title, author, year, narrator, overview } = req.body;
+    const book = await prisma.audiobook.update({
+      where: { id: req.params.id },
+      data: {
+        ...(title    !== undefined ? { title }    : {}),
+        ...(author   !== undefined ? { author }   : {}),
+        ...(year     !== undefined ? { year }     : {}),
+        ...(narrator !== undefined ? { narrator } : {}),
+        ...(overview !== undefined ? { overview } : {}),
+      },
+      include: genreInclude,
+    });
+    res.json({ data: serializeBook(book as unknown as Record<string, unknown>) });
+  } catch (error) { next(error); }
+});
+
 // ─── POST /api/audiobooks/:id/progress ───────────────────────────────────────
 
 router.post('/:id/progress', async (req, res, next) => {

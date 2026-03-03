@@ -6,8 +6,9 @@ import { VideoPlayer } from '@/components/video/VideoPlayer';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { Button } from '@/components/ui/button';
 import { formatRuntime } from '@/lib/utils';
-import { Play, ArrowLeft, Film, Check } from 'lucide-react';
+import { Play, ArrowLeft, Film, Check, Pencil } from 'lucide-react';
 import type { Movie } from '@musicserver/shared';
+import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 
 interface MovieDetailResponse {
   data: Movie;
@@ -19,6 +20,7 @@ export function MovieDetail() {
   const queryClient = useQueryClient();
   const { setActiveVideo } = useVideoPlayerStore();
   const [showPlayer, setShowPlayer] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['movie', id],
@@ -182,6 +184,15 @@ export function MovieDetail() {
                 <Play className="h-5 w-5 fill-current" />
                 {movie.watchProgress && movie.watchProgress > 60 ? 'Weiterschauen' : 'Abspielen'}
               </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10"
+                onClick={() => setShowEditor(true)}
+                title="Metadaten bearbeiten"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
               {movie.watchProgress != null && movie.watchProgress > 60 && movie.runtime && (
                 <span className="text-xs text-muted-foreground">
                   {formatRuntime(Math.floor(movie.watchProgress / 60))} gesehen
@@ -190,6 +201,23 @@ export function MovieDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {movie && (
+        <MediaMetadataEditor
+          isOpen={showEditor}
+          onClose={() => setShowEditor(false)}
+          type="movie"
+          id={movie.id}
+          initialData={{
+            title:      movie.title,
+            year:       movie.year,
+            overview:   movie.overview,
+            runtime:    movie.runtime,
+            codec:      movie.codec,
+            resolution: movie.resolution,
+          }}
+        />
       )}
     </div>
   );

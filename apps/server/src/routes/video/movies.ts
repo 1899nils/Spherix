@@ -92,6 +92,25 @@ router.post('/:id/progress', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// ─── PATCH /api/video/movies/:id ─────────────────────────────────────────────
+
+router.patch('/:id', async (req, res, next) => {
+  try {
+    const { title, year, overview, runtime } = req.body;
+    const movie = await prisma.movie.update({
+      where: { id: req.params.id },
+      data: {
+        ...(title    !== undefined ? { title }    : {}),
+        ...(year     !== undefined ? { year }     : {}),
+        ...(overview !== undefined ? { overview } : {}),
+        ...(runtime  !== undefined ? { runtime }  : {}),
+      },
+      include: genreInclude,
+    });
+    res.json({ data: serializeMovie(movie as unknown as Record<string, unknown>) });
+  } catch (error) { next(error); }
+});
+
 // ─── GET /api/video/movies/:id/stream ────────────────────────────────────────
 
 router.get('/:id/stream', async (req, res, next) => {

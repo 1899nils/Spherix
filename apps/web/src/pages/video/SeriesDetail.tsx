@@ -6,8 +6,9 @@ import { VideoPlayer } from '@/components/video/VideoPlayer';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { Button } from '@/components/ui/button';
 import { formatRuntime } from '@/lib/utils';
-import { Play, ArrowLeft, Tv, ChevronDown, ChevronRight } from 'lucide-react';
+import { Play, ArrowLeft, Tv, ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import type { SeriesDetail as SeriesDetailType } from '@musicserver/shared';
+import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 
 interface SeriesDetailResponse {
   data: SeriesDetailType;
@@ -21,6 +22,8 @@ export function SeriesDetail() {
 
   const [activeEpisode, setActiveEpisode] = useState<{ id: string; title: string; seasonNum: number; episodeNum: number; runtime: number | null } | null>(null);
   const [openSeason, setOpenSeason] = useState<number | null>(1);
+  const [showSeriesEditor, setShowSeriesEditor] = useState(false);
+  const [editEpisodeId, setEditEpisodeId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['series', id],
@@ -113,7 +116,18 @@ export function SeriesDetail() {
 
             <div className="space-y-3 min-w-0">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Serie</p>
-              <h1 className="text-3xl font-bold">{series.title}</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold">{series.title}</h1>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-white"
+                  onClick={() => setShowSeriesEditor(true)}
+                  title="Metadaten bearbeiten"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </div>
               <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                 {series.year && <span>{series.year}</span>}
                 {series.seasons && (
@@ -194,6 +208,15 @@ export function SeriesDetail() {
                         >
                           <Play className="h-4 w-4 fill-current" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10"
+                          onClick={(e) => { e.stopPropagation(); setEditEpisodeId(ep.id); }}
+                          title="Metadaten bearbeiten"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -203,6 +226,40 @@ export function SeriesDetail() {
           </div>
         </div>
       )}
+
+      {/* Series metadata editor */}
+      {series && (
+        <MediaMetadataEditor
+          isOpen={showSeriesEditor}
+          onClose={() => setShowSeriesEditor(false)}
+          type="series"
+          id={series.id}
+          initialData={{
+            title:    series.title,
+            year:     series.year,
+            overview: series.overview,
+          }}
+        />
+      )}
+
+      {/* Episode metadata editor */}
+      {editEpisodeId && series && (() => {
+        const ep = series.seasons?.flatMap(s => s.episodes ?? []).find(e => e.id === editEpisodeId);
+        return ep ? (
+          <MediaMetadataEditor
+            isOpen={!!editEpisodeId}
+            onClose={() => setEditEpisodeId(null)}
+            type="episode"
+            id={editEpisodeId}
+            initialData={{
+              title:    ep.title,
+              number:   ep.number,
+              overview: ep.overview,
+              runtime:  ep.runtime,
+            }}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }
