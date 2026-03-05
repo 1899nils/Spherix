@@ -1,12 +1,11 @@
-import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { formatDuration } from '@/lib/utils';
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   SkipBack, SkipForward, ArrowLeft, Settings2,
-  PictureInPicture2, SkipForward as SkipIcon,
-  Subtitles, Languages, Loader2
+  PictureInPicture2, Subtitles, Languages
 } from 'lucide-react';
 
 // Types for tracks
@@ -18,12 +17,7 @@ interface TextTrack {
   default?: boolean;
 }
 
-interface AudioTrack {
-  id: string;
-  label: string;
-  language: string;
-  enabled: boolean;
-}
+
 
 interface VideoQuality {
   label: string;
@@ -97,7 +91,6 @@ export function VideoPlayer({
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const controlsRef = useRef<HTMLDivElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const ambiRef = useRef<HTMLCanvasElement>(null);
@@ -109,7 +102,7 @@ export function VideoPlayer({
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isPiP, setIsPiP] = useState(false);
+  const [, setIsPiP] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [buffered, setBuffered] = useState(0);
@@ -231,7 +224,7 @@ export function VideoPlayer({
       onProgress?.(Math.floor(video.currentTime));
       
       // Check for skip intro
-      if (introStart !== null && introEnd !== null) {
+      if (introStart != null && introEnd != null) {
         const inIntro = video.currentTime >= introStart && video.currentTime < introEnd - 5;
         setShowSkipIntro(inIntro);
       }
@@ -267,7 +260,7 @@ export function VideoPlayer({
 
     // Progress tracking interval
     progressInterval.current = setInterval(() => {
-      if (video.playing) {
+      if (!video.paused) {
         onProgress?.(Math.floor(video.currentTime));
       }
     }, 5000);
