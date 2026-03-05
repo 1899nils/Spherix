@@ -1,4 +1,5 @@
 import { Search, Settings as SettingsIcon, User } from 'lucide-react';
+import { StatusDashboard } from '@/components/video/StatusDashboard';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
@@ -20,8 +21,10 @@ export function Header() {
         />
       </div>
 
-      {/* Right: Settings & User */}
+      {/* Right: Status, Settings & User */}
       <div className="w-1/4 flex justify-end items-center gap-3">
+        <StatusDashboard />
+        
         <Button
           variant="ghost"
           size="icon"
