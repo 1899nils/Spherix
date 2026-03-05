@@ -73,7 +73,7 @@ export function TmdbSearchModal({ isOpen, onClose, type, item }: TmdbSearchModal
     searchQuery.refetch();
   };
 
-  const hasTmdbLink = item && 'tmdbId' in item && item.tmdbId;
+  const hasTmdbLink = !!(item && item.tmdbId);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="TMDb Verknüpfung" maxWidth="2xl">
@@ -99,11 +99,11 @@ export function TmdbSearchModal({ isOpen, onClose, type, item }: TmdbSearchModal
                     {item.year}
                   </p>
                 )}
-                {hasTmdbLink && (
+                {hasTmdbLink && item && (
                   <div className="flex items-center gap-2 mt-2">
                     <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded flex items-center gap-1">
                       <Link2 className="h-3 w-3" />
-                      Verknüpft (TMDb ID: {(item as Movie | Series).tmdbId})
+                      Verknüpft (TMDb ID: {item.tmdbId})
                     </span>
                     <Button
                       variant="ghost"
@@ -183,14 +183,14 @@ export function TmdbSearchModal({ isOpen, onClose, type, item }: TmdbSearchModal
                       </div>
                       <Button
                         size="sm"
-                        variant={hasTmdbLink && (item as Movie | Series).tmdbId === result.tmdbId ? 'secondary' : 'default'}
+                        variant={hasTmdbLink && item?.tmdbId === result.tmdbId ? 'secondary' : 'default'}
                         className="shrink-0"
                         onClick={() => linkMutation.mutate(result.tmdbId)}
-                        disabled={linkMutation.isPending || (hasTmdbLink && (item as Movie | Series).tmdbId === result.tmdbId)}
+                        disabled={linkMutation.isPending || (hasTmdbLink && item?.tmdbId === result.tmdbId)}
                       >
                         {linkMutation.isPending ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : hasTmdbLink && (item as Movie | Series).tmdbId === result.tmdbId ? (
+                        ) : hasTmdbLink && item?.tmdbId === result.tmdbId ? (
                           'Aktiv'
                         ) : (
                           'Verknüpfen'
