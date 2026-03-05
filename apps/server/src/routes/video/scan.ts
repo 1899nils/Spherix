@@ -11,7 +11,7 @@ import { logger } from '../../config/logger.js';
 const router: Router = Router();
 
 /** GET /api/video/scan/status — get current scan status */
-router.get('/status', async (req, res, next) => {
+router.get('/status', async (_req, res, next) => {
   try {
     const status = await getVideoScanStatus();
     res.json({

@@ -58,7 +58,7 @@ seriesRouter.get('/', async (req, res, next) => {
 
 // ─── GET /api/video/series/unmatched/count ─────────────────────────────────────
 
-seriesRouter.get('/unmatched/count', async (req, res, next) => {
+seriesRouter.get('/unmatched/count', async (_req, res, next) => {
   try {
     const count = await prisma.series.count({
       where: { tmdbId: null },
@@ -251,7 +251,7 @@ seriesRouter.post('/:id/link-tmdb', requireAdmin, async (req, res, next) => {
     }
 
     const series = await prisma.series.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: { genres: true },
     });
     if (!series) {
@@ -324,7 +324,7 @@ seriesRouter.post('/:id/link-tmdb', requireAdmin, async (req, res, next) => {
 seriesRouter.post('/:id/unlink-tmdb', requireAdmin, async (req, res, next) => {
   try {
     const series = await prisma.series.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
     });
     if (!series) {
       res.status(404).json({ error: 'Series not found' });

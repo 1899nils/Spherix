@@ -59,7 +59,7 @@ router.get('/', async (req, res, next) => {
 
 // ─── GET /api/video/movies/unmatched/count ─────────────────────────────────────
 
-router.get('/unmatched/count', async (req, res, next) => {
+router.get('/unmatched/count', async (_req, res, next) => {
   try {
     const count = await prisma.movie.count({
       where: { tmdbId: null },
@@ -192,7 +192,7 @@ router.post('/:id/link-tmdb', requireAdmin, async (req, res, next) => {
     }
 
     const movie = await prisma.movie.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: { genres: true },
     });
     if (!movie) {
@@ -265,7 +265,7 @@ router.post('/:id/link-tmdb', requireAdmin, async (req, res, next) => {
 router.post('/:id/unlink-tmdb', requireAdmin, async (req, res, next) => {
   try {
     const movie = await prisma.movie.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
     });
     if (!movie) {
       res.status(404).json({ error: 'Movie not found' });
