@@ -6,9 +6,10 @@ import { VideoPlayer } from '@/components/video/VideoPlayer';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { Button } from '@/components/ui/button';
 import { formatRuntime } from '@/lib/utils';
-import { Play, ArrowLeft, Tv, ChevronDown, ChevronRight, Pencil } from 'lucide-react';
+import { Play, ArrowLeft, Tv, ChevronDown, ChevronRight, Pencil, Link2, AlertCircle } from 'lucide-react';
 import type { SeriesDetail as SeriesDetailType } from '@musicserver/shared';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
+import { TmdbSearchModal } from '@/components/video/TmdbSearchModal';
 
 interface SeriesDetailResponse {
   data: SeriesDetailType;
@@ -24,6 +25,7 @@ export function SeriesDetail() {
   const [openSeason, setOpenSeason] = useState<number | null>(1);
   const [showSeriesEditor, setShowSeriesEditor] = useState(false);
   const [editEpisodeId, setEditEpisodeId] = useState<string | null>(null);
+  const [showTmdbModal, setShowTmdbModal] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['series', id],
@@ -127,6 +129,15 @@ export function SeriesDetail() {
                 >
                   <Pencil className="h-4 w-4" />
                 </Button>
+                <Button
+                  variant={series.tmdbId ? "ghost" : "default"}
+                  size="icon"
+                  className={`h-8 w-8 shrink-0 ${!series.tmdbId ? 'bg-amber-500 hover:bg-amber-600 text-black border-amber-500' : 'text-muted-foreground hover:text-white'}`}
+                  onClick={() => setShowTmdbModal(true)}
+                  title={series.tmdbId ? 'TMDb Verknüpfung bearbeiten' : 'Mit TMDb verknüpfen'}
+                >
+                  <Link2 className="h-4 w-4" />
+                </Button>
               </div>
               <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                 {series.year && <span>{series.year}</span>}
@@ -146,8 +157,16 @@ export function SeriesDetail() {
                   ))}
                 </div>
               )}
-              {series.overview && (
+              {series.overview ? (
                 <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">{series.overview}</p>
+              ) : !series.tmdbId && (
+                <div className="flex items-start gap-2 text-amber-400/80 text-sm bg-amber-500/10 rounded-lg p-3">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-amber-400">Keine Metadaten verfügbar</p>
+                    <p className="text-xs mt-0.5">Diese Serie ist nicht mit TMDb verknüpft.</p>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -260,6 +279,16 @@ export function SeriesDetail() {
           />
         ) : null;
       })()}
+
+      {/* TMDb Search Modal */}
+      {series && (
+        <TmdbSearchModal
+          isOpen={showTmdbModal}
+          onClose={() => setShowTmdbModal(false)}
+          type="series"
+          item={series}
+        />
+      )}
     </div>
   );
 }

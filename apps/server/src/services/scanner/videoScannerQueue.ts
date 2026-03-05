@@ -1,7 +1,7 @@
 import { Queue, Worker, type Job } from 'bullmq';
 import { env } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
-import { scanVideoLibrary } from './videoScanner.js';
+import { scanVideoLibrary, type VideoScanProgress } from './videoScanner.js';
 
 const QUEUE_NAME = 'video-scan';
 
@@ -19,6 +19,8 @@ export const videoScanQueue = new Queue<VideoScanJobData>(QUEUE_NAME, {
 });
 
 let worker: Worker<VideoScanJobData> | null = null;
+let currentProgress: VideoScanProgress | null = null;
+let currentJobId: string | null = null;
 
 export function startVideoScanWorker(): void {
   if (worker) return;
@@ -27,8 +29,23 @@ export function startVideoScanWorker(): void {
     QUEUE_NAME,
     async (job: Job<VideoScanJobData>) => {
       const rootPath = job.data.rootPath ?? env.videoPath;
+      currentJobId = job.id!;
       logger.info(`[VideoScanWorker] Starting video library scan at ${rootPath}`);
-      return await scanVideoLibrary(rootPath);
+      
+      // Reset progress at start
+      currentProgress = {
+        phase: 'discovering',
+        total: 0,
+        done: 0,
+        movies: 0,
+        episodes: 0,
+        skipped: 0,
+        errors: 0,
+      };
+      
+      const result = await scanVideoLibrary(rootPath);
+      currentProgress = result;
+      return result;
     },
     {
       connection:  { url: env.redisUrl },
@@ -38,9 +55,26 @@ export function startVideoScanWorker(): void {
 
   worker.on('completed', (job) => {
     logger.info(`[VideoScanWorker] Job ${job.id} completed`);
+    if (currentJobId === job.id) {
+      currentProgress = job.returnvalue as VideoScanProgress;
+      currentJobId = null;
+    }
   });
   worker.on('failed', (job, err) => {
     logger.error(`[VideoScanWorker] Job ${job?.id} failed: ${err.message}`);
+    if (job && currentJobId === job.id) {
+      currentProgress = {
+        phase: 'error',
+        total: 0,
+        done: 0,
+        movies: 0,
+        episodes: 0,
+        skipped: 0,
+        errors: 1,
+        message: err.message,
+      };
+      currentJobId = null;
+    }
   });
 
   logger.info('Video scan worker started');
@@ -63,4 +97,41 @@ export async function stopVideoScanWorker(): Promise<void> {
     worker = null;
     logger.info('Video scan worker stopped');
   }
+}
+
+/**
+ * Get the current scan status
+ */
+export async function getVideoScanStatus(): Promise<{
+  isScanning: boolean;
+  progress: VideoScanProgress | null;
+  jobId: string | null;
+}> {
+  const activeJobs = await videoScanQueue.getJobs(['active']);
+  const waitingJobs = await videoScanQueue.getJobs(['waiting']);
+  
+  const isScanning = activeJobs.length > 0;
+  const activeJob = activeJobs[0];
+  
+  return {
+    isScanning,
+    progress: currentProgress,
+    jobId: activeJob?.id ?? waitingJobs[0]?.id ?? null,
+  };
+}
+
+/**
+ * Get scan history (last N completed jobs)
+ */
+export async function getVideoScanHistory(limit: number = 5): Promise<{
+  id: string;
+  completedAt: Date | null;
+  result: VideoScanProgress | null;
+}[]> {
+  const jobs = await videoScanQueue.getJobs(['completed'], 0, limit, true);
+  return jobs.map(job => ({
+    id: job.id!,
+    completedAt: job.finishedOn ? new Date(job.finishedOn) : null,
+    result: job.returnvalue as VideoScanProgress | null,
+  }));
 }

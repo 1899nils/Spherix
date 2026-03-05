@@ -64,3 +64,41 @@ export interface Episode {
 export interface SeriesDetail extends Series {
   seasons: (Season & { episodes: Episode[] })[];
 }
+
+// ─── TMDb Search Types ────────────────────────────────────────────────────────
+
+export interface TmdbSearchResult {
+  tmdbId: number;
+  title: string;
+  originalTitle: string;
+  overview: string;
+  posterPath: string | null;
+  backdropPath: string | null;
+  rating: number;
+  genreIds: number[];
+  year: number | null;
+  mediaType: 'movie' | 'tv';
+}
+
+export interface TmdbResult {
+  tmdbId: number;
+  overview: string;
+  posterPath: string | null;
+  backdropPath: string | null;
+  rating: number;
+  genreIds: number[];
+  year: number | null;
+}
+
+// ─── Video Scan Progress ──────────────────────────────────────────────────────
+
+export interface VideoScanProgress {
+  phase: 'discovering' | 'scanning' | 'cleanup' | 'done' | 'error';
+  total: number;
+  done: number;
+  movies: number;
+  episodes: number;
+  skipped: number;
+  errors: number;
+  message?: string;
+}

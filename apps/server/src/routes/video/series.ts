@@ -1,6 +1,12 @@
 import { Router } from 'express';
 import { prisma } from '../../config/database.js';
 import { streamFile, VIDEO_MIME } from './stream.js';
+import { requireAdmin } from '../../middleware/requireAdmin.js';
+import {
+  getSeriesDetails,
+  fetchGenreMap,
+} from '../../services/metadata/tmdb.service.js';
+import { logger } from '../../config/logger.js';
 
 // Two routers exported:
 //   seriesRouter   → mounted at /api/video/series
@@ -20,10 +26,12 @@ seriesRouter.get('/', async (req, res, next) => {
     const sort     = (req.query.sort   as string) || 'title';
     const genreId  =  req.query.genre  as string | undefined;
     const q        =  req.query.q      as string | undefined;
+    const unmatched = req.query.unmatched === 'true';
 
     const where: Record<string, unknown> = {};
     if (genreId) where.genres = { some: { id: genreId } };
     if (q)       where.title  = { contains: q, mode: 'insensitive' };
+    if (unmatched) where.tmdbId = null;
 
     const orderBy =
       sort === 'newest' ? { addedAt: 'desc' as const } :
@@ -45,6 +53,17 @@ seriesRouter.get('/', async (req, res, next) => {
     ]);
 
     res.json({ data: series, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
+  } catch (error) { next(error); }
+});
+
+// ─── GET /api/video/series/unmatched/count ─────────────────────────────────────
+
+seriesRouter.get('/unmatched/count', async (req, res, next) => {
+  try {
+    const count = await prisma.series.count({
+      where: { tmdbId: null },
+    });
+    res.json({ data: { count } });
   } catch (error) { next(error); }
 });
 
@@ -182,4 +201,156 @@ episodesRouter.get('/:id/stream', async (req, res, next) => {
 
     streamFile(req, res, episode.filePath, VIDEO_MIME);
   } catch (error) { next(error); }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Manual TMDb Linking (Admin only)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function getTmdbApiKeyForRequest(req: any): Promise<string | null> {
+  const userId = req.session?.userId || (await prisma.user.findFirst({ select: { id: true } }))?.id;
+  if (!userId) return null;
+  const settings = await prisma.userSettings.findUnique({
+    where: { userId },
+    select: { tmdbApiKey: true },
+  });
+  return settings?.tmdbApiKey ?? null;
+}
+
+async function syncSeriesGenres(
+  seriesId: string,
+  genreIds: number[],
+  apiKey: string,
+): Promise<void> {
+  if (genreIds.length === 0) return;
+  const genreMap = await fetchGenreMap('tv', apiKey);
+  
+  for (const gid of genreIds) {
+    const name = genreMap.get(gid);
+    if (!name) continue;
+    const genre = await prisma.genre.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+      select: { id: true },
+    });
+    await prisma.series.update({
+      where: { id: seriesId },
+      data: { genres: { connect: { id: genre.id } } },
+    });
+  }
+}
+
+/** POST /api/video/series/:id/link-tmdb — manually link series to TMDb */
+seriesRouter.post('/:id/link-tmdb', requireAdmin, async (req, res, next) => {
+  try {
+    const { tmdbId } = req.body as { tmdbId: number };
+    if (!tmdbId || typeof tmdbId !== 'number') {
+      res.status(400).json({ error: 'tmdbId (number) is required' });
+      return;
+    }
+
+    const series = await prisma.series.findUnique({
+      where: { id: req.params.id },
+      include: { genres: true },
+    });
+    if (!series) {
+      res.status(404).json({ error: 'Series not found' });
+      return;
+    }
+
+    // Check if this TMDB ID is already linked to another series
+    const existing = await prisma.series.findFirst({
+      where: { tmdbId, NOT: { id: series.id } },
+      select: { id: true, title: true },
+    });
+    if (existing) {
+      res.status(409).json({
+        error: `This TMDb ID is already linked to "${existing.title}"`,
+      });
+      return;
+    }
+
+    const apiKey = await getTmdbApiKeyForRequest(req);
+    if (!apiKey) {
+      res.status(400).json({ error: 'TMDb API key not configured' });
+      return;
+    }
+
+    // Fetch details from TMDb
+    const details = await getSeriesDetails(tmdbId, apiKey);
+    if (!details) {
+      res.status(404).json({ error: 'Series not found on TMDb' });
+      return;
+    }
+
+    // Download poster if available
+    let posterPath = series.posterPath;
+    if (details.posterPath && !posterPath) {
+      try {
+        const { downloadAndSaveCover } = await import('../../services/metadata/cover-processing.service.js');
+        const saved = await downloadAndSaveCover(details.posterPath, series.id);
+        if (saved) posterPath = saved.url500;
+      } catch (e) {
+        logger.warn(`Failed to download poster for series ${series.id}`, { error: String(e) });
+      }
+    }
+
+    // Update series with TMDb data
+    const updated = await prisma.series.update({
+      where: { id: series.id },
+      data: {
+        tmdbId: details.tmdbId,
+        overview: details.overview || series.overview,
+        posterPath: posterPath || details.posterPath,
+        backdropPath: details.backdropPath || series.backdropPath,
+        rating: details.rating || series.rating,
+        year: details.year || series.year,
+      },
+      include: genreInclude,
+    });
+
+    // Sync genres
+    await syncSeriesGenres(series.id, details.genreIds, apiKey);
+
+    logger.info(`Manually linked series "${series.title}" to TMDb ID ${tmdbId}`);
+    res.json({ data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** POST /api/video/series/:id/unlink-tmdb — remove TMDb link */
+seriesRouter.post('/:id/unlink-tmdb', requireAdmin, async (req, res, next) => {
+  try {
+    const series = await prisma.series.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!series) {
+      res.status(404).json({ error: 'Series not found' });
+      return;
+    }
+
+    const updated = await prisma.series.update({
+      where: { id: series.id },
+      data: {
+        tmdbId: null,
+        overview: null,
+        backdropPath: null,
+        rating: null,
+      },
+      include: genreInclude,
+    });
+
+    // Disconnect all genres
+    await prisma.series.update({
+      where: { id: series.id },
+      data: { genres: { set: [] } },
+    });
+
+    logger.info(`Unlinked series "${series.title}" from TMDb`);
+    res.json({ data: updated });
+  } catch (error) {
+    next(error);
+  }
 });
