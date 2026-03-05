@@ -6,9 +6,10 @@ import { VideoPlayer } from '@/components/video/VideoPlayer';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { Button } from '@/components/ui/button';
 import { formatRuntime } from '@/lib/utils';
-import { Play, ArrowLeft, Film, Check, Pencil } from 'lucide-react';
+import { Play, ArrowLeft, Film, Check, Pencil, Link2, AlertCircle } from 'lucide-react';
 import type { Movie } from '@musicserver/shared';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
+import { TmdbSearchModal } from '@/components/video/TmdbSearchModal';
 
 interface MovieDetailResponse {
   data: Movie;
@@ -21,6 +22,7 @@ export function MovieDetail() {
   const { setActiveVideo } = useVideoPlayerStore();
   const [showPlayer, setShowPlayer] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
+  const [showTmdbModal, setShowTmdbModal] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['movie', id],
@@ -168,10 +170,18 @@ export function MovieDetail() {
             )}
 
             {/* Overview */}
-            {movie.overview && (
+            {movie.overview ? (
               <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
                 {movie.overview}
               </p>
+            ) : !movie.tmdbId && (
+              <div className="flex items-start gap-2 text-amber-400/80 text-sm bg-amber-500/10 rounded-lg p-3">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-400">Keine Metadaten verfügbar</p>
+                  <p className="text-xs mt-0.5">Dieser Film ist nicht mit TMDb verknüpft.</p>
+                </div>
+              </div>
             )}
 
             {/* Play button */}
@@ -192,6 +202,15 @@ export function MovieDetail() {
                 title="Metadaten bearbeiten"
               >
                 <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={movie.tmdbId ? "outline" : "default"}
+                size="icon"
+                className={`h-10 w-10 ${!movie.tmdbId ? 'bg-amber-500 hover:bg-amber-600 text-black border-amber-500' : ''}`}
+                onClick={() => setShowTmdbModal(true)}
+                title={movie.tmdbId ? 'TMDb Verknüpfung bearbeiten' : 'Mit TMDb verknüpfen'}
+              >
+                <Link2 className="h-4 w-4" />
               </Button>
               {movie.watchProgress != null && movie.watchProgress > 60 && movie.runtime && (
                 <span className="text-xs text-muted-foreground">
@@ -217,6 +236,15 @@ export function MovieDetail() {
             codec:      movie.codec,
             resolution: movie.resolution,
           }}
+        />
+      )}
+
+      {movie && (
+        <TmdbSearchModal
+          isOpen={showTmdbModal}
+          onClose={() => setShowTmdbModal(false)}
+          type="movie"
+          item={movie}
         />
       )}
     </div>

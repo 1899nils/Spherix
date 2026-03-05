@@ -118,3 +118,148 @@ export async function searchSeries(
     year: extractYear(hit.first_air_date),
   };
 }
+
+// ─── Multi-result search for manual matching ─────────────────────────────────
+
+export interface TmdbSearchResult {
+  tmdbId: number;
+  title: string;
+  originalTitle: string;
+  overview: string;
+  posterPath: string | null;
+  backdropPath: string | null;
+  rating: number;
+  genreIds: number[];
+  year: number | null;
+  mediaType: 'movie' | 'tv';
+}
+
+export async function searchMoviesMultiple(
+  title: string,
+  year: number | null,
+  apiKey: string,
+  limit: number = 10,
+): Promise<TmdbSearchResult[]> {
+  const params = new URLSearchParams({ query: title, language: 'de-DE' });
+  if (year) params.set('year', String(year));
+
+  const data = await tmdbFetch<{
+    results: {
+      id: number;
+      title: string;
+      original_title: string;
+      overview: string;
+      poster_path: string | null;
+      backdrop_path: string | null;
+      vote_average: number;
+      genre_ids: number[];
+      release_date: string | null;
+    }[];
+  }>(`/search/movie?${params}`, apiKey);
+
+  return data.results.slice(0, limit).map((hit) => ({
+    tmdbId: hit.id,
+    title: hit.title,
+    originalTitle: hit.original_title,
+    overview: hit.overview ?? '',
+    posterPath: toImageUrl(hit.poster_path),
+    backdropPath: toImageUrl(hit.backdrop_path),
+    rating: hit.vote_average ?? 0,
+    genreIds: hit.genre_ids ?? [],
+    year: extractYear(hit.release_date),
+    mediaType: 'movie' as const,
+  }));
+}
+
+export async function searchSeriesMultiple(
+  title: string,
+  year: number | null,
+  apiKey: string,
+  limit: number = 10,
+): Promise<TmdbSearchResult[]> {
+  const params = new URLSearchParams({ query: title, language: 'de-DE' });
+  if (year) params.set('first_air_date_year', String(year));
+
+  const data = await tmdbFetch<{
+    results: {
+      id: number;
+      name: string;
+      original_name: string;
+      overview: string;
+      poster_path: string | null;
+      backdrop_path: string | null;
+      vote_average: number;
+      genre_ids: number[];
+      first_air_date: string | null;
+    }[];
+  }>(`/search/tv?${params}`, apiKey);
+
+  return data.results.slice(0, limit).map((hit) => ({
+    tmdbId: hit.id,
+    title: hit.name,
+    originalTitle: hit.original_name,
+    overview: hit.overview ?? '',
+    posterPath: toImageUrl(hit.poster_path),
+    backdropPath: toImageUrl(hit.backdrop_path),
+    rating: hit.vote_average ?? 0,
+    genreIds: hit.genre_ids ?? [],
+    year: extractYear(hit.first_air_date),
+    mediaType: 'tv' as const,
+  }));
+}
+
+/** Fetch detailed info for a specific movie by TMDB ID */
+export async function getMovieDetails(
+  tmdbId: number,
+  apiKey: string,
+): Promise<TmdbResult | null> {
+  const data = await tmdbFetch<{
+    id: number;
+    overview: string;
+    poster_path: string | null;
+    backdrop_path: string | null;
+    vote_average: number;
+    genre_ids: number[];
+    release_date: string | null;
+  }>(`/movie/${tmdbId}?language=de-DE`, apiKey);
+
+  if (!data) return null;
+
+  return {
+    tmdbId: data.id,
+    overview: data.overview ?? '',
+    posterPath: toImageUrl(data.poster_path),
+    backdropPath: toImageUrl(data.backdrop_path),
+    rating: data.vote_average ?? 0,
+    genreIds: data.genre_ids ?? [],
+    year: extractYear(data.release_date),
+  };
+}
+
+/** Fetch detailed info for a specific series by TMDB ID */
+export async function getSeriesDetails(
+  tmdbId: number,
+  apiKey: string,
+): Promise<TmdbResult | null> {
+  const data = await tmdbFetch<{
+    id: number;
+    overview: string;
+    poster_path: string | null;
+    backdrop_path: string | null;
+    vote_average: number;
+    genre_ids: number[];
+    first_air_date: string | null;
+  }>(`/tv/${tmdbId}?language=de-DE`, apiKey);
+
+  if (!data) return null;
+
+  return {
+    tmdbId: data.id,
+    overview: data.overview ?? '',
+    posterPath: toImageUrl(data.poster_path),
+    backdropPath: toImageUrl(data.backdrop_path),
+    rating: data.vote_average ?? 0,
+    genreIds: data.genre_ids ?? [],
+    year: extractYear(data.first_air_date),
+  };
+}

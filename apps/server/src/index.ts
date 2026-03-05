@@ -28,6 +28,7 @@ import settingsRouter, { getMediaPaths } from './routes/settings.js';
 import podcastsRouter from './routes/podcasts.js';
 import moviesRouter from './routes/video/movies.js';
 import { seriesRouter, episodesRouter } from './routes/video/series.js';
+import videoScanRouter from './routes/video/scan.js';
 import audiobooksRouter from './routes/audiobooks/audiobooks.js';
 import subsonicRouter from './subsonic/index.js';
 
@@ -74,6 +75,7 @@ app.use('/api/podcasts', podcastsRouter);
 app.use('/api/video/movies',   moviesRouter);
 app.use('/api/video/series',   seriesRouter);
 app.use('/api/video/episodes', episodesRouter);
+app.use('/api/video/scan',     videoScanRouter);
 
 // Video overview endpoints: genres, recently added, continue watching
 app.get('/api/video/genres', async (_req, res, next) => {
