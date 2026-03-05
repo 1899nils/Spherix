@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { formatDuration } from '@/lib/utils';
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
-  SkipBack, SkipForward, X, Settings2
+  SkipBack, SkipForward, X
 } from 'lucide-react';
 
 interface VideoQuality {
