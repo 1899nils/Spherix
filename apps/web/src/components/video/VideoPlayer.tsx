@@ -113,11 +113,7 @@ export function VideoPlayer({
   const [showSkipIntro, setShowSkipIntro] = useState(false);
   const [showNextEpisode, setShowNextEpisode] = useState(false);
   const [countdown, setCountdown] = useState(5);
-  const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubPreview, setScrubPreview] = useState<{ time: number; x: number } | null>(null);
-  
-  // Track states
-  const [availableTextTracks, setAvailableTextTracks] = useState<TextTrack[]>([]);
   const [currentTextTrack, setCurrentTextTrack] = useState<number>(-1);
   const [playbackRate, setPlaybackRate] = useState(1);
 

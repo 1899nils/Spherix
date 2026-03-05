@@ -9,7 +9,6 @@ import {
   Monitor,
   Smartphone,
   Tv,
-  Server,
   X,
   Cpu,
   HardDrive,
@@ -18,7 +17,6 @@ import {
   History,
   Layers,
   BarChart3,
-  Thermometer,
   MemoryStick
 } from 'lucide-react';
 
@@ -137,11 +135,7 @@ function formatDuration(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-function formatBitrate(bps: number): string {
-  if (bps >= 1000000) return `${(bps / 1000000).toFixed(1)} Mbps`;
-  if (bps >= 1000) return `${(bps / 1000).toFixed(0)} Kbps`;
-  return `${bps} bps`;
-}
+
 
 function getDeviceIcon(device: string) {
   const d = device.toLowerCase();
@@ -171,7 +165,7 @@ export function StatusDashboard() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('activity');
 
-  const { data: sessionsData, refetch } = useQuery({
+  const { data: sessionsData } = useQuery({
     queryKey: ['streaming-sessions'],
     queryFn: () => api.get<SessionsResponse>('/video/sessions'),
     refetchInterval: 5000,
