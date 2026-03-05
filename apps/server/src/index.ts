@@ -30,6 +30,7 @@ import moviesRouter from './routes/video/movies.js';
 import { seriesRouter, episodesRouter } from './routes/video/series.js';
 import videoScanRouter from './routes/video/scan.js';
 import streamingRouter from './routes/video/streaming.js';
+import sessionsRouter from './routes/video/sessions.js';
 import audiobooksRouter from './routes/audiobooks/audiobooks.js';
 import subsonicRouter from './subsonic/index.js';
 
@@ -78,6 +79,7 @@ app.use('/api/video/series',   seriesRouter);
 app.use('/api/video/episodes', episodesRouter);
 app.use('/api/video/scan',       videoScanRouter);
 app.use('/api/video/stream',     streamingRouter);
+app.use('/api/video/sessions',    sessionsRouter);
 
 // Video overview endpoints: genres, recently added, continue watching
 app.get('/api/video/genres', async (_req, res, next) => {
