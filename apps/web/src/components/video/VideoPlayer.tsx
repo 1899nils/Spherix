@@ -6,11 +6,7 @@ import {
   Play, Pause, Volume2, VolumeX, Maximize, SkipBack, SkipForward, X, ChevronDown
 } from 'lucide-react';
 
-interface VideoQuality {
-  label: string;
-  width: number;
-  height: number;
-}
+
 
 interface VideoPlayerProps {
   src: string;
@@ -29,11 +25,6 @@ interface VideoPlayerProps {
     thumbnail?: string;
     onPlay: () => void;
   } | null;
-  streamInfo?: {
-    directPlay: boolean;
-  } | null;
-  isTranscoding?: boolean;
-  transcodeProgress?: number;
 }
 
 export function VideoPlayer({
@@ -49,9 +40,6 @@ export function VideoPlayer({
   introStart,
   introEnd,
   nextEpisode,
-  streamInfo,
-  isTranscoding = false,
-  transcodeProgress = 0,
 }: VideoPlayerProps) {
   const { minimize, updateProgress } = useVideoPlayerStore();
   const { pause } = usePlayerStore();
@@ -70,7 +58,7 @@ export function VideoPlayer({
   const [buffered, setBuffered] = useState(0);
   const [showSkipIntro, setShowSkipIntro] = useState(false);
   const [showNextEpisode, setShowNextEpisode] = useState(false);
-  const [countdown, setCountdown] = useState(5);
+  const [countdown] = useState(5);
 
   // Auto-hide controls
   const resetHideTimer = useCallback(() => {
