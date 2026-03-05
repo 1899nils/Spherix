@@ -358,10 +358,11 @@ function AudiobookPlayerBar() {
   );
 }
 
-// ── Minimized Video Bar (Plex Style) ──────────────────────────────────────────
+// ── Minimized Video Bar (Plex Style with Video Preview) ──────────────────────
 
 function MinimizedVideoBar() {
   const { activeVideo, isPlaying, currentTime, duration, maximize, stop, setIsPlaying } = useVideoPlayerStore();
+  const [isHovered, setIsHovered] = useState(false);
   
   if (!activeVideo) return null;
 
@@ -373,22 +374,26 @@ function MinimizedVideoBar() {
 
   return (
     <div className="flex items-center w-full h-full gap-4">
-      {/* Thumbnail */}
+      {/* Video Preview - Bottom Left with Hover Effect */}
       <div 
-        className="h-16 w-28 rounded-lg overflow-hidden bg-black shrink-0 cursor-pointer"
+        className="relative h-16 w-28 rounded-lg overflow-hidden bg-black shrink-0 cursor-pointer group"
         onClick={maximize}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
-        {activeVideo.posterUrl ? (
-          <img 
-            src={activeVideo.posterUrl} 
-            alt={activeVideo.title} 
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="h-full w-full flex items-center justify-center bg-white/10">
-            <Play className="h-6 w-6 text-white/50" />
-          </div>
-        )}
+        {/* Video Element */}
+        <video
+          src={activeVideo.streamUrl}
+          className="h-full w-full object-cover"
+          muted
+          playsInline
+          preload="metadata"
+        />
+        
+        {/* Hover Overlay with ChevronUp */}
+        <div className={`absolute inset-0 bg-black/50 flex items-center justify-center transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
+          <ChevronUp className="h-8 w-8 text-white" />
+        </div>
       </div>
 
       {/* Info */}
@@ -402,7 +407,7 @@ function MinimizedVideoBar() {
         </p>
       </div>
 
-      {/* Controls */}
+      {/* Controls - Play and Stop only (ChevronUp removed, now on hover) */}
       <div className="flex items-center gap-2">
         <Button
           variant="ghost"
@@ -413,16 +418,6 @@ function MinimizedVideoBar() {
           {isPlaying 
             ? <Pause className="h-5 w-5 fill-current" />
             : <Play className="h-5 w-5 fill-current ml-0.5" />}
-        </Button>
-        
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 text-white hover:bg-white/10"
-          onClick={maximize}
-          title="Maximieren"
-        >
-          <ChevronUp className="h-5 w-5" />
         </Button>
         
         <Button
