@@ -104,3 +104,52 @@ export interface VideoScanProgress {
   errors: number;
   message?: string;
 }
+
+// ─── Streaming Types ──────────────────────────────────────────────────────────
+
+export interface MediaStreamInfo {
+  id: string;
+  type: 'movie' | 'episode';
+  streamUrl: string;
+  directPlay: boolean;
+  directPlayReason?: string;
+  mediaInfo: {
+    container: string;
+    duration: number;
+    video: {
+      codec: string;
+      width: number;
+      height: number;
+      fps: number;
+      bitrate: number;
+    } | null;
+    audio: {
+      index: number;
+      codec: string;
+      language?: string;
+      channels: number;
+      default: boolean;
+    }[];
+    subtitles: {
+      index: number;
+      codec: string;
+      language?: string;
+      default: boolean;
+      forced: boolean;
+    }[];
+  };
+  clientCapabilities: {
+    videoCodecs: string[];
+    audioCodecs: string[];
+    maxResolution: { width: number; height: number };
+    maxBitrate: number;
+    containerFormats: string[];
+  };
+}
+
+export interface TranscodeStatus {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  error?: string;
+}
