@@ -1,11 +1,9 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { usePlayerStore } from '@/stores/playerStore';
-import { Button } from '@/components/ui/button';
 import { formatDuration } from '@/lib/utils';
 import {
-  Play, Pause, Volume2, VolumeX, Maximize, Minimize,
-  SkipBack, SkipForward, X, ChevronDown
+  Play, Pause, Volume2, VolumeX, Maximize, SkipBack, SkipForward, X, ChevronDown
 } from 'lucide-react';
 
 interface VideoQuality {
@@ -36,9 +34,6 @@ interface VideoPlayerProps {
   } | null;
   isTranscoding?: boolean;
   transcodeProgress?: number;
-  availableQualities?: VideoQuality[];
-  currentQuality?: VideoQuality;
-  onQualityChange?: (quality: VideoQuality) => void;
 }
 
 export function VideoPlayer({
@@ -63,7 +58,6 @@ export function VideoPlayer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -71,7 +65,6 @@ export function VideoPlayer({
   const [duration, setDuration] = useState(propDuration || 0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [buffered, setBuffered] = useState(0);
@@ -79,7 +72,7 @@ export function VideoPlayer({
   const [showNextEpisode, setShowNextEpisode] = useState(false);
   const [countdown, setCountdown] = useState(5);
 
-  // Auto-hide controls (Netflix style)
+  // Auto-hide controls
   const resetHideTimer = useCallback(() => {
     setShowControls(true);
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -90,15 +83,13 @@ export function VideoPlayer({
     }, 3000);
   }, []);
 
-  // Initialize video - stop music and setup audio
+  // Initialize video
   useEffect(() => {
-    // Stop any playing music when video starts
     pause();
     
     const video = videoRef.current;
     if (!video) return;
 
-    // Ensure audio is enabled
     video.muted = false;
     video.volume = volume;
 
@@ -108,15 +99,7 @@ export function VideoPlayer({
       if (savedPosition > 0 && savedPosition < video.duration - 5) {
         video.currentTime = savedPosition;
       }
-      // Try to play with audio
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          console.warn('Autoplay prevented:', err);
-          // If autoplay fails due to browser policy, show play button
-          setIsPlaying(false);
-        });
-      }
+      video.play().catch(() => {});
     };
 
     const onProgress = () => {
@@ -132,9 +115,9 @@ export function VideoPlayer({
       video.removeEventListener('loadedmetadata', onLoaded);
       video.removeEventListener('progress', onProgress);
     };
-  }, [savedPosition]);
+  }, [savedPosition, pause]);
 
-  // Sync playback state
+  // Sync playback
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -144,13 +127,11 @@ export function VideoPlayer({
       onProgress?.(Math.floor(video.currentTime));
       updateProgress(video.currentTime, video.duration);
       
-      // Skip intro
       if (introStart != null && introEnd != null) {
         const inIntro = video.currentTime >= introStart && video.currentTime < introEnd - 5;
         setShowSkipIntro(inIntro);
       }
       
-      // Next episode
       if (nextEpisode && video.currentTime > video.duration - 30) {
         setShowNextEpisode(true);
       } else {
@@ -160,11 +141,7 @@ export function VideoPlayer({
     
     const onPlay = () => { setIsPlaying(true); resetHideTimer(); };
     const onPause = () => { setIsPlaying(false); setShowControls(true); };
-    const onEnded = () => { 
-      setIsPlaying(false); 
-      setShowControls(true);
-      onComplete?.();
-    };
+    const onEnded = () => { setIsPlaying(false); setShowControls(true); onComplete?.(); };
 
     video.addEventListener('timeupdate', onTime);
     video.addEventListener('play', onPlay);
@@ -176,39 +153,10 @@ export function VideoPlayer({
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
       video.removeEventListener('ended', onEnded);
-      if (progressInterval.current) clearInterval(progressInterval.current);
     };
   }, [onProgress, onComplete, introStart, introEnd, nextEpisode, resetHideTimer]);
 
-  // Fullscreen detection
-  useEffect(() => {
-    const onFsChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener('fullscreenchange', onFsChange);
-    return () => document.removeEventListener('fullscreenchange', onFsChange);
-  }, []);
-
-  // Countdown for next episode
-  useEffect(() => {
-    if (!showNextEpisode || !nextEpisode) return;
-    
-    setCountdown(5);
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          nextEpisode.onPlay();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  }, [showNextEpisode, nextEpisode]);
-
-  // Keyboard shortcuts
+  // Keyboard
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const video = videoRef.current;
@@ -237,7 +185,7 @@ export function VideoPlayer({
           toggleMute();
           break;
         case 'Escape':
-          if (!isFullscreen) onClose();
+          onClose();
           break;
       }
       resetHideTimer();
@@ -245,7 +193,7 @@ export function VideoPlayer({
     
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isFullscreen, onClose, resetHideTimer]);
+  }, [onClose, resetHideTimer]);
 
   const togglePlay = () => {
     const video = videoRef.current;
@@ -262,12 +210,10 @@ export function VideoPlayer({
     resetHideTimer();
   };
 
-  const handleVolume = (v: number) => {
+  const skip = (seconds: number) => {
     const video = videoRef.current;
     if (!video) return;
-    video.volume = v;
-    setVolume(v);
-    setIsMuted(v === 0);
+    video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + seconds));
     resetHideTimer();
   };
 
@@ -279,18 +225,13 @@ export function VideoPlayer({
     resetHideTimer();
   };
 
-  const skip = (seconds: number) => {
+  const handleVolume = (v: number) => {
     const video = videoRef.current;
     if (!video) return;
-    video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + seconds));
+    video.volume = v;
+    setVolume(v);
+    setIsMuted(v === 0);
     resetHideTimer();
-  };
-
-  const skipIntro = () => {
-    if (introEnd) {
-      handleSeek(introEnd);
-      setShowSkipIntro(false);
-    }
   };
 
   const toggleFullscreen = () => {
@@ -303,106 +244,47 @@ export function VideoPlayer({
     }
   };
 
-  // Calculate progress percentages
+  const skipIntro = () => {
+    if (introEnd) {
+      handleSeek(introEnd);
+      setShowSkipIntro(false);
+    }
+  };
+
   const progressPercent = duration ? (seek / duration) * 100 : 0;
   const bufferedPercent = duration ? (buffered / duration) * 100 : 0;
+
+  const VolumeIcon = isMuted || volume === 0 ? VolumeX : Volume2;
 
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-50 bg-black overflow-hidden cursor-default"
+      className="fixed inset-0 z-50 bg-black flex flex-col"
       onMouseMove={resetHideTimer}
-      onClick={togglePlay}
     >
-      {/* Video element - centered */}
-      <video
-        ref={videoRef}
-        src={src}
-        poster={posterUrl ?? undefined}
-        className="absolute inset-0 w-full h-full object-contain"
-        style={{ margin: 'auto' }}
-        preload="metadata"
-        playsInline
-        autoPlay
-        muted={false}
-      />
+      {/* Video */}
+      <div className="flex-1 relative" onClick={togglePlay}>
+        <video
+          ref={videoRef}
+          src={src}
+          poster={posterUrl ?? undefined}
+          className="w-full h-full object-contain"
+          autoPlay
+          playsInline
+        />
 
-      {/* Loading spinner */}
-      {isLoading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 gap-3">
-          <div className="h-12 w-12 rounded-full border-4 border-white/20 border-t-red-600 animate-spin" />
-          {isTranscoding && (
-            <div className="text-center text-white">
-              <p className="text-sm">Wird für dein Gerät optimiert...</p>
-              <p className="text-xs text-white/60">{transcodeProgress}%</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Controls Overlay - Netflix Style */}
-      <div
-        className={`absolute inset-0 flex flex-col justify-between bg-gradient-to-b from-black/70 via-transparent to-black/70 transition-opacity duration-300 ${
-          showControls ? 'opacity-100' : 'opacity-0'
-        }`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Top bar - Title & Close (X rechts oben wie Netflix) */}
-        <div className="flex items-center justify-between px-6 py-4">
-          {/* Left: Minimize + Title */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-10 w-10 text-white hover:bg-white/20"
-              onClick={minimize}
-              title="Minimieren"
-            >
-              <ChevronDown className="h-6 w-6" />
-            </Button>
-            <div className="ml-2">
-              <h1 className="text-lg font-semibold text-white">{title}</h1>
-              {subtitle && <p className="text-sm text-white/70">{subtitle}</p>}
-            </div>
-          </div>
-          
-          {/* Right: Stream info + X */}
-          <div className="flex items-center gap-3">
-            {streamInfo && (
-              <span className={`text-xs px-2 py-1 rounded ${
-                streamInfo.directPlay 
-                  ? 'bg-green-500/20 text-green-400' 
-                  : 'bg-amber-500/20 text-amber-400'
-              }`}>
-                {streamInfo.directPlay ? 'Direct Play' : 'Transcode'}
-              </span>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-10 w-10 text-white hover:bg-white/20"
-              onClick={onClose}
-              title="Schließen"
-            >
-              <X className="h-6 w-6" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Center - Play button when paused */}
-        {!isPlaying && !isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/30 flex items-center justify-center">
-              <Play className="h-10 w-10 text-white fill-white ml-1" />
-            </div>
+        {/* Loading */}
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+            <div className="h-12 w-12 rounded-full border-4 border-white/20 border-t-red-600 animate-spin" />
           </div>
         )}
 
-        {/* Skip Intro Button */}
+        {/* Skip Intro */}
         {showSkipIntro && (
           <button
-            onClick={skipIntro}
-            className="absolute bottom-32 right-8 px-6 py-3 bg-white/90 text-black font-semibold rounded hover:bg-white transition-all"
+            onClick={(e) => { e.stopPropagation(); skipIntro(); }}
+            className="absolute bottom-28 right-8 px-6 py-3 bg-white text-black font-semibold rounded hover:bg-white/90"
           >
             Intro überspringen
           </button>
@@ -410,123 +292,140 @@ export function VideoPlayer({
 
         {/* Next Episode */}
         {showNextEpisode && nextEpisode && (
-          <div className="absolute bottom-32 right-8 bg-black/90 rounded-lg p-4 max-w-xs">
-            <p className="text-xs text-white/70 mb-2">Nächste Episode in {countdown}s</p>
-            <p className="text-sm font-medium text-white mb-3">{nextEpisode.title}</p>
-            <div className="flex gap-2">
-              <Button 
-                size="sm" 
-                className="flex-1 bg-red-600 hover:bg-red-700"
-                onClick={() => { setShowNextEpisode(false); nextEpisode.onPlay(); }}
-              >
-                Jetzt abspielen
-              </Button>
-              <Button 
-                size="sm" 
-                variant="ghost"
-                onClick={() => setShowNextEpisode(false)}
-              >
-                Abbrechen
-              </Button>
-            </div>
+          <div className="absolute bottom-28 right-8 bg-black/90 rounded-lg p-4">
+            <p className="text-xs text-white/70 mb-2">Nächste in {countdown}s</p>
+            <p className="text-sm text-white mb-3">{nextEpisode.title}</p>
+            <button 
+              className="px-4 py-2 bg-red-600 text-white rounded"
+              onClick={() => nextEpisode.onPlay()}
+            >
+              Jetzt abspielen
+            </button>
           </div>
         )}
 
-        {/* Bottom controls - Netflix style */}
-        <div className="px-6 pb-6 space-y-3">
-          {/* Progress bar */}
-          <div 
-            className="relative h-1 bg-white/30 cursor-pointer group"
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const percent = (e.clientX - rect.left) / rect.width;
-              handleSeek(percent * duration);
-            }}
-          >
-            {/* Buffered */}
-            <div 
-              className="absolute h-full bg-white/40"
-              style={{ width: `${bufferedPercent}%` }}
-            />
-            {/* Progress - Netflix red */}
-            <div 
-              className="absolute h-full bg-red-600 group-hover:h-1.5 transition-all"
-              style={{ width: `${progressPercent}%` }}
-            />
-            {/* Scrub handle */}
-            <div 
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-red-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-              style={{ left: `${progressPercent}%`, transform: 'translateX(-50%) translateY(-50%)' }}
-            />
+        {/* Top Bar */}
+        <div className={`absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/80 to-transparent transition-opacity ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+          <button onClick={minimize} className="text-white/80 hover:text-white p-2">
+            <ChevronDown className="h-6 w-6" />
+          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="text-white/80 hover:text-white p-2">
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Unified Control Bar - Bottom */}
+      <div 
+        className={`bg-[#1a1a1a] border-t border-white/10 transition-all duration-300 ${showControls ? 'translate-y-0' : 'translate-y-full'}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Progress Bar */}
+        <div 
+          className="h-1 bg-white/20 cursor-pointer group"
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const percent = (e.clientX - rect.left) / rect.width;
+            handleSeek(percent * duration);
+          }}
+        >
+          <div className="h-full bg-white/30" style={{ width: `${bufferedPercent}%` }} />
+          <div className="absolute h-full bg-red-600 group-hover:h-1.5 transition-all" style={{ width: `${progressPercent}%` }} />
+        </div>
+
+        {/* Controls Row */}
+        <div className="flex items-center justify-between px-4 py-3">
+          {/* Left: Info */}
+          <div className="flex items-center gap-4 flex-1 min-w-0">
+            {posterUrl && (
+              <img src={posterUrl} alt="" className="h-14 w-20 object-cover rounded bg-black" />
+            )}
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white truncate">{title}</p>
+              {subtitle && <p className="text-xs text-white/60 truncate">{subtitle}</p>}
+              <p className="text-xs text-white/60 tabular-nums mt-1">
+                {formatDuration(seek)} / {formatDuration(duration)}
+              </p>
+            </div>
           </div>
 
-          {/* Control buttons row */}
-          <div className="flex items-center justify-between">
-            {/* Left controls */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={togglePlay}
-                className="text-white hover:text-white/80 transition-colors"
-              >
-                {isPlaying
-                  ? <Pause className="h-8 w-8 fill-current" />
-                  : <Play className="h-8 w-8 fill-current" />}
-              </button>
-              
-              <button
-                onClick={() => skip(-10)}
-                className="text-white/80 hover:text-white transition-colors"
-              >
-                <SkipBack className="h-6 w-6" />
-              </button>
-              
-              <button
-                onClick={() => skip(10)}
-                className="text-white/80 hover:text-white transition-colors"
-              >
-                <SkipForward className="h-6 w-6" />
-              </button>
+          {/* Center: Playback Controls */}
+          <div className="flex items-center gap-2">
+            {/* Skip Back */}
+            <button 
+              onClick={() => skip(-10)}
+              className="flex flex-col items-center justify-center w-12 h-12 text-white hover:bg-white/10 rounded"
+            >
+              <SkipBack className="h-5 w-5" />
+              <span className="text-[10px] -mt-1">10</span>
+            </button>
 
-              {/* Volume */}
-              <div className="flex items-center gap-2 group/volume">
-                <button
-                  onClick={toggleMute}
-                  className="text-white/80 hover:text-white transition-colors"
-                >
-                  {isMuted || volume === 0 
-                    ? <VolumeX className="h-6 w-6" />
-                    : <Volume2 className="h-6 w-6" />}
-                </button>
-                <div className="w-0 overflow-hidden group-hover/volume:w-24 transition-all">
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={isMuted ? 0 : volume}
-                    onChange={(e) => handleVolume(parseFloat(e.target.value))}
-                    className="w-24 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
-                  />
-                </div>
+            {/* Play/Pause */}
+            <button 
+              onClick={togglePlay}
+              className="flex items-center justify-center w-14 h-14 bg-white text-black rounded-full hover:bg-white/90 mx-2"
+            >
+              {isPlaying 
+                ? <Pause className="h-6 w-6 fill-current" />
+                : <Play className="h-6 w-6 fill-current ml-1" />}
+            </button>
+
+            {/* Skip Forward */}
+            <button 
+              onClick={() => skip(10)}
+              className="flex flex-col items-center justify-center w-12 h-12 text-white hover:bg-white/10 rounded"
+            >
+              <SkipForward className="h-5 w-5" />
+              <span className="text-[10px] -mt-1">10</span>
+            </button>
+
+            {/* Next Episode Thumbnail */}
+            {nextEpisode && (
+              <button 
+                onClick={() => nextEpisode.onPlay()}
+                className="ml-2 w-12 h-12 rounded overflow-hidden bg-black hover:ring-2 hover:ring-white/50"
+              >
+                {nextEpisode.thumbnail ? (
+                  <img src={nextEpisode.thumbnail} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-white/50">
+                    <SkipForward className="h-5 w-5" />
+                  </div>
+                )}
+              </button>
+            )}
+          </div>
+
+          {/* Right: Volume & Fullscreen */}
+          <div className="flex items-center justify-end gap-3 flex-1">
+            {/* Volume */}
+            <div className="flex items-center gap-2 group">
+              <button onClick={toggleMute} className="text-white/80 hover:text-white p-2">
+                <VolumeIcon className="h-5 w-5" />
+              </button>
+              <div className="w-24 h-1 bg-white/30 rounded overflow-hidden">
+                <div 
+                  className="h-full bg-red-600"
+                  style={{ width: `${isMuted ? 0 : volume * 100}%` }}
+                />
               </div>
-
-              {/* Time */}
-              <span className="text-sm text-white/80 tabular-nums">
-                {formatDuration(seek)} / {formatDuration(duration)}
-              </span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={isMuted ? 0 : volume}
+                onChange={(e) => handleVolume(parseFloat(e.target.value))}
+                className="absolute w-24 h-6 opacity-0 cursor-pointer"
+              />
             </div>
 
-            {/* Right controls */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={toggleFullscreen}
-                className="text-white/80 hover:text-white transition-colors"
-              >
-                {isFullscreen 
-                  ? <Minimize className="h-6 w-6" /> 
-                  : <Maximize className="h-6 w-6" />}
-              </button>
-            </div>
+            {/* Fullscreen */}
+            <button onClick={toggleFullscreen} className="text-white/80 hover:text-white p-2">
+              <Maximize className="h-5 w-5" />
+            </button>
           </div>
         </div>
       </div>
