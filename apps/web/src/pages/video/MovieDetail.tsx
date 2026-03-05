@@ -99,8 +99,15 @@ export function MovieDetail() {
           title={movie.title}
           posterUrl={movie.posterPath}
           savedPosition={movie.watchProgress ?? 0}
+          duration={movie.runtime ? movie.runtime * 60 : null}
           onClose={handleClose}
           onProgress={handleProgress}
+          onComplete={() => {
+            // Mark as watched when completed
+            if (movie.runtime) {
+              handleProgress(movie.runtime * 60 * 0.95);
+            }
+          }}
         />
       ) : (
         /* ── Detail view ──────────────────────────────────────── */
