@@ -9,7 +9,6 @@ import {
   AlertCircle,
   Film,
   Tv,
-  Clock,
   XCircle
 } from 'lucide-react';
 import type { VideoScanProgress } from '@musicserver/shared';
@@ -30,9 +29,9 @@ export function VideoScanButton() {
   const statusQuery = useQuery({
     queryKey: ['video-scan-status'],
     queryFn: () => api.get<ScanStatusResponse>('/video/scan/status'),
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
       // Poll every 2 seconds while scanning
-      return data?.data?.isScanning ? 2000 : false;
+      return query?.state?.data?.data?.isScanning ? 2000 : false;
     },
   });
 

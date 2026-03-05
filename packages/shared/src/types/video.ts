@@ -12,6 +12,7 @@ export interface Movie {
   overview: string | null;
   posterPath: string | null;
   backdropPath: string | null;
+  tmdbId: number | null;
   filePath: string;
   fileSize: bigint | null;
   codec: string | null;
@@ -31,6 +32,7 @@ export interface Series {
   overview: string | null;
   posterPath: string | null;
   backdropPath: string | null;
+  tmdbId: number | null;
   addedAt: Date;
   updatedAt: Date;
   genres: Genre[];
