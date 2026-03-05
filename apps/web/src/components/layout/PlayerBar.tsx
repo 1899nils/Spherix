@@ -333,7 +333,7 @@ export function PlayerBar() {
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50">
-      <footer className="bg-[#1a1a1a] rounded-lg h-16 relative overflow-hidden">
+      <footer className="liquid-glass rounded-2xl h-16 relative overflow-hidden shadow-[0_8px_32px_0_rgba(0,0,0,0.8)]">
         {showEmpty && (
           <div className="flex items-center justify-center h-full">
             <p className="text-sm text-white/50 italic">
