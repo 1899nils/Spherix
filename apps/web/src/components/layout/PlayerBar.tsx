@@ -54,7 +54,7 @@ function VolumeControl({
 function MusicPlayerBar() {
   const {
     currentTrack, isPlaying, seek, duration, volume, isMuted,
-    togglePlay, next, prev, setVolume, toggleMute
+    togglePlay, setVolume, toggleMute
   } = usePlayerStore();
 
   const isRadio = !!(currentTrack && 'isRadio' in currentTrack);
