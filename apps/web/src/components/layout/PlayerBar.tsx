@@ -60,10 +60,8 @@ function MusicPlayerBar() {
   const isRadio = !!(currentTrack && 'isRadio' in currentTrack);
   const isPodcast = !!(currentTrack && 'isPodcast' in currentTrack);
 
-  const skip = (seconds: number) => {
+  const skip = () => {
     // Music player doesn't have skip function in store, use prev/next
-    if (seconds > 0) next();
-    else prev();
   };
 
   if (!currentTrack) return null;
