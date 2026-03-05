@@ -76,7 +76,7 @@ function ProgressBar({ progress, onSeek }: { progress: number; onSeek?: (percent
 function MusicPlayerBar() {
   const {
     currentTrack, isPlaying, seek, duration, volume, isMuted,
-    togglePlay, next, prev, seekTo, setVolume, toggleMute
+    togglePlay, next, prev, seekTo, setVolume, toggleMute, stop
   } = usePlayerStore();
 
   const isRadio = !!(currentTrack && 'isRadio' in currentTrack);
@@ -155,6 +155,14 @@ function MusicPlayerBar() {
         <button onClick={next} className="p-2 text-white/70 hover:text-white">
           <SkipForward className="h-5 w-5" />
         </button>
+
+        {/* Stop */}
+        <button 
+          onClick={stop}
+          className="p-2 text-white/70 hover:text-white ml-2"
+        >
+          <Square className="h-4 w-4 fill-current" />
+        </button>
       </div>
 
       {/* Right: Volume */}
@@ -175,7 +183,7 @@ function MusicPlayerBar() {
 function AudiobookPlayerBar() {
   const {
     currentBook, isPlaying, seek, duration, volume,
-    togglePlay, prevChapter, nextChapter, seekTo, setVolume
+    togglePlay, prevChapter, nextChapter, seekTo, setVolume, stop
   } = useAudiobookPlayerStore();
 
   const [isMuted, setIsMuted] = useState(false);
@@ -229,6 +237,14 @@ function AudiobookPlayerBar() {
         <button onClick={nextChapter} className="p-2 text-white/70 hover:text-white">
           <SkipForward className="h-5 w-5" />
         </button>
+
+        {/* Stop */}
+        <button 
+          onClick={stop}
+          className="p-2 text-white/70 hover:text-white ml-2"
+        >
+          <Square className="h-4 w-4 fill-current" />
+        </button>
       </div>
 
       {/* Right: Volume */}
@@ -247,7 +263,7 @@ function AudiobookPlayerBar() {
 // ── Minimized Video Bar ───────────────────────────────────────────────────────
 
 function MinimizedVideoBar() {
-  const { activeVideo, isPlaying, currentTime, duration, maximize, stop, setIsPlaying } = useVideoPlayerStore();
+  const { activeVideo, isPlaying, currentTime, duration, maximize, stop, setIsPlaying, updateProgress } = useVideoPlayerStore();
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const [isHovered, setIsHovered] = useState(false);
@@ -295,7 +311,10 @@ function MinimizedVideoBar() {
       <div className="flex items-center justify-center gap-1 flex-1">
         {/* Skip Back 10s */}
         <button 
-          onClick={() => setIsPlaying(!isPlaying)}
+          onClick={() => {
+            const newTime = Math.max(0, currentTime - 10);
+            updateProgress(newTime, duration);
+          }}
           className="flex flex-col items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded"
         >
           <SkipBack className="h-4 w-4" />
@@ -314,7 +333,10 @@ function MinimizedVideoBar() {
 
         {/* Skip Forward 10s */}
         <button 
-          onClick={() => setIsPlaying(!isPlaying)}
+          onClick={() => {
+            const newTime = Math.min(duration, currentTime + 10);
+            updateProgress(newTime, duration);
+          }}
           className="flex flex-col items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded"
         >
           <SkipForward className="h-4 w-4" />

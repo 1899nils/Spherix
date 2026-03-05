@@ -135,45 +135,6 @@ export function VideoPlayer({
     };
   }, [onProgress, onComplete, introStart, introEnd, nextEpisode, resetHideTimer]);
 
-  // Keyboard
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const video = videoRef.current;
-      if (!video) return;
-      
-      switch (e.key) {
-        case ' ':
-        case 'k':
-          e.preventDefault();
-          togglePlay();
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          skip(10);
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          skip(-10);
-          break;
-        case 'f':
-          e.preventDefault();
-          toggleFullscreen();
-          break;
-        case 'm':
-          e.preventDefault();
-          toggleMute();
-          break;
-        case 'Escape':
-          onClose();
-          break;
-      }
-      resetHideTimer();
-    };
-    
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, resetHideTimer]);
-
   const togglePlay = () => {
     const video = videoRef.current;
     if (!video) return;
@@ -223,12 +184,61 @@ export function VideoPlayer({
     }
   };
 
+  const handleStop = useCallback(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.pause();
+      video.currentTime = 0;
+    }
+    stop();
+    onClose();
+  }, [onClose, stop]);
+
   const skipIntro = () => {
     if (introEnd) {
       handleSeek(introEnd);
       setShowSkipIntro(false);
     }
   };
+
+  // Keyboard
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const video = videoRef.current;
+      if (!video) return;
+      
+      switch (e.key) {
+        case ' ':
+        case 'k':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          skip(10);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          skip(-10);
+          break;
+        case 'f':
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case 'm':
+          e.preventDefault();
+          toggleMute();
+          break;
+        case 'Escape':
+          handleStop();
+          break;
+      }
+      resetHideTimer();
+    };
+    
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [resetHideTimer, handleStop]);
 
   const progressPercent = duration ? (seek / duration) * 100 : 0;
 
@@ -361,7 +371,7 @@ export function VideoPlayer({
 
             {/* Stop Button */}
             <button 
-              onClick={stop}
+              onClick={handleStop}
               className="flex items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded ml-1"
               title="Stop"
             >

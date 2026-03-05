@@ -68,6 +68,7 @@ interface PlayerState {
   cycleRepeat: () => void;
   setQueue: (tracks: (TrackWithRelations | RadioStation)[], startIndex?: number) => void;
   clearQueue: () => void;
+  stop: () => void;
 }
 
 function stopSeekUpdates(state: PlayerState) {
@@ -472,6 +473,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       state._howl.unload();
     }
     stopSeekUpdates(state);
+    stopRadioTrackPolling(state);
     set({
       queue: [],
       queueIndex: -1,
@@ -480,6 +482,32 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       seek: 0,
       duration: 0,
       _howl: null,
+      currentRadioTrack: null,
+      _radioEventSource: null,
+    });
+  },
+
+  stop: () => {
+    const state = get();
+    if (state._howl) {
+      state._howl.unload();
+    }
+    stopSeekUpdates(state);
+    stopRadioTrackPolling(state);
+    // Stop server-side radio polling if active
+    fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
+    set({
+      queue: [],
+      queueIndex: -1,
+      currentTrack: null,
+      isPlaying: false,
+      seek: 0,
+      duration: 0,
+      _howl: null,
+      currentRadioTrack: null,
+      _radioEventSource: null,
+      hasScrobbled: false,
+      scrobbleActivity: 'idle',
     });
   },
 }));
