@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
+import { usePlayerStore } from '@/stores/playerStore';
 import { Button } from '@/components/ui/button';
 import { formatDuration } from '@/lib/utils';
 import {
@@ -58,6 +59,7 @@ export function VideoPlayer({
   transcodeProgress = 0,
 }: VideoPlayerProps) {
   const { minimize, updateProgress } = useVideoPlayerStore();
+  const { pause } = usePlayerStore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -88,10 +90,17 @@ export function VideoPlayer({
     }, 3000);
   }, []);
 
-  // Initialize video
+  // Initialize video - stop music and setup audio
   useEffect(() => {
+    // Stop any playing music when video starts
+    pause();
+    
     const video = videoRef.current;
     if (!video) return;
+
+    // Ensure audio is enabled
+    video.muted = false;
+    video.volume = volume;
 
     const onLoaded = () => {
       setDuration(video.duration);
@@ -99,7 +108,15 @@ export function VideoPlayer({
       if (savedPosition > 0 && savedPosition < video.duration - 5) {
         video.currentTime = savedPosition;
       }
-      video.play().catch(() => {});
+      // Try to play with audio
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('Autoplay prevented:', err);
+          // If autoplay fails due to browser policy, show play button
+          setIsPlaying(false);
+        });
+      }
     };
 
     const onProgress = () => {
@@ -305,6 +322,8 @@ export function VideoPlayer({
         className="absolute inset-0 w-full h-full object-contain"
         preload="metadata"
         playsInline
+        autoPlay
+        muted={false}
       />
 
       {/* Loading spinner */}
