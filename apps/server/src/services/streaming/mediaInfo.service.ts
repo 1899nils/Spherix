@@ -222,9 +222,9 @@ function normalizeVideoCodec(codec: string): string {
     h265: 'hevc',
     libx265: 'hevc',
     vp9: 'vp9',
-    libvpx-vp9: 'vp9',
+    'libvpx-vp9': 'vp9',
     av1: 'av1',
-    libaom-av1: 'av1',
+    'libaom-av1': 'av1',
     avc: 'h264',
   };
   return map[codec.toLowerCase()] || codec.toLowerCase();
