@@ -13,15 +13,27 @@ export interface ActiveVideo {
 interface VideoPlayerState {
   activeVideo: ActiveVideo | null;
   isPlaying: boolean;
+  isMinimized: boolean;
+  currentTime: number;
+  duration: number;
   setActiveVideo: (video: ActiveVideo | null) => void;
   setIsPlaying: (playing: boolean) => void;
+  minimize: () => void;
+  maximize: () => void;
+  updateProgress: (time: number, duration: number) => void;
   stop: () => void;
 }
 
 export const useVideoPlayerStore = create<VideoPlayerState>((set) => ({
   activeVideo: null,
   isPlaying: false,
-  setActiveVideo: (video) => set({ activeVideo: video, isPlaying: !!video }),
+  isMinimized: false,
+  currentTime: 0,
+  duration: 0,
+  setActiveVideo: (video) => set({ activeVideo: video, isPlaying: !!video, isMinimized: false }),
   setIsPlaying: (playing) => set({ isPlaying: playing }),
-  stop: () => set({ activeVideo: null, isPlaying: false }),
+  minimize: () => set({ isMinimized: true }),
+  maximize: () => set({ isMinimized: false }),
+  updateProgress: (time, dur) => set({ currentTime: time, duration: dur }),
+  stop: () => set({ activeVideo: null, isPlaying: false, isMinimized: false }),
 }));

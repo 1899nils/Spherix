@@ -19,8 +19,11 @@ export function MovieDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { setActiveVideo } = useVideoPlayerStore();
+  const { setActiveVideo, isMinimized } = useVideoPlayerStore();
   const [showPlayer, setShowPlayer] = useState(false);
+  
+  // Show detail view when player is minimized
+  const showDetailView = !showPlayer || isMinimized;
   const [showEditor, setShowEditor] = useState(false);
   const [showTmdbModal, setShowTmdbModal] = useState(false);
 
@@ -93,7 +96,7 @@ export function MovieDetail() {
       </Button>
 
       {/* ── Theater mode ─────────────────────────────────────── */}
-      {showPlayer && (
+      {showPlayer && !isMinimized && (
         <div className="fixed inset-0 z-50 bg-black">
           <VideoPlayer
             src={`/api/video/movies/${movie.id}/stream`}
@@ -113,7 +116,7 @@ export function MovieDetail() {
         </div>
       )}
 
-      {!showPlayer && (
+      {showDetailView && (
         /* ── Detail view ──────────────────────────────────────── */
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Poster */}

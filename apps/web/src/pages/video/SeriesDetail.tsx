@@ -19,9 +19,12 @@ export function SeriesDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { setActiveVideo } = useVideoPlayerStore();
+  const { setActiveVideo, isMinimized } = useVideoPlayerStore();
 
   const [activeEpisode, setActiveEpisode] = useState<{ id: string; title: string; seasonNum: number; episodeNum: number; runtime: number | null } | null>(null);
+  
+  // Show detail view when player is minimized
+  const showDetailView = !activeEpisode || isMinimized;
   const [openSeason, setOpenSeason] = useState<number | null>(1);
   const [showSeriesEditor, setShowSeriesEditor] = useState(false);
   const [editEpisodeId, setEditEpisodeId] = useState<string | null>(null);
@@ -92,7 +95,7 @@ export function SeriesDetail() {
       </Button>
 
       {/* ── Episode player ───────────────────────────────────── */}
-      {activeEpisode && (
+      {activeEpisode && !isMinimized && (
         <div className="fixed inset-0 z-50 bg-black">
           <VideoPlayer
             src={`/api/video/episodes/${activeEpisode.id}/stream`}
@@ -127,7 +130,7 @@ export function SeriesDetail() {
         </div>
       )}
 
-      {!activeEpisode && (
+      {showDetailView && (
         /* ── Series detail ────────────────────────────────────── */
         <div className="flex flex-col gap-8">
           {/* Header */}
