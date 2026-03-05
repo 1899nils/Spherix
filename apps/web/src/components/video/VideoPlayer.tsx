@@ -55,7 +55,6 @@ export function VideoPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
-  const [buffered, setBuffered] = useState(0);
   const [showSkipIntro, setShowSkipIntro] = useState(false);
   const [showNextEpisode, setShowNextEpisode] = useState(false);
   const [countdown] = useState(5);
@@ -90,18 +89,10 @@ export function VideoPlayer({
       video.play().catch(() => {});
     };
 
-    const onProgress = () => {
-      if (video.buffered.length > 0) {
-        setBuffered(video.buffered.end(video.buffered.length - 1));
-      }
-    };
-
     video.addEventListener('loadedmetadata', onLoaded);
-    video.addEventListener('progress', onProgress);
     
     return () => {
       video.removeEventListener('loadedmetadata', onLoaded);
-      video.removeEventListener('progress', onProgress);
     };
   }, [savedPosition, pause]);
 
