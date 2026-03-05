@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1,
-  Shuffle, Repeat, Repeat1, Music2, Info, MonitorPlay, Headphones,
+  Shuffle, Repeat, Repeat1, Music2, Info, Headphones,
   ChevronLeft, ChevronRight, Timer, Gauge,
 } from 'lucide-react';
 
@@ -355,43 +355,6 @@ function AudiobookPlayerBar() {
         <Slider value={volume} max={1} onChange={setVolume} className="w-24" />
       </div>
     </>
-  );
-}
-
-// ── Video Indicator Bar ───────────────────────────────────────────────────────
-
-function VideoIndicatorBar() {
-  const { activeVideo, stop } = useVideoPlayerStore();
-  if (!activeVideo) return null;
-
-  return (
-    <div className="flex items-center justify-between w-full">
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-lg bg-section-accent/20 border border-section-accent/30 flex items-center justify-center shrink-0">
-          <MonitorPlay className="h-5 w-5 text-section-accent" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-white truncate">{activeVideo.title}</p>
-          {activeVideo.seriesTitle && (
-            <p className="text-xs text-muted-foreground truncate">{activeVideo.seriesTitle}</p>
-          )}
-        </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="text-xs text-section-accent font-medium animate-pulse flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-section-accent inline-block" />
-          Videowidergabe läuft
-        </span>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-xs text-muted-foreground hover:text-white h-7"
-          onClick={stop}
-        >
-          Beenden
-        </Button>
-      </div>
-    </div>
   );
 }
 
