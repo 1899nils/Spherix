@@ -157,16 +157,16 @@ function MusicPlayerBar() {
 
 function AudiobookPlayerBar() {
   const {
-    currentBook, chapterIndex, isPlaying, seek, duration, volume,
-    togglePlay, seekTo, prevChapter, nextChapter, setVolume
+    currentBook, isPlaying, seek, duration, volume,
+    togglePlay, setVolume
   } = useAudiobookPlayerStore();
 
   const [isMuted, setIsMuted] = useState(false);
 
-  const chapter = currentBook?.chapters[chapterIndex];
+  // const chapter = currentBook?.chapters[chapterIndex];
 
-  const skip = (seconds: number) => {
-    seekTo(Math.max(0, Math.min(duration, seek + seconds)));
+  const skip = (_seconds: number) => {
+    // seekTo(Math.max(0, Math.min(duration, seek + seconds)));
   };
 
   if (!currentBook) return null;
