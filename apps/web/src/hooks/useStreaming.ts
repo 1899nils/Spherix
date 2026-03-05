@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useEffect, useState, useCallback } from 'react';
 import type { MediaStreamInfo, TranscodeStatus } from '@musicserver/shared';
@@ -79,12 +79,7 @@ export function useStreaming({ type, id, enabled = true }: UseStreamingOptions):
       const caps = detectClientCapabilities();
       
       const res = await api.get<{ data: MediaStreamInfo }>(
-        `/video/stream/info/${type}/${id}`,
-        {
-          headers: {
-            'X-Client-Capabilities': JSON.stringify(caps),
-          },
-        }
+        `/video/stream/info/${type}/${id}`
       );
       return res.data;
     },
@@ -143,7 +138,7 @@ export function useStreaming({ type, id, enabled = true }: UseStreamingOptions):
  * Hook for HLS.js integration (for transcoded streams)
  */
 export function useHlsPlayer() {
-  const [hlsInstance, setHlsInstance] = useState<any>(null);
+  const [hlsInstance] = useState<any>(null);
   const [isSupported, setIsSupported] = useState(false);
 
   useEffect(() => {
