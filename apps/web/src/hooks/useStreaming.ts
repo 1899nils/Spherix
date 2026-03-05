@@ -76,8 +76,6 @@ export function useStreaming({ type, id, enabled = true }: UseStreamingOptions):
   } = useQuery({
     queryKey: ['stream-info', type, id],
     queryFn: async () => {
-      const caps = detectClientCapabilities();
-      
       const res = await api.get<{ data: MediaStreamInfo }>(
         `/video/stream/info/${type}/${id}`
       );
