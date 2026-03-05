@@ -54,9 +54,6 @@ export function TmdbSearchModal({ isOpen, onClose, type, item }: TmdbSearchModal
     },
   });
 
-  // Zeige Fehler an
-  const linkError = linkMutation.error?.message || unlinkMutation.error?.message;
-
   const unlinkMutation = useMutation({
     mutationFn: async () => {
       const endpoint = type === 'movie' 
@@ -70,6 +67,9 @@ export function TmdbSearchModal({ isOpen, onClose, type, item }: TmdbSearchModal
       queryClient.invalidateQueries({ queryKey: ['unmatched-count'] });
     },
   });
+
+  // Zeige Fehler an
+  const linkError = linkMutation.error?.message || unlinkMutation.error?.message;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

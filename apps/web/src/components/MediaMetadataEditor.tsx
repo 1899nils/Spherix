@@ -345,23 +345,77 @@ function MovieGeneralTab({ form, onChange }: {
   return (
     <div className="space-y-4">
       <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} />
-      <div className="grid grid-cols-2 gap-4">
+      <TextField label="Sortiertitel" value={form.sortTitle ?? ''} onChange={v => onChange('sortTitle', v)} />
+      <div className="grid grid-cols-3 gap-4">
         <NumberField label="Jahr"            value={form.year ?? ''}    onChange={v => onChange('year', v)} />
         <NumberField label="Laufzeit (Min.)" value={form.runtime ?? ''} onChange={v => onChange('runtime', v)} />
+        <NumberField label="TMDb ID"         value={form.tmdbId ?? ''}  onChange={v => onChange('tmdbId', v)} />
       </div>
       <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={6} />
+      
+      {/* Poster & Backdrop URLs */}
+      <div className="grid grid-cols-2 gap-4">
+        <TextField label="Poster URL" value={form.posterPath ?? ''} onChange={v => onChange('posterPath', v)} />
+        <TextField label="Backdrop URL" value={form.backdropPath ?? ''} onChange={v => onChange('backdropPath', v)} />
+      </div>
+      
+      {/* Technische Felder */}
+      <div className="grid grid-cols-2 gap-4">
+        <TextField label="Codec" value={form.codec ?? ''} onChange={v => onChange('codec', v)} />
+        <TextField label="Auflösung" value={form.resolution ?? ''} onChange={v => onChange('resolution', v)} />
+      </div>
+      
+      {/* Status */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <FieldLabel label="Gesehen" />
+          <select
+            value={form.watched ?? 'false'}
+            onChange={e => onChange('watched', e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="false">Nein</option>
+            <option value="true">Ja</option>
+          </select>
+        </div>
+        <NumberField label="Fortschritt (Sek.)" value={form.watchProgress ?? ''} onChange={v => onChange('watchProgress', v)} />
+      </div>
     </div>
   );
 }
 
 function MovieInfoTab({ form }: { form: Record<string, string> }) {
+  const formatFileSize = (bytes: string) => {
+    const n = parseInt(bytes);
+    if (!n) return '–';
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+    return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+  };
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '–';
+    try {
+      return new Date(dateStr).toLocaleString('de-DE');
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <ReadonlyField label="Codec"     value={form.codec ?? ''} />
         <ReadonlyField label="Auflösung" value={form.resolution ?? ''} />
       </div>
-      {form.tmdbId && <ReadonlyField label="TMDb ID" value={form.tmdbId} />}
+      <div className="grid grid-cols-2 gap-4">
+        <ReadonlyField label="Dateigröße" value={formatFileSize(form.fileSize ?? '')} />
+        <ReadonlyField label="TMDb ID" value={form.tmdbId ?? ''} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <ReadonlyField label="Hinzugefügt" value={formatDate(form.addedAt ?? '')} />
+        <ReadonlyField label="Aktualisiert" value={formatDate(form.updatedAt ?? '')} />
+      </div>
       <div>
         <FieldLabel label="Dateipfad" />
         <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-xs text-muted-foreground break-all">
@@ -381,16 +435,54 @@ function SeriesGeneralTab({ form, onChange }: {
   return (
     <div className="space-y-4">
       <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} />
-      <NumberField label="Jahr" value={form.year ?? ''} onChange={v => onChange('year', v)} />
+      <TextField label="Sortiertitel" value={form.sortTitle ?? ''} onChange={v => onChange('sortTitle', v)} />
+      <div className="grid grid-cols-2 gap-4">
+        <NumberField label="Jahr" value={form.year ?? ''} onChange={v => onChange('year', v)} />
+        <NumberField label="TMDb ID" value={form.tmdbId ?? ''} onChange={v => onChange('tmdbId', v)} />
+      </div>
       <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={6} />
+      
+      {/* Poster & Backdrop URLs */}
+      <div className="grid grid-cols-2 gap-4">
+        <TextField label="Poster URL" value={form.posterPath ?? ''} onChange={v => onChange('posterPath', v)} />
+        <TextField label="Backdrop URL" value={form.backdropPath ?? ''} onChange={v => onChange('backdropPath', v)} />
+      </div>
     </div>
   );
 }
 
 function SeriesInfoTab({ form }: { form: Record<string, string> }) {
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '–';
+    try {
+      return new Date(dateStr).toLocaleString('de-DE');
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <div className="space-y-4">
-      {form.tmdbId && <ReadonlyField label="TMDb ID" value={form.tmdbId} />}
+      <div className="grid grid-cols-2 gap-4">
+        <ReadonlyField label="TMDb ID" value={form.tmdbId ?? ''} />
+        <ReadonlyField label="Staffeln" value={form.seasonCount ?? ''} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <ReadonlyField label="Hinzugefügt" value={formatDate(form.addedAt ?? '')} />
+        <ReadonlyField label="Aktualisiert" value={formatDate(form.updatedAt ?? '')} />
+      </div>
+      <div>
+        <FieldLabel label="Poster URL" />
+        <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-xs text-muted-foreground break-all">
+          {form.posterPath || '–'}
+        </div>
+      </div>
+      <div>
+        <FieldLabel label="Backdrop URL" />
+        <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-xs text-muted-foreground break-all">
+          {form.backdropPath || '–'}
+        </div>
+      </div>
       <div className="rounded-md bg-muted/40 border border-border p-3 text-xs text-muted-foreground">
         <p>Weitere Metadaten werden beim nächsten Scan automatisch aktualisiert.</p>
       </div>
@@ -412,6 +504,31 @@ function EpisodeGeneralTab({ form, onChange }: {
         <NumberField label="Laufzeit (Min.)"  value={form.runtime ?? ''} onChange={v => onChange('runtime', v)} />
       </div>
       <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={5} />
+      
+      {/* Technische Felder */}
+      <div className="grid grid-cols-2 gap-4">
+        <TextField label="Codec" value={form.codec ?? ''} onChange={v => onChange('codec', v)} />
+        <TextField label="Auflösung" value={form.resolution ?? ''} onChange={v => onChange('resolution', v)} />
+      </div>
+      
+      {/* Thumbnail */}
+      <TextField label="Thumbnail URL" value={form.thumbnailPath ?? ''} onChange={v => onChange('thumbnailPath', v)} />
+      
+      {/* Status */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <FieldLabel label="Gesehen" />
+          <select
+            value={form.watched ?? 'false'}
+            onChange={e => onChange('watched', e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="false">Nein</option>
+            <option value="true">Ja</option>
+          </select>
+        </div>
+        <NumberField label="Fortschritt (Sek.)" value={form.watchProgress ?? ''} onChange={v => onChange('watchProgress', v)} />
+      </div>
     </div>
   );
 }
@@ -421,7 +538,17 @@ function EpisodeInfoTab({ form }: { form: Record<string, string> }) {
     const n = parseInt(bytes);
     if (!n) return '–';
     if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-    return `${(n / 1024 / 1024).toFixed(1)} MB`;
+    if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+    return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+  };
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '–';
+    try {
+      return new Date(dateStr).toLocaleString('de-DE');
+    } catch {
+      return dateStr;
+    }
   };
 
   return (
@@ -430,7 +557,22 @@ function EpisodeInfoTab({ form }: { form: Record<string, string> }) {
         <ReadonlyField label="Codec"      value={form.codec ?? ''} />
         <ReadonlyField label="Auflösung"  value={form.resolution ?? ''} />
       </div>
-      <ReadonlyField label="Dateigröße" value={formatFileSize(form.fileSize ?? '')} />
+      <div className="grid grid-cols-2 gap-4">
+        <ReadonlyField label="Dateigröße" value={formatFileSize(form.fileSize ?? '')} />
+        <ReadonlyField label="Hinzugefügt" value={formatDate(form.addedAt ?? '')} />
+      </div>
+      <div>
+        <FieldLabel label="Thumbnail URL" />
+        <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-xs text-muted-foreground break-all">
+          {form.thumbnailPath || '–'}
+        </div>
+      </div>
+      <div>
+        <FieldLabel label="Dateipfad" />
+        <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-xs text-muted-foreground break-all">
+          {form.filePath || '–'}
+        </div>
+      </div>
     </div>
   );
 }
@@ -505,13 +647,16 @@ export function MediaMetadataEditor({
   // Build payload: only changed fields
   const buildPayload = () => {
     const changes: Record<string, unknown> = {};
-    const numericKeys = ['year', 'trackNumber', 'discNumber', 'runtime', 'number'];
+    const numericKeys = ['year', 'trackNumber', 'discNumber', 'runtime', 'number', 'tmdbId', 'watchProgress'];
+    const booleanKeys = ['watched'];
     for (const k of Object.keys(form)) {
       const newVal = form[k];
       const oldVal = toStr(initialData[k]);
       if (newVal !== oldVal) {
         if (numericKeys.includes(k)) {
           changes[k] = newVal === '' ? null : parseInt(newVal, 10);
+        } else if (booleanKeys.includes(k)) {
+          changes[k] = newVal === 'true';
         } else {
           changes[k] = newVal === '' ? null : newVal;
         }
