@@ -91,39 +91,43 @@ export function SeriesDetail() {
         Alle Serien
       </Button>
 
-      {activeEpisode ? (
-        /* ── Episode player ───────────────────────────────────── */
-        <VideoPlayer
-          src={`/api/video/episodes/${activeEpisode.id}/stream`}
-          title={`S${String(activeEpisode.seasonNum).padStart(2, '0')}E${String(activeEpisode.episodeNum).padStart(2, '0')} · ${activeEpisode.title}`}
-          subtitle={series.title}
-          posterUrl={series.posterPath}
-          duration={activeEpisode.runtime ? activeEpisode.runtime * 60 : null}
-          onClose={handleClosePlayer}
-          onProgress={(pos) => progressMutation.mutate({ epId: activeEpisode.id, position: pos })}
-          nextEpisode={(() => {
-            // Find next episode
-            const currentSeason = series.seasons?.find(s => s.number === activeEpisode.seasonNum);
-            const currentEpIndex = currentSeason?.episodes?.findIndex(e => e.id === activeEpisode.id) ?? -1;
-            const nextEp = currentSeason?.episodes?.[currentEpIndex + 1];
-            
-            if (nextEp) {
-              return {
-                title: `S${String(activeEpisode.seasonNum).padStart(2, '0')}E${String(nextEp.number).padStart(2, '0')} · ${nextEp.title}`,
-                thumbnail: series.posterPath || undefined,
-                onPlay: () => handlePlayEpisode({
-                  id: nextEp.id,
-                  title: nextEp.title,
-                  seasonNum: activeEpisode.seasonNum,
-                  episodeNum: nextEp.number,
-                  runtime: nextEp.runtime ?? null,
-                }),
-              };
-            }
-            return null;
-          })()}
-        />
-      ) : (
+      {/* ── Episode player ───────────────────────────────────── */}
+      {activeEpisode && (
+        <div className="fixed inset-0 z-50 bg-black">
+          <VideoPlayer
+            src={`/api/video/episodes/${activeEpisode.id}/stream`}
+            title={`S${String(activeEpisode.seasonNum).padStart(2, '0')}E${String(activeEpisode.episodeNum).padStart(2, '0')} · ${activeEpisode.title}`}
+            subtitle={series.title}
+            posterUrl={series.posterPath}
+            duration={activeEpisode.runtime ? activeEpisode.runtime * 60 : null}
+            onClose={handleClosePlayer}
+            onProgress={(pos) => progressMutation.mutate({ epId: activeEpisode.id, position: pos })}
+            nextEpisode={(() => {
+              // Find next episode
+              const currentSeason = series.seasons?.find(s => s.number === activeEpisode.seasonNum);
+              const currentEpIndex = currentSeason?.episodes?.findIndex(e => e.id === activeEpisode.id) ?? -1;
+              const nextEp = currentSeason?.episodes?.[currentEpIndex + 1];
+              
+              if (nextEp) {
+                return {
+                  title: `S${String(activeEpisode.seasonNum).padStart(2, '0')}E${String(nextEp.number).padStart(2, '0')} · ${nextEp.title}`,
+                  thumbnail: series.posterPath || undefined,
+                  onPlay: () => handlePlayEpisode({
+                    id: nextEp.id,
+                    title: nextEp.title,
+                    seasonNum: activeEpisode.seasonNum,
+                    episodeNum: nextEp.number,
+                    runtime: nextEp.runtime ?? null,
+                  }),
+                };
+              }
+              return null;
+            })()}
+          />
+        </div>
+      )}
+
+      {!activeEpisode && (
         /* ── Series detail ────────────────────────────────────── */
         <div className="flex flex-col gap-8">
           {/* Header */}

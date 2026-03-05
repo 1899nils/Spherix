@@ -54,6 +54,9 @@ export function TmdbSearchModal({ isOpen, onClose, type, item }: TmdbSearchModal
     },
   });
 
+  // Zeige Fehler an
+  const linkError = linkMutation.error?.message || unlinkMutation.error?.message;
+
   const unlinkMutation = useMutation({
     mutationFn: async () => {
       const endpoint = type === 'movie' 
@@ -119,6 +122,13 @@ export function TmdbSearchModal({ isOpen, onClose, type, item }: TmdbSearchModal
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Error message */}
+        {linkError && (
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-3 text-sm">
+            Fehler: {linkError}
           </div>
         )}
 
