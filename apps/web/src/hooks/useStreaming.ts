@@ -20,47 +20,6 @@ interface UseStreamingReturn {
 }
 
 /**
- * Detect client capabilities for video playback
- */
-function detectClientCapabilities() {
-  const video = document.createElement('video');
-  
-  const videoCodecs: string[] = [];
-  const audioCodecs: string[] = [];
-  
-  // Video codec detection
-  if (video.canPlayType('video/mp4; codecs="avc1.42E01E"')) videoCodecs.push('h264');
-  if (video.canPlayType('video/mp4; codecs="hev1.1.6.L93.B0"')) videoCodecs.push('hevc');
-  if (video.canPlayType('video/webm; codecs="vp9"')) videoCodecs.push('vp9');
-  if (video.canPlayType('video/webm; codecs="av01.0.00M.08"')) videoCodecs.push('av1');
-  
-  // Audio codec detection
-  if (video.canPlayType('audio/mp4; codecs="mp4a.40.2"')) audioCodecs.push('aac');
-  if (video.canPlayType('audio/webm; codecs="opus"')) audioCodecs.push('opus');
-  if (video.canPlayType('audio/mpeg')) audioCodecs.push('mp3');
-  
-  // Screen resolution
-  const maxResolution = {
-    width: window.screen.width * window.devicePixelRatio,
-    height: window.screen.height * window.devicePixelRatio,
-  };
-  
-  // Estimate bitrate based on connection
-  const connection = (navigator as any).connection;
-  const maxBitrate = connection?.downlink 
-    ? Math.min(connection.downlink * 1000000, 20000000) // Mbps to bps, max 20Mbps
-    : 8000000; // Default 8Mbps
-
-  return {
-    videoCodecs,
-    audioCodecs,
-    maxResolution,
-    maxBitrate,
-    containerFormats: ['mp4', 'webm'],
-  };
-}
-
-/**
  * Hook for managing video streaming with automatic transcoding detection
  */
 export function useStreaming({ type, id, enabled = true }: UseStreamingOptions): UseStreamingReturn {
