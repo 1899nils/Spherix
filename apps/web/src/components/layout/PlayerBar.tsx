@@ -113,7 +113,7 @@ function MusicPlayerBar() {
       <div className="flex items-center gap-2">
         {/* Skip Back */}
         <button 
-          onClick={() => skip(-10)}
+          onClick={() => skip()}
           className="flex flex-col items-center justify-center w-11 h-11 text-white hover:bg-white/10 rounded"
         >
           <SkipBack className="h-4 w-4" />
@@ -132,7 +132,7 @@ function MusicPlayerBar() {
 
         {/* Skip Forward */}
         <button 
-          onClick={() => skip(10)}
+          onClick={() => skip()}
           className="flex flex-col items-center justify-center w-11 h-11 text-white hover:bg-white/10 rounded"
         >
           <SkipForward className="h-4 w-4" />
@@ -242,7 +242,7 @@ function MinimizedVideoBar() {
   
   if (!activeVideo) return null;
 
-  const skip = (seconds: number) => {
+  const skip = () => {
     // Video skip handled in player component
     setIsPlaying(!isPlaying);
   };
@@ -284,7 +284,7 @@ function MinimizedVideoBar() {
       {/* Center: Controls */}
       <div className="flex items-center gap-2">
         <button 
-          onClick={() => skip(-10)}
+          onClick={() => skip()}
           className="flex flex-col items-center justify-center w-11 h-11 text-white hover:bg-white/10 rounded"
         >
           <SkipBack className="h-4 w-4" />
@@ -301,7 +301,7 @@ function MinimizedVideoBar() {
         </button>
 
         <button 
-          onClick={() => skip(10)}
+          onClick={() => skip()}
           className="flex flex-col items-center justify-center w-11 h-11 text-white hover:bg-white/10 rounded"
         >
           <SkipForward className="h-4 w-4" />
