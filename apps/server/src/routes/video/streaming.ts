@@ -1,7 +1,7 @@
 import { Router } from 'express';
+import { prisma } from '../../config/database.js';
 import { probeMedia, parseClientCapabilities, canDirectPlay } from '../../services/streaming/mediaInfo.service.js';
 import { checkTranscodeNeeded, getTranscodeJob, getHlsPlaylistPath, getTranscodeDirectory } from '../../services/streaming/transcode.service.js';
-import { env } from '../../config/env.js';
 import { join } from 'node:path';
 import { createReadStream, existsSync } from 'node:fs';
 

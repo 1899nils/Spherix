@@ -244,7 +244,7 @@ export function cancelTranscodeJob(jobId: string): boolean {
  * Clean up old transcode files
  */
 export function cleanupOldTranscodes(maxAgeHours: number = 24): void {
-  const _transcodeDir = getTranscodeDirectory();
+  getTranscodeDirectory();
   const now = Date.now();
   
   // Clean up completed/failed jobs older than maxAgeHours
