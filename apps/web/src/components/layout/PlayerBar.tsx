@@ -6,7 +6,7 @@ import { useSectionStore } from '@/stores/sectionStore';
 import { formatDuration } from '@/lib/utils';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1,
-  Shuffle, Repeat, ChevronUp, Square
+  ChevronUp, Square
 } from 'lucide-react';
 
 // ── Shared Volume Control ─────────────────────────────────────────────────────
@@ -106,7 +106,7 @@ function MusicPlayerBar() {
             {isRadio ? (currentTrack as RadioStation).name : currentTrack.title}
           </p>
           <p className="text-xs text-white/50 truncate">
-            {isRadio ? 'Live Radio' : isPodcast ? (currentTrack as PodcastEpisodePlayerItem).podcastTitle : currentTrack.artist.name}
+            {getArtistName()}
           </p>
           <p className="text-xs text-white/50 tabular-nums">
             {isRadio ? 'LIVE' : `${formatDuration(seek)} / ${formatDuration(duration)}`}
