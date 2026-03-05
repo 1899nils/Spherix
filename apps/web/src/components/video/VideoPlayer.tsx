@@ -25,7 +25,14 @@ interface AudioTrack {
   enabled: boolean;
 }
 
-interface CinemaPlayerProps {
+interface VideoQuality {
+  label: string;
+  width: number;
+  height: number;
+  bitrate: number;
+}
+
+interface VideoPlayerProps {
   src: string;
   title: string;
   subtitle?: string;
@@ -46,6 +53,25 @@ interface CinemaPlayerProps {
     thumbnail?: string;
     onPlay: () => void;
   } | null;
+  // Streaming info
+  streamInfo?: {
+    directPlay: boolean;
+    directPlayReason?: string;
+    mediaInfo?: {
+      video: {
+        codec: string;
+        width: number;
+        height: number;
+      } | null;
+      audio: { codec: string; language?: string }[];
+    };
+  } | null;
+  isTranscoding?: boolean;
+  transcodeProgress?: number;
+  // Available qualities (for HLS/DASH)
+  availableQualities?: VideoQuality[];
+  currentQuality?: VideoQuality;
+  onQualityChange?: (quality: VideoQuality) => void;
 }
 
 export function VideoPlayer({
@@ -62,7 +88,13 @@ export function VideoPlayer({
   introEnd,
   textTracks = [],
   nextEpisode,
-}: CinemaPlayerProps) {
+  streamInfo,
+  isTranscoding = false,
+  transcodeProgress = 0,
+  availableQualities = [],
+  currentQuality,
+  onQualityChange,
+}: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
@@ -84,7 +116,7 @@ export function VideoPlayer({
   
   // UI state
   const [showSettings, setShowSettings] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'audio' | 'subtitles'>('audio');
+  const [settingsTab, setSettingsTab] = useState<'audio' | 'subtitles' | 'quality'>('audio');
   const [showSkipIntro, setShowSkipIntro] = useState(false);
   const [showNextEpisode, setShowNextEpisode] = useState(false);
   const [countdown, setCountdown] = useState(5);
@@ -478,8 +510,40 @@ export function VideoPlayer({
 
       {/* Loading spinner */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20">
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none bg-black/20 gap-3">
           <div className="h-12 w-12 rounded-full border-4 border-white/20 border-t-section-accent animate-spin" />
+          {isTranscoding && (
+            <div className="text-center">
+              <p className="text-sm text-white/80">Wird für dein Gerät optimiert...</p>
+              <p className="text-xs text-white/60">{transcodeProgress}%</p>
+              <div className="w-32 h-1 bg-white/20 rounded-full mt-2 overflow-hidden">
+                <div 
+                  className="h-full bg-section-accent transition-all"
+                  style={{ width: `${transcodeProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Stream Info Badge */}
+      {streamInfo && (
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          {streamInfo.directPlay ? (
+            <span className="px-2 py-1 text-xs bg-green-500/20 text-green-400 rounded-full border border-green-500/30">
+              Direct Play
+            </span>
+          ) : (
+            <span className="px-2 py-1 text-xs bg-amber-500/20 text-amber-400 rounded-full border border-amber-500/30">
+              Transcode
+            </span>
+          )}
+          {streamInfo.mediaInfo?.video && (
+            <span className="px-2 py-1 text-xs bg-white/10 text-white/60 rounded-full">
+              {streamInfo.mediaInfo.video.codec.toUpperCase()}
+            </span>
+          )}
         </div>
       )}
 
@@ -584,6 +648,17 @@ export function VideoPlayer({
                 <Subtitles className="h-4 w-4 inline mr-2" />
                 Untertitel
               </button>
+              {availableQualities.length > 0 && (
+                <button
+                  className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                    settingsTab === 'quality' ? 'text-white bg-white/10' : 'text-white/60 hover:text-white'
+                  }`}
+                  onClick={() => setSettingsTab('quality')}
+                >
+                  <span className="text-xs">HD</span>
+                  Qualität
+                </button>
+              )}
             </div>
             
             <div className="p-2 max-h-64 overflow-y-auto">
@@ -635,6 +710,30 @@ export function VideoPlayer({
                       onClick={() => setCurrentTextTrack(index)}
                     >
                       {track.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {settingsTab === 'quality' && availableQualities.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground px-3 py-2">Videoqualität</p>
+                  {availableQualities.map((quality) => (
+                    <button
+                      key={quality.label}
+                      className={`w-full px-3 py-2 text-left text-sm rounded transition-colors ${
+                        currentQuality?.label === quality.label 
+                          ? 'bg-section-accent text-white' 
+                          : 'hover:bg-white/5 text-white/80'
+                      }`}
+                      onClick={() => onQualityChange?.(quality)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>{quality.label}</span>
+                        <span className="text-xs text-white/50">
+                          {quality.width}p
+                        </span>
+                      </div>
                     </button>
                   ))}
                 </div>
