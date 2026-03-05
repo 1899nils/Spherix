@@ -310,16 +310,17 @@ export function VideoPlayer({
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-screen bg-black overflow-hidden cursor-default"
+      className="fixed inset-0 z-50 bg-black overflow-hidden cursor-default"
       onMouseMove={resetHideTimer}
       onClick={togglePlay}
     >
-      {/* Video element */}
+      {/* Video element - centered */}
       <video
         ref={videoRef}
         src={src}
         poster={posterUrl ?? undefined}
         className="absolute inset-0 w-full h-full object-contain"
+        style={{ margin: 'auto' }}
         preload="metadata"
         playsInline
         autoPlay
@@ -346,10 +347,10 @@ export function VideoPlayer({
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top bar - Title & Close */}
+        {/* Top bar - Title & Close (X rechts oben wie Netflix) */}
         <div className="flex items-center justify-between px-6 py-4">
+          {/* Left: Minimize + Title */}
           <div className="flex items-center gap-2">
-            {/* Minimize button */}
             <Button
               variant="ghost"
               size="icon"
@@ -359,6 +360,23 @@ export function VideoPlayer({
             >
               <ChevronDown className="h-6 w-6" />
             </Button>
+            <div className="ml-2">
+              <h1 className="text-lg font-semibold text-white">{title}</h1>
+              {subtitle && <p className="text-sm text-white/70">{subtitle}</p>}
+            </div>
+          </div>
+          
+          {/* Right: Stream info + X */}
+          <div className="flex items-center gap-3">
+            {streamInfo && (
+              <span className={`text-xs px-2 py-1 rounded ${
+                streamInfo.directPlay 
+                  ? 'bg-green-500/20 text-green-400' 
+                  : 'bg-amber-500/20 text-amber-400'
+              }`}>
+                {streamInfo.directPlay ? 'Direct Play' : 'Transcode'}
+              </span>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -368,20 +386,7 @@ export function VideoPlayer({
             >
               <X className="h-6 w-6" />
             </Button>
-            <div className="ml-2">
-              <h1 className="text-lg font-semibold text-white">{title}</h1>
-              {subtitle && <p className="text-sm text-white/70">{subtitle}</p>}
-            </div>
           </div>
-          {streamInfo && (
-            <span className={`text-xs px-2 py-1 rounded ${
-              streamInfo.directPlay 
-                ? 'bg-green-500/20 text-green-400' 
-                : 'bg-amber-500/20 text-amber-400'
-            }`}>
-              {streamInfo.directPlay ? 'Direct Play' : 'Transcode'}
-            </span>
-          )}
         </div>
 
         {/* Center - Play button when paused */}
