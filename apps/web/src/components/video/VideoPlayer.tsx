@@ -462,8 +462,7 @@ export function VideoPlayer({
   return (
     <div
       ref={containerRef}
-      className="relative w-full bg-black rounded-xl overflow-hidden group"
-      style={{ aspectRatio: '16/9' }}
+      className="relative w-full h-screen bg-black overflow-hidden group"
       onMouseMove={resetHideTimer}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
@@ -479,7 +478,7 @@ export function VideoPlayer({
         ref={videoRef}
         src={src}
         poster={posterUrl ?? undefined}
-        className="relative w-full h-full object-contain"
+        className="absolute inset-0 w-full h-full object-contain"
         onClick={togglePlay}
         preload="metadata"
         playsInline

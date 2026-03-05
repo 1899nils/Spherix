@@ -92,24 +92,28 @@ export function MovieDetail() {
         Alle Filme
       </Button>
 
-      {showPlayer ? (
-        /* ── Theater mode ─────────────────────────────────────── */
-        <VideoPlayer
-          src={`/api/video/movies/${movie.id}/stream`}
-          title={movie.title}
-          posterUrl={movie.posterPath}
-          savedPosition={movie.watchProgress ?? 0}
-          duration={movie.runtime ? movie.runtime * 60 : null}
-          onClose={handleClose}
-          onProgress={handleProgress}
-          onComplete={() => {
-            // Mark as watched when completed
-            if (movie.runtime) {
-              handleProgress(movie.runtime * 60 * 0.95);
-            }
-          }}
-        />
-      ) : (
+      {/* ── Theater mode ─────────────────────────────────────── */}
+      {showPlayer && (
+        <div className="fixed inset-0 z-50 bg-black">
+          <VideoPlayer
+            src={`/api/video/movies/${movie.id}/stream`}
+            title={movie.title}
+            posterUrl={movie.posterPath}
+            savedPosition={movie.watchProgress ?? 0}
+            duration={movie.runtime ? movie.runtime * 60 : null}
+            onClose={handleClose}
+            onProgress={handleProgress}
+            onComplete={() => {
+              // Mark as watched when completed
+              if (movie.runtime) {
+                handleProgress(movie.runtime * 60 * 0.95);
+              }
+            }}
+          />
+        </div>
+      )}
+
+      {!showPlayer && (
         /* ── Detail view ──────────────────────────────────────── */
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Poster */}
