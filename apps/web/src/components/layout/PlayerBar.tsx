@@ -408,6 +408,9 @@ export function PlayerBar() {
   const showMusic     = !showAudiobook && !showVideo && !!currentTrack;
   const showEmpty     = !showAudiobook && !showVideo && !showMusic;
 
+  // PlayerBar komplett ausblenden wenn Video läuft (VideoPlayer hat eigene Controls)
+  if (showVideo) return null;
+
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50">
       <footer className={`liquid-glass rounded-2xl flex items-center px-6 gap-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] overflow-hidden transition-all duration-300 ${showEmpty ? 'h-16' : 'h-24'}`}>
@@ -419,7 +422,6 @@ export function PlayerBar() {
           </p>
         )}
         {showAudiobook && <AudiobookPlayerBar />}
-        {showVideo     && <VideoIndicatorBar />}
         {showMusic     && <MusicPlayerBar />}
       </footer>
     </div>
