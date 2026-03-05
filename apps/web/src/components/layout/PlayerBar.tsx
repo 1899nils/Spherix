@@ -6,12 +6,11 @@ import { useSectionStore } from '@/stores/sectionStore';
 import { formatDuration } from '@/lib/utils';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1,
-  ChevronUp, Square
+  Shuffle, Repeat, ChevronUp, Square
 } from 'lucide-react';
 
-// ── Unified Control Bar Style ─────────────────────────────────────────────────
+// ── Shared Volume Control ─────────────────────────────────────────────────────
 
-// Shared volume component
 function VolumeControl({ 
   volume, 
   isMuted, 
@@ -26,7 +25,7 @@ function VolumeControl({
   const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
   
   return (
-    <div className="flex items-center gap-2 group">
+    <div className="flex items-center gap-2">
       <button onClick={onToggleMute} className="text-white/80 hover:text-white p-2">
         <VolumeIcon className="h-5 w-5" />
       </button>
@@ -49,40 +48,50 @@ function VolumeControl({
   );
 }
 
+// ── Progress Bar Component ────────────────────────────────────────────────────
+
+function ProgressBar({ progress }: { progress: number }) {
+  return (
+    <div className="absolute top-0 left-0 right-0 h-1 bg-white/20">
+      <div 
+        className="h-full bg-red-600 transition-all duration-300"
+        style={{ width: `${progress}%` }}
+      />
+    </div>
+  );
+}
+
 // ── Music Player Bar ──────────────────────────────────────────────────────────
 
 function MusicPlayerBar() {
   const {
     currentTrack, isPlaying, seek, duration, volume, isMuted,
-    togglePlay, setVolume, toggleMute
+    togglePlay, next, prev, setVolume, toggleMute
   } = usePlayerStore();
 
   const isRadio = !!(currentTrack && 'isRadio' in currentTrack);
-  const isPodcast = !!(currentTrack && 'isPodcast' in currentTrack);
-
-  const skip = () => {
-    // Music player doesn't have skip function in store, use prev/next
-  };
+  const progress = duration > 0 ? (seek / duration) * 100 : 0;
 
   if (!currentTrack) return null;
 
   return (
-    <div className="flex items-center justify-between w-full h-full gap-4 px-2">
-      {/* Left: Info + Thumbnail */}
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        {/* Thumbnail */}
-        <div className="h-14 w-14 rounded bg-black overflow-hidden shrink-0">
+    <div className="relative w-full h-full flex items-center px-4">
+      <ProgressBar progress={progress} />
+      
+      {/* Left: Info */}
+      <div className="flex items-center gap-3 w-[30%]">
+        <div className="h-12 w-12 rounded bg-black overflow-hidden shrink-0">
           {'isRadio' in currentTrack ? (
             currentTrack.favicon ? (
-              <img src={currentTrack.favicon} alt="" className="h-full w-full object-contain p-2" />
+              <img src={currentTrack.favicon} alt="" className="h-full w-full object-contain p-1" />
             ) : (
-              <div className="h-full w-full flex items-center justify-center text-2xl">📻</div>
+              <div className="h-full w-full flex items-center justify-center text-lg">📻</div>
             )
           ) : 'isPodcast' in currentTrack ? (
             (currentTrack as PodcastEpisodePlayerItem).imageUrl ? (
               <img src={(currentTrack as PodcastEpisodePlayerItem).imageUrl!} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="h-full w-full flex items-center justify-center text-2xl">🎙️</div>
+              <div className="h-full w-full flex items-center justify-center text-lg">🎙️</div>
             )
           ) : (
             currentTrack.album?.coverUrl ? (
@@ -92,54 +101,41 @@ function MusicPlayerBar() {
             )
           )}
         </div>
-
-        {/* Info */}
         <div className="min-w-0">
           <p className="text-sm font-medium text-white truncate">
             {isRadio ? (currentTrack as RadioStation).name : currentTrack.title}
           </p>
-          <p className="text-xs text-white/60 truncate">
+          <p className="text-xs text-white/50 truncate">
             {isRadio ? 'Live Radio' : isPodcast ? (currentTrack as PodcastEpisodePlayerItem).podcastTitle : currentTrack.artist.name}
           </p>
-          <p className="text-xs text-white/60 tabular-nums">
+          <p className="text-xs text-white/50 tabular-nums">
             {isRadio ? 'LIVE' : `${formatDuration(seek)} / ${formatDuration(duration)}`}
           </p>
         </div>
       </div>
 
-      {/* Center: Playback Controls */}
-      <div className="flex items-center gap-2">
-        {/* Skip Back */}
-        <button 
-          onClick={() => skip()}
-          className="flex flex-col items-center justify-center w-11 h-11 text-white hover:bg-white/10 rounded"
-        >
-          <SkipBack className="h-4 w-4" />
-          <span className="text-[9px] -mt-0.5">10</span>
+      {/* Center: Controls */}
+      <div className="flex items-center justify-center gap-2 flex-1">
+        <button onClick={prev} className="p-2 text-white/70 hover:text-white">
+          <SkipBack className="h-5 w-5" />
         </button>
-
-        {/* Play/Pause */}
+        
         <button 
           onClick={togglePlay}
-          className="flex items-center justify-center w-14 h-14 bg-white text-black rounded-full hover:bg-white/90 mx-1"
+          className="flex items-center justify-center w-12 h-12 bg-white text-black rounded-full hover:scale-105 transition-transform"
         >
           {isPlaying 
             ? <Pause className="h-6 w-6 fill-current" />
             : <Play className="h-6 w-6 fill-current ml-0.5" />}
         </button>
-
-        {/* Skip Forward */}
-        <button 
-          onClick={() => skip()}
-          className="flex flex-col items-center justify-center w-11 h-11 text-white hover:bg-white/10 rounded"
-        >
-          <SkipForward className="h-4 w-4" />
-          <span className="text-[9px] -mt-0.5">10</span>
+        
+        <button onClick={next} className="p-2 text-white/70 hover:text-white">
+          <SkipForward className="h-5 w-5" />
         </button>
       </div>
 
       {/* Right: Volume */}
-      <div className="flex items-center justify-end flex-1">
+      <div className="flex items-center justify-end w-[30%]">
         <VolumeControl 
           volume={volume} 
           isMuted={isMuted} 
@@ -156,24 +152,21 @@ function MusicPlayerBar() {
 function AudiobookPlayerBar() {
   const {
     currentBook, isPlaying, seek, duration, volume,
-    togglePlay, setVolume
+    togglePlay, prevChapter, nextChapter, setVolume
   } = useAudiobookPlayerStore();
 
   const [isMuted, setIsMuted] = useState(false);
-
-  // const chapter = currentBook?.chapters[chapterIndex];
-
-  const skip = () => {
-    // Skip functionality
-  };
+  const progress = duration > 0 ? (seek / duration) * 100 : 0;
 
   if (!currentBook) return null;
 
   return (
-    <div className="flex items-center justify-between w-full h-full gap-4 px-2">
+    <div className="relative w-full h-full flex items-center px-4">
+      <ProgressBar progress={progress} />
+      
       {/* Left: Info */}
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        <div className="h-14 w-14 rounded bg-black overflow-hidden shrink-0">
+      <div className="flex items-center gap-3 w-[30%]">
+        <div className="h-12 w-12 rounded bg-black overflow-hidden shrink-0">
           {currentBook.coverPath ? (
             <img src={currentBook.coverPath} alt="" className="h-full w-full object-cover" />
           ) : (
@@ -182,43 +175,35 @@ function AudiobookPlayerBar() {
         </div>
         <div className="min-w-0">
           <p className="text-sm font-medium text-white truncate">{currentBook.title}</p>
-          <p className="text-xs text-white/60 truncate">{currentBook.author}</p>
-          <p className="text-xs text-white/60 tabular-nums">
+          <p className="text-xs text-white/50 truncate">{currentBook.author}</p>
+          <p className="text-xs text-white/50 tabular-nums">
             {formatDuration(seek)} / {formatDuration(duration)}
           </p>
         </div>
       </div>
 
       {/* Center: Controls */}
-      <div className="flex items-center gap-2">
-        <button 
-          onClick={() => skip()}
-          className="flex flex-col items-center justify-center w-11 h-11 text-white hover:bg-white/10 rounded"
-        >
-          <SkipBack className="h-4 w-4" />
-          <span className="text-[9px] -mt-0.5">10</span>
+      <div className="flex items-center justify-center gap-2 flex-1">
+        <button onClick={prevChapter} className="p-2 text-white/70 hover:text-white">
+          <SkipBack className="h-5 w-5" />
         </button>
-
+        
         <button 
           onClick={togglePlay}
-          className="flex items-center justify-center w-14 h-14 bg-white text-black rounded-full hover:bg-white/90 mx-1"
+          className="flex items-center justify-center w-12 h-12 bg-white text-black rounded-full hover:scale-105 transition-transform"
         >
           {isPlaying 
             ? <Pause className="h-6 w-6 fill-current" />
             : <Play className="h-6 w-6 fill-current ml-0.5" />}
         </button>
-
-        <button 
-          onClick={() => skip()}
-          className="flex flex-col items-center justify-center w-11 h-11 text-white hover:bg-white/10 rounded"
-        >
-          <SkipForward className="h-4 w-4" />
-          <span className="text-[9px] -mt-0.5">10</span>
+        
+        <button onClick={nextChapter} className="p-2 text-white/70 hover:text-white">
+          <SkipForward className="h-5 w-5" />
         </button>
       </div>
 
       {/* Right: Volume */}
-      <div className="flex items-center justify-end flex-1">
+      <div className="flex items-center justify-end w-[30%]">
         <VolumeControl 
           volume={volume} 
           isMuted={isMuted} 
@@ -234,24 +219,23 @@ function AudiobookPlayerBar() {
 
 function MinimizedVideoBar() {
   const { activeVideo, isPlaying, currentTime, duration, maximize, stop, setIsPlaying } = useVideoPlayerStore();
-  const [isHovered, setIsHovered] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(1);
+  const [isHovered, setIsHovered] = useState(false);
   
   if (!activeVideo) return null;
 
-  const skip = () => {
-    // Video skip handled in player component
-    setIsPlaying(!isPlaying);
-  };
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="flex items-center justify-between w-full h-full gap-4 px-2">
+    <div className="relative w-full h-full flex items-center px-4">
+      <ProgressBar progress={progress} />
+      
       {/* Left: Video Preview + Info */}
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        {/* Video Preview with hover */}
+      <div className="flex items-center gap-3 w-[40%]">
+        {/* Video Thumbnail with hover */}
         <div 
-          className="relative h-14 w-20 rounded bg-black overflow-hidden shrink-0 cursor-pointer"
+          className="relative h-12 w-20 rounded bg-black overflow-hidden shrink-0 cursor-pointer"
           onClick={maximize}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
@@ -268,55 +252,57 @@ function MinimizedVideoBar() {
             </div>
           )}
         </div>
-
-        {/* Info */}
+        
         <div className="min-w-0">
           <p className="text-sm font-medium text-white truncate">{activeVideo.title}</p>
-          <p className="text-xs text-white/60 truncate">{activeVideo.seriesTitle || ''}</p>
-          <p className="text-xs text-white/60 tabular-nums">
+          <p className="text-xs text-white/50 truncate">{activeVideo.seriesTitle || ''}</p>
+          <p className="text-xs text-white/50 tabular-nums">
             {formatDuration(currentTime)} / {formatDuration(duration)}
           </p>
         </div>
       </div>
 
       {/* Center: Controls */}
-      <div className="flex items-center gap-2">
-        <button 
-          onClick={() => skip()}
-          className="flex flex-col items-center justify-center w-11 h-11 text-white hover:bg-white/10 rounded"
-        >
-          <SkipBack className="h-4 w-4" />
-          <span className="text-[9px] -mt-0.5">10</span>
-        </button>
-
+      <div className="flex items-center justify-center gap-1 flex-1">
+        {/* Skip Back 10s */}
         <button 
           onClick={() => setIsPlaying(!isPlaying)}
-          className="flex items-center justify-center w-14 h-14 bg-white text-black rounded-full hover:bg-white/90 mx-1"
+          className="flex flex-col items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded"
+        >
+          <SkipBack className="h-4 w-4" />
+          <span className="text-[8px] -mt-1">10</span>
+        </button>
+
+        {/* Play/Pause */}
+        <button 
+          onClick={() => setIsPlaying(!isPlaying)}
+          className="flex items-center justify-center w-12 h-12 bg-white text-black rounded-full hover:scale-105 transition-transform mx-1"
         >
           {isPlaying 
             ? <Pause className="h-6 w-6 fill-current" />
             : <Play className="h-6 w-6 fill-current ml-0.5" />}
         </button>
 
+        {/* Skip Forward 10s */}
         <button 
-          onClick={() => skip()}
-          className="flex flex-col items-center justify-center w-11 h-11 text-white hover:bg-white/10 rounded"
+          onClick={() => setIsPlaying(!isPlaying)}
+          className="flex flex-col items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded"
         >
           <SkipForward className="h-4 w-4" />
-          <span className="text-[9px] -mt-0.5">10</span>
+          <span className="text-[8px] -mt-1">10</span>
         </button>
 
-        {/* Stop button */}
+        {/* Stop */}
         <button 
           onClick={stop}
-          className="flex items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded ml-2"
+          className="p-2 text-white/70 hover:text-white ml-2"
         >
           <Square className="h-4 w-4 fill-current" />
         </button>
       </div>
 
       {/* Right: Volume */}
-      <div className="flex items-center justify-end flex-1">
+      <div className="flex items-center justify-end w-[30%]">
         <VolumeControl 
           volume={volume} 
           isMuted={isMuted} 
@@ -345,32 +331,21 @@ export function PlayerBar() {
   // Hide when video is fullscreen
   if (showVideoFullscreen) return null;
 
-  // Progress bar color based on content type
-  const progressColor = showVideoMinimized ? 'bg-red-600' : 'bg-red-600';
-
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50">
-      <footer className="bg-[#1a1a1a] rounded-xl flex flex-col shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] overflow-hidden h-20">
-        {/* Progress Bar at top */}
-        <div className="h-1 bg-white/10 w-full">
-          <div className={`h-full ${progressColor} transition-all`} style={{ width: '0%' }} />
-        </div>
-
-        {/* Content */}
-        <div className="flex-1">
-          {showEmpty && (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-sm text-white/50 italic">
-                {section === 'music' ? 'Wähle einen Song'
-                  : section === 'video' ? 'Wähle einen Film oder eine Serie'
-                  : 'Wähle ein Hörbuch'}
-              </p>
-            </div>
-          )}
-          {showAudiobook && <AudiobookPlayerBar />}
-          {showMusic && <MusicPlayerBar />}
-          {showVideoMinimized && <MinimizedVideoBar />}
-        </div>
+      <footer className="bg-[#1a1a1a] rounded-lg h-16 relative overflow-hidden">
+        {showEmpty && (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-sm text-white/50 italic">
+              {section === 'music' ? 'Wähle einen Song'
+                : section === 'video' ? 'Wähle einen Film oder eine Serie'
+                : 'Wähle ein Hörbuch'}
+            </p>
+          </div>
+        )}
+        {showAudiobook && <AudiobookPlayerBar />}
+        {showMusic && <MusicPlayerBar />}
+        {showVideoMinimized && <MinimizedVideoBar />}
       </footer>
     </div>
   );

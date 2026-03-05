@@ -305,81 +305,76 @@ export function VideoPlayer({
         </div>
       </div>
 
-      {/* Unified Control Bar - Bottom */}
+      {/* Unified Control Bar - Same style as PlayerBar */}
       <div 
-        className={`bg-[#1a1a1a] border-t border-white/10 transition-all duration-300 ${showControls ? 'translate-y-0' : 'translate-y-full'}`}
+        className={`bg-[#1a1a1a] h-16 relative transition-all duration-300 ${showControls ? 'translate-y-0' : 'translate-y-full'}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Progress Bar */}
-        <div 
-          className="h-1 bg-white/20 cursor-pointer group"
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const percent = (e.clientX - rect.left) / rect.width;
-            handleSeek(percent * duration);
-          }}
-        >
-          <div className="h-full bg-white/30" style={{ width: `${bufferedPercent}%` }} />
-          <div className="absolute h-full bg-red-600 group-hover:h-1.5 transition-all" style={{ width: `${progressPercent}%` }} />
+        {/* Progress Bar at top */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-white/20">
+          <div 
+            className="h-full bg-red-600 transition-all"
+            style={{ width: `${progressPercent}%` }}
+          />
         </div>
 
-        {/* Controls Row */}
-        <div className="flex items-center justify-between px-4 py-3">
+        {/* Controls Row - Same layout as PlayerBar */}
+        <div className="flex items-center justify-between h-full px-4">
           {/* Left: Info */}
-          <div className="flex items-center gap-4 flex-1 min-w-0">
+          <div className="flex items-center gap-3 w-[30%]">
             {posterUrl && (
-              <img src={posterUrl} alt="" className="h-14 w-20 object-cover rounded bg-black" />
+              <img src={posterUrl} alt="" className="h-12 w-12 object-cover rounded bg-black" />
             )}
             <div className="min-w-0">
               <p className="text-sm font-medium text-white truncate">{title}</p>
-              {subtitle && <p className="text-xs text-white/60 truncate">{subtitle}</p>}
-              <p className="text-xs text-white/60 tabular-nums mt-1">
+              {subtitle && <p className="text-xs text-white/50 truncate">{subtitle}</p>}
+              <p className="text-xs text-white/50 tabular-nums">
                 {formatDuration(seek)} / {formatDuration(duration)}
               </p>
             </div>
           </div>
 
           {/* Center: Playback Controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-1 flex-1">
             {/* Skip Back */}
             <button 
               onClick={() => skip(-10)}
-              className="flex flex-col items-center justify-center w-12 h-12 text-white hover:bg-white/10 rounded"
+              className="flex flex-col items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded"
             >
-              <SkipBack className="h-5 w-5" />
-              <span className="text-[10px] -mt-1">10</span>
+              <SkipBack className="h-4 w-4" />
+              <span className="text-[8px] -mt-1">10</span>
             </button>
 
             {/* Play/Pause */}
             <button 
               onClick={togglePlay}
-              className="flex items-center justify-center w-14 h-14 bg-white text-black rounded-full hover:bg-white/90 mx-2"
+              className="flex items-center justify-center w-12 h-12 bg-white text-black rounded-full hover:scale-105 transition-transform mx-1"
             >
               {isPlaying 
                 ? <Pause className="h-6 w-6 fill-current" />
-                : <Play className="h-6 w-6 fill-current ml-1" />}
+                : <Play className="h-6 w-6 fill-current ml-0.5" />}
             </button>
 
             {/* Skip Forward */}
             <button 
               onClick={() => skip(10)}
-              className="flex flex-col items-center justify-center w-12 h-12 text-white hover:bg-white/10 rounded"
+              className="flex flex-col items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded"
             >
-              <SkipForward className="h-5 w-5" />
-              <span className="text-[10px] -mt-1">10</span>
+              <SkipForward className="h-4 w-4" />
+              <span className="text-[8px] -mt-1">10</span>
             </button>
 
-            {/* Next Episode Thumbnail */}
+            {/* Next Episode */}
             {nextEpisode && (
               <button 
                 onClick={() => nextEpisode.onPlay()}
-                className="ml-2 w-12 h-12 rounded overflow-hidden bg-black hover:ring-2 hover:ring-white/50"
+                className="ml-1 w-10 h-10 rounded overflow-hidden bg-black hover:ring-2 hover:ring-white/50"
               >
                 {nextEpisode.thumbnail ? (
                   <img src={nextEpisode.thumbnail} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-white/50">
-                    <SkipForward className="h-5 w-5" />
+                    <SkipForward className="h-4 w-4" />
                   </div>
                 )}
               </button>
@@ -387,31 +382,31 @@ export function VideoPlayer({
           </div>
 
           {/* Right: Volume & Fullscreen */}
-          <div className="flex items-center justify-end gap-3 flex-1">
+          <div className="flex items-center justify-end w-[30%]">
             {/* Volume */}
-            <div className="flex items-center gap-2 group">
+            <div className="flex items-center gap-2">
               <button onClick={toggleMute} className="text-white/80 hover:text-white p-2">
                 <VolumeIcon className="h-5 w-5" />
               </button>
-              <div className="w-24 h-1 bg-white/30 rounded overflow-hidden">
+              <div className="relative w-24 h-1 bg-white/30 rounded overflow-hidden">
                 <div 
-                  className="h-full bg-red-600"
+                  className="absolute h-full bg-red-600"
                   style={{ width: `${isMuted ? 0 : volume * 100}%` }}
                 />
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={isMuted ? 0 : volume}
+                  onChange={(e) => handleVolume(parseFloat(e.target.value))}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
               </div>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={isMuted ? 0 : volume}
-                onChange={(e) => handleVolume(parseFloat(e.target.value))}
-                className="absolute w-24 h-6 opacity-0 cursor-pointer"
-              />
             </div>
 
             {/* Fullscreen */}
-            <button onClick={toggleFullscreen} className="text-white/80 hover:text-white p-2">
+            <button onClick={toggleFullscreen} className="text-white/80 hover:text-white p-2 ml-2">
               <Maximize className="h-5 w-5" />
             </button>
           </div>
