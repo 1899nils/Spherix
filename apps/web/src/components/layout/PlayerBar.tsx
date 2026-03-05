@@ -165,8 +165,8 @@ function AudiobookPlayerBar() {
 
   // const chapter = currentBook?.chapters[chapterIndex];
 
-  const skip = (_seconds: number) => {
-    // seekTo(Math.max(0, Math.min(duration, seek + seconds)));
+  const skip = () => {
+    // Skip functionality
   };
 
   if (!currentBook) return null;
@@ -194,9 +194,8 @@ function AudiobookPlayerBar() {
       {/* Center: Controls */}
       <div className="flex items-center gap-2">
         <button 
-          onClick={() => skip(-10)}
-          disabled={chapterIndex === 0 && seek < 10}
-          className="flex flex-col items-center justify-center w-11 h-11 text-white hover:bg-white/10 rounded disabled:opacity-50"
+          onClick={() => skip()}
+          className="flex flex-col items-center justify-center w-11 h-11 text-white hover:bg-white/10 rounded"
         >
           <SkipBack className="h-4 w-4" />
           <span className="text-[9px] -mt-0.5">10</span>
@@ -212,9 +211,8 @@ function AudiobookPlayerBar() {
         </button>
 
         <button 
-          onClick={() => skip(10)}
-          disabled={!currentBook || chapterIndex >= currentBook.chapters.length - 1}
-          className="flex flex-col items-center justify-center w-11 h-11 text-white hover:bg-white/10 rounded disabled:opacity-50"
+          onClick={() => skip()}
+          className="flex flex-col items-center justify-center w-11 h-11 text-white hover:bg-white/10 rounded"
         >
           <SkipForward className="h-4 w-4" />
           <span className="text-[9px] -mt-0.5">10</span>
