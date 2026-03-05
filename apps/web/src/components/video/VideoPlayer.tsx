@@ -1,9 +1,10 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { Button } from '@/components/ui/button';
 import { formatDuration } from '@/lib/utils';
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
-  SkipBack, SkipForward, X
+  SkipBack, SkipForward, X, ChevronDown
 } from 'lucide-react';
 
 interface VideoQuality {
@@ -56,6 +57,7 @@ export function VideoPlayer({
   isTranscoding = false,
   transcodeProgress = 0,
 }: VideoPlayerProps) {
+  const { minimize, updateProgress } = useVideoPlayerStore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -123,6 +125,7 @@ export function VideoPlayer({
     const onTime = () => {
       setSeek(video.currentTime);
       onProgress?.(Math.floor(video.currentTime));
+      updateProgress(video.currentTime, video.duration);
       
       // Skip intro
       if (introStart != null && introEnd != null) {
@@ -326,16 +329,27 @@ export function VideoPlayer({
       >
         {/* Top bar - Title & Close */}
         <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {/* Minimize button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 text-white hover:bg-white/20"
+              onClick={minimize}
+              title="Minimieren"
+            >
+              <ChevronDown className="h-6 w-6" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
               className="h-10 w-10 text-white hover:bg-white/20"
               onClick={onClose}
+              title="Schließen"
             >
               <X className="h-6 w-6" />
             </Button>
-            <div>
+            <div className="ml-2">
               <h1 className="text-lg font-semibold text-white">{title}</h1>
               {subtitle && <p className="text-sm text-white/70">{subtitle}</p>}
             </div>

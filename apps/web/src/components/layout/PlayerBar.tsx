@@ -12,7 +12,7 @@ import { api } from '@/lib/api';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1,
   Shuffle, Repeat, Repeat1, Music2, Info, Headphones,
-  ChevronLeft, ChevronRight, Timer, Gauge,
+  ChevronLeft, ChevronRight, Timer, Gauge, ChevronUp, Square,
 } from 'lucide-react';
 
 // ── Music Player Bar ──────────────────────────────────────────────────────────
@@ -358,25 +358,115 @@ function AudiobookPlayerBar() {
   );
 }
 
+// ── Minimized Video Bar (Plex Style) ──────────────────────────────────────────
+
+function MinimizedVideoBar() {
+  const { activeVideo, isPlaying, currentTime, duration, maximize, stop, setIsPlaying } = useVideoPlayerStore();
+  
+  if (!activeVideo) return null;
+
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  const togglePlay = () => {
+    setIsPlaying(!isPlaying);
+  };
+
+  return (
+    <div className="flex items-center w-full h-full gap-4">
+      {/* Thumbnail */}
+      <div 
+        className="h-16 w-28 rounded-lg overflow-hidden bg-black shrink-0 cursor-pointer"
+        onClick={maximize}
+      >
+        {activeVideo.posterUrl ? (
+          <img 
+            src={activeVideo.posterUrl} 
+            alt={activeVideo.title} 
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center bg-white/10">
+            <Play className="h-6 w-6 text-white/50" />
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0 cursor-pointer" onClick={maximize}>
+        <p className="text-sm font-semibold text-white truncate">{activeVideo.title}</p>
+        <p className="text-xs text-white/60">
+          {activeVideo.seriesTitle || ''}
+        </p>
+        <p className="text-xs text-white/60 tabular-nums">
+          {formatDuration(currentTime)} / {formatDuration(duration)}
+        </p>
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 text-white hover:bg-white/10"
+          onClick={togglePlay}
+        >
+          {isPlaying 
+            ? <Pause className="h-5 w-5 fill-current" />
+            : <Play className="h-5 w-5 fill-current ml-0.5" />}
+        </Button>
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 text-white hover:bg-white/10"
+          onClick={maximize}
+          title="Maximieren"
+        >
+          <ChevronUp className="h-5 w-5" />
+        </Button>
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 text-white hover:bg-white/10"
+          onClick={stop}
+          title="Stop"
+        >
+          <Square className="h-5 w-5 fill-current" />
+        </Button>
+      </div>
+
+      {/* Progress bar at bottom */}
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10">
+        <div 
+          className="h-full bg-red-600 transition-all"
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── Root PlayerBar ────────────────────────────────────────────────────────────
 
 export function PlayerBar() {
   const { section } = useSectionStore();
   const { currentTrack } = usePlayerStore();
   const { currentBook } = useAudiobookPlayerStore();
-  const { activeVideo } = useVideoPlayerStore();
+  const { activeVideo, isMinimized } = useVideoPlayerStore();
 
   const showAudiobook = section === 'audiobook' && !!currentBook;
-  const showVideo     = section === 'video'     && !!activeVideo && !currentBook;
-  const showMusic     = !showAudiobook && !showVideo && !!currentTrack;
-  const showEmpty     = !showAudiobook && !showVideo && !showMusic;
+  const showVideoFullscreen = section === 'video' && !!activeVideo && !currentBook && !isMinimized;
+  const showVideoMinimized = section === 'video' && !!activeVideo && !currentBook && isMinimized;
+  const showMusic = !showAudiobook && !showVideoFullscreen && !showVideoMinimized && !!currentTrack;
+  const showEmpty = !showAudiobook && !showVideoFullscreen && !showVideoMinimized && !showMusic;
 
-  // PlayerBar komplett ausblenden wenn Video läuft (VideoPlayer hat eigene Controls)
-  if (showVideo) return null;
+  // PlayerBar komplett ausblenden wenn Video im Fullscreen läuft
+  if (showVideoFullscreen) return null;
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50">
-      <footer className={`liquid-glass rounded-2xl flex items-center px-6 gap-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] overflow-hidden transition-all duration-300 ${showEmpty ? 'h-16' : 'h-24'}`}>
+      <footer className={`liquid-glass rounded-2xl flex items-center px-4 gap-4 shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] overflow-hidden transition-all duration-300 relative ${showEmpty ? 'h-16' : 'h-24'}`}>
         {showEmpty && (
           <p className="text-sm text-muted-foreground italic">
             {section === 'music' ? 'Wähle einen Song'
@@ -385,7 +475,8 @@ export function PlayerBar() {
           </p>
         )}
         {showAudiobook && <AudiobookPlayerBar />}
-        {showMusic     && <MusicPlayerBar />}
+        {showMusic && <MusicPlayerBar />}
+        {showVideoMinimized && <MinimizedVideoBar />}
       </footer>
     </div>
   );
