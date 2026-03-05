@@ -240,7 +240,6 @@ export function VideoPlayer({
   };
 
   const progressPercent = duration ? (seek / duration) * 100 : 0;
-  const bufferedPercent = duration ? (buffered / duration) * 100 : 0;
 
   const VolumeIcon = isMuted || volume === 0 ? VolumeX : Volume2;
 

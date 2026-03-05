@@ -70,7 +70,14 @@ function MusicPlayerBar() {
   } = usePlayerStore();
 
   const isRadio = !!(currentTrack && 'isRadio' in currentTrack);
+  const isPodcast = !!(currentTrack && 'isPodcast' in currentTrack);
   const progress = duration > 0 ? (seek / duration) * 100 : 0;
+
+  const getArtistName = () => {
+    if (isRadio) return 'Live Radio';
+    if (isPodcast) return (currentTrack as PodcastEpisodePlayerItem).podcastTitle;
+    return (currentTrack as any).artist?.name || 'Unknown';
+  };
 
   if (!currentTrack) return null;
 
