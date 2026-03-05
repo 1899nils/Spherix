@@ -81,7 +81,7 @@ export async function probeMedia(filePath: string): Promise<MediaInfo | null> {
             level: videoStream.level?.toString(),
           }
         : null,
-      audio: audioStreams.map((s: any, index: number) => ({
+      audio: audioStreams.map((s: any, _index: number) => ({
         index: s.index,
         codec: s.codec_name,
         codecLongName: s.codec_long_name,

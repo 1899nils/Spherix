@@ -1,6 +1,5 @@
 import { Router } from 'express';
-import { prisma } from '../../config/database.js';
-import { getTranscodeJob, getHlsPlaylistPath } from '../../services/streaming/transcode.service.js';
+import { getTranscodeJob } from '../../services/streaming/transcode.service.js';
 import { getSystemStats, formatBytes, formatUptime } from '../../services/systemStats.service.js';
 import { logger } from '../../config/logger.js';
 
@@ -176,7 +175,7 @@ export function getActiveSessions(): StreamSession[] {
  * GET /api/video/sessions
  * Get all active streaming sessions with system stats
  */
-router.get('/', async (req, res) => {
+router.get('/', async (_req, res) => {
   try {
     const [sessions, systemStats] = await Promise.all([
       Promise.resolve(getActiveSessions()),
@@ -235,7 +234,7 @@ router.get('/', async (req, res) => {
  * GET /api/video/sessions/stats
  * Get streaming statistics
  */
-router.get('/stats', async (req, res) => {
+router.get('/stats', async (_req, res) => {
   try {
     const sessions = getActiveSessions();
     
@@ -288,7 +287,7 @@ router.get('/history', async (req, res) => {
  * GET /api/video/sessions/system
  * Get detailed system stats
  */
-router.get('/system', async (req, res) => {
+router.get('/system', async (_req, res) => {
   try {
     const stats = await getSystemStats();
     
@@ -348,4 +347,5 @@ router.post('/:id/kill', async (req, res) => {
 });
 
 export default router;
-export { activeSessions, sessionHistory, transcodeQueue, StreamSession };
+export { activeSessions, sessionHistory, transcodeQueue };
+export type { StreamSession };
