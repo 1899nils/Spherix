@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { createWriteStream, existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { env } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
@@ -32,7 +32,7 @@ function generateJobId(mediaId: string): string {
 /**
  * Get or create transcode directory
  */
-function getTranscodeDirectory(): string {
+export function getTranscodeDirectory(): string {
   const dir = join(env.dataDir, 'transcodes');
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
@@ -244,7 +244,7 @@ export function cancelTranscodeJob(jobId: string): boolean {
  * Clean up old transcode files
  */
 export function cleanupOldTranscodes(maxAgeHours: number = 24): void {
-  const transcodeDir = getTranscodeDirectory();
+  const _transcodeDir = getTranscodeDirectory();
   const now = Date.now();
   
   // Clean up completed/failed jobs older than maxAgeHours

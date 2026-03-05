@@ -1,9 +1,6 @@
 import { Router } from 'express';
-import { prisma } from '../../config/database.js';
-import { logger } from '../../config/logger.js';
 import { probeMedia, parseClientCapabilities, canDirectPlay } from '../../services/streaming/mediaInfo.service.js';
-import { checkTranscodeNeeded, getTranscodeJob, getHlsPlaylistPath } from '../../services/streaming/transcode.service.js';
-import { streamFile } from './stream.js';
+import { checkTranscodeNeeded, getTranscodeJob, getHlsPlaylistPath, getTranscodeDirectory } from '../../services/streaming/transcode.service.js';
 import { env } from '../../config/env.js';
 import { join } from 'node:path';
 import { createReadStream, existsSync } from 'node:fs';
@@ -21,7 +18,6 @@ router.get('/info/:type/:id', async (req, res, next) => {
     const clientCaps = parseClientCapabilities(req);
 
     let filePath: string | null = null;
-    let mediaInfo: any = null;
 
     if (type === 'movie') {
       const movie = await prisma.movie.findUnique({
@@ -65,7 +61,6 @@ router.get('/info/:type/:id', async (req, res, next) => {
 
     // Determine optimal stream URL
     let streamUrl: string;
-    let transcodeJobId: string | undefined;
 
     if (directPlayCheck.playable) {
       // Direct play URL
@@ -213,14 +208,10 @@ router.get('/hls/:type/:id/playlist.m3u8', async (req, res, next) => {
  */
 router.get('/hls/:type/:id/segment_:num.ts', async (req, res, next) => {
   try {
-    const { type, id, num } = req.params;
+    const { id, num } = req.params;
     
     // Find active transcode job for this media
     // In production, you'd want a better way to track this
-    const segmentPath = join(env.dataDir, 'transcodes', `transcode_${id}_*`, `segment_${num}.ts`);
-    
-    // For now, find the most recent transcode job
-    const { getTranscodeDirectory } = await import('../../services/streaming/transcode.service.js');
     const { readdir } = await import('node:fs/promises');
     
     const transcodeDir = getTranscodeDirectory();
