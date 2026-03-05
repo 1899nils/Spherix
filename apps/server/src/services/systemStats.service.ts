@@ -1,12 +1,15 @@
-import si from 'systeminformation';
+import os from 'node:os';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import { logger } from '../config/logger.js';
+
+const execAsync = promisify(exec);
 
 export interface SystemStats {
   timestamp: number;
   cpu: {
     load: number; // 0-100
     loadHistory: number[]; // Last 10 readings
-    temperature?: number;
     cores: number;
   };
   memory: {
@@ -35,65 +38,83 @@ const cpuLoadHistory: number[] = [];
 const MAX_HISTORY = 20;
 
 /**
- * Get current system statistics
+ * Get current system statistics using Node.js built-ins
  */
 export async function getSystemStats(): Promise<SystemStats> {
   try {
-    const [cpu, mem, disk, network, time] = await Promise.all([
-      si.currentLoad(),
-      si.mem(),
-      si.fsSize(),
-      si.networkStats(),
-      si.time(),
-    ]);
-
+    // CPU Load (1 minute average)
+    const cpuLoad = os.loadavg()[0]; // 1 minute load average
+    const cpuCount = os.cpus().length;
+    const cpuPercentage = Math.min(100, Math.round((cpuLoad / cpuCount) * 100));
+    
     // Update CPU history
-    cpuLoadHistory.push(cpu.currentLoad);
+    cpuLoadHistory.push(cpuPercentage);
     if (cpuLoadHistory.length > MAX_HISTORY) {
       cpuLoadHistory.shift();
     }
 
-    // Get main disk (where data is stored)
-    const mainDisk = disk.find(d => d.fs === '/') || disk[0] || {
-      size: 0,
-      used: 0,
-      available: 0,
-      use: 0,
-    };
+    // Memory
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const usedMem = totalMem - freeMem;
 
-    // Network stats (first interface or aggregate)
-    const net = Array.isArray(network) ? network[0] : network;
+    // Disk usage (try df command, fallback to zeros)
+    let diskStats = { total: 0, used: 0, free: 0, percentage: 0 };
+    try {
+      const { stdout } = await execAsync('df -k . | tail -1');
+      const parts = stdout.trim().split(/\s+/);
+      if (parts.length >= 4) {
+        const total = parseInt(parts[1]) * 1024; // Convert KB to bytes
+        const used = parseInt(parts[2]) * 1024;
+        const free = parseInt(parts[3]) * 1024;
+        diskStats = {
+          total,
+          used,
+          free,
+          percentage: Math.round((used / total) * 100),
+        };
+      }
+    } catch {
+      // Fallback: use dummy values
+      diskStats = { total: 1, used: 0, free: 1, percentage: 0 };
+    }
+
+    // Network stats (placeholder - would need platform-specific implementation)
+    const networkStats = {
+      rxSec: 0,
+      txSec: 0,
+      rxTotal: 0,
+      txTotal: 0,
+    };
 
     return {
       timestamp: Date.now(),
       cpu: {
-        load: Math.round(cpu.currentLoad),
+        load: cpuPercentage,
         loadHistory: [...cpuLoadHistory],
-        cores: cpu.cpus.length,
+        cores: cpuCount,
       },
       memory: {
-        total: mem.total,
-        used: mem.used,
-        free: mem.free,
-        percentage: Math.round((mem.used / mem.total) * 100),
+        total: totalMem,
+        used: usedMem,
+        free: freeMem,
+        percentage: Math.round((usedMem / totalMem) * 100),
       },
-      disk: {
-        total: mainDisk.size,
-        used: mainDisk.used,
-        free: mainDisk.available,
-        percentage: Math.round(mainDisk.use),
-      },
-      network: {
-        rxSec: net.rx_sec || 0,
-        txSec: net.tx_sec || 0,
-        rxTotal: net.rx_bytes || 0,
-        txTotal: net.tx_bytes || 0,
-      },
-      uptime: time.uptime,
+      disk: diskStats,
+      network: networkStats,
+      uptime: os.uptime(),
     };
   } catch (error) {
     logger.error('Failed to get system stats', { error });
-    throw error;
+    // Return default values on error
+    return {
+      timestamp: Date.now(),
+      cpu: { load: 0, loadHistory: [], cores: os.cpus().length },
+      memory: { total: 1, used: 0, free: 1, percentage: 0 },
+      disk: { total: 1, used: 0, free: 1, percentage: 0 },
+      network: { rxSec: 0, txSec: 0, rxTotal: 0, txTotal: 0 },
+      uptime: os.uptime(),
+    };
   }
 }
 
