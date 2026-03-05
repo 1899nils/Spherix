@@ -48,13 +48,23 @@ function VolumeControl({
   );
 }
 
-// ── Progress Bar Component ────────────────────────────────────────────────────
+// ── Progress Bar Component (Clickable) ────────────────────────────────────────
 
-function ProgressBar({ progress }: { progress: number }) {
+function ProgressBar({ progress, onSeek }: { progress: number; onSeek?: (percent: number) => void }) {
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!onSeek) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const percent = (e.clientX - rect.left) / rect.width;
+    onSeek(Math.max(0, Math.min(1, percent)));
+  };
+
   return (
-    <div className="absolute top-0 left-0 right-0 h-1 bg-white/20">
+    <div 
+      className="absolute top-0 left-0 right-0 h-1 bg-white/20 cursor-pointer group"
+      onClick={handleClick}
+    >
       <div 
-        className="h-full bg-red-600 transition-all duration-300"
+        className="h-full bg-red-600 transition-all duration-300 group-hover:h-1.5"
         style={{ width: `${progress}%` }}
       />
     </div>
@@ -66,7 +76,7 @@ function ProgressBar({ progress }: { progress: number }) {
 function MusicPlayerBar() {
   const {
     currentTrack, isPlaying, seek, duration, volume, isMuted,
-    togglePlay, next, prev, setVolume, toggleMute
+    togglePlay, next, prev, seekTo, setVolume, toggleMute
   } = usePlayerStore();
 
   const isRadio = !!(currentTrack && 'isRadio' in currentTrack);
@@ -79,11 +89,17 @@ function MusicPlayerBar() {
     return (currentTrack as any).artist?.name || 'Unknown';
   };
 
+  const handleSeek = (percent: number) => {
+    if (duration && seekTo) {
+      seekTo(percent * duration);
+    }
+  };
+
   if (!currentTrack) return null;
 
   return (
     <div className="relative w-full h-full flex items-center px-4">
-      <ProgressBar progress={progress} />
+      <ProgressBar progress={progress} onSeek={handleSeek} />
       
       {/* Left: Info */}
       <div className="flex items-center gap-3 w-[30%]">
@@ -159,17 +175,23 @@ function MusicPlayerBar() {
 function AudiobookPlayerBar() {
   const {
     currentBook, isPlaying, seek, duration, volume,
-    togglePlay, prevChapter, nextChapter, setVolume
+    togglePlay, prevChapter, nextChapter, seekTo, setVolume
   } = useAudiobookPlayerStore();
 
   const [isMuted, setIsMuted] = useState(false);
   const progress = duration > 0 ? (seek / duration) * 100 : 0;
 
+  const handleSeek = (percent: number) => {
+    if (duration && seekTo) {
+      seekTo(percent * duration);
+    }
+  };
+
   if (!currentBook) return null;
 
   return (
     <div className="relative w-full h-full flex items-center px-4">
-      <ProgressBar progress={progress} />
+      <ProgressBar progress={progress} onSeek={handleSeek} />
       
       {/* Left: Info */}
       <div className="flex items-center gap-3 w-[30%]">

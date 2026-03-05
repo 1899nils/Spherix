@@ -3,7 +3,7 @@ import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { formatDuration } from '@/lib/utils';
 import {
-  Play, Pause, Volume2, VolumeX, Maximize, SkipBack, SkipForward, X, ChevronDown
+  Play, Pause, Volume2, VolumeX, Maximize, SkipBack, SkipForward, ChevronDown, Square
 } from 'lucide-react';
 
 
@@ -41,7 +41,7 @@ export function VideoPlayer({
   introEnd,
   nextEpisode,
 }: VideoPlayerProps) {
-  const { minimize, updateProgress } = useVideoPlayerStore();
+  const { minimize, updateProgress, stop } = useVideoPlayerStore();
   const { pause } = usePlayerStore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -282,16 +282,14 @@ export function VideoPlayer({
           </div>
         )}
 
-        {/* Top Bar */}
+        {/* Top Bar - Fullscreen top right, Minimize top left */}
         <div className={`absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/80 to-transparent transition-opacity ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-          <button onClick={minimize} className="text-white/80 hover:text-white p-2">
+          <button onClick={minimize} className="text-white/80 hover:text-white p-2" title="Minimieren">
             <ChevronDown className="h-6 w-6" />
           </button>
-          <div className="flex items-center gap-3">
-            <button onClick={onClose} className="text-white/80 hover:text-white p-2">
-              <X className="h-6 w-6" />
-            </button>
-          </div>
+          <button onClick={toggleFullscreen} className="text-white/80 hover:text-white p-2" title="Vollbild">
+            <Maximize className="h-6 w-6" />
+          </button>
         </div>
       </div>
 
@@ -300,10 +298,17 @@ export function VideoPlayer({
         className={`bg-[#1a1a1a] h-16 relative transition-all duration-300 ${showControls ? 'translate-y-0' : 'translate-y-full'}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Progress Bar at top */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-white/20">
+        {/* Progress Bar at top - Clickable */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-1 bg-white/20 cursor-pointer group"
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const percent = (e.clientX - rect.left) / rect.width;
+            handleSeek(percent * duration);
+          }}
+        >
           <div 
-            className="h-full bg-red-600 transition-all"
+            className="h-full bg-red-600 transition-all group-hover:h-1.5"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
@@ -354,6 +359,15 @@ export function VideoPlayer({
               <span className="text-[8px] -mt-1">10</span>
             </button>
 
+            {/* Stop Button */}
+            <button 
+              onClick={stop}
+              className="flex items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded ml-1"
+              title="Stop"
+            >
+              <Square className="h-4 w-4 fill-current" />
+            </button>
+
             {/* Next Episode */}
             {nextEpisode && (
               <button 
@@ -371,7 +385,7 @@ export function VideoPlayer({
             )}
           </div>
 
-          {/* Right: Volume & Fullscreen */}
+          {/* Right: Volume only (Fullscreen moved to top) */}
           <div className="flex items-center justify-end w-[30%]">
             {/* Volume */}
             <div className="flex items-center gap-2">
@@ -394,11 +408,6 @@ export function VideoPlayer({
                 />
               </div>
             </div>
-
-            {/* Fullscreen */}
-            <button onClick={toggleFullscreen} className="text-white/80 hover:text-white p-2 ml-2">
-              <Maximize className="h-5 w-5" />
-            </button>
           </div>
         </div>
       </div>
