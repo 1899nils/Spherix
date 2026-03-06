@@ -85,14 +85,18 @@ export async function searchMusicBrainz(
   try {
     // Search for recordings with video relationships
     const query = `recording:"${trackTitle}" AND artist:"${artistName}"`;
-    const response = await mbFetch<{ recordings?: Array<{
+    interface MBRecording {
       id: string;
       title: string;
       relations?: Array<{
         url?: { resource: string };
         type: string;
       }>;
-    }> } }>('recording', {
+    }
+    interface MBResponse {
+      recordings?: MBRecording[];
+    }
+    const response = await mbFetch<MBResponse>('recording', {
       query,
       limit: '5',
       inc: 'url-rels',
@@ -161,12 +165,14 @@ export async function searchYouTube(
       return null;
     }
 
-    const data = await response.json() as {
-      items?: Array<{
-        id?: { videoId?: string };
-        snippet?: { title?: string };
-      }>;
-    };
+    interface YouTubeItem {
+      id?: { videoId?: string };
+      snippet?: { title?: string };
+    }
+    interface YouTubeResponse {
+      items?: YouTubeItem[];
+    }
+    const data = await response.json() as YouTubeResponse;
 
     if (!data.items || data.items.length === 0) {
       return null;
