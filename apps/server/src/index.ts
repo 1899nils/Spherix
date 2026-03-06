@@ -155,6 +155,12 @@ app.get('/api/video/continue', async (_req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// ── Music Videos ───────────────────────────────────────────────────────────────
+app.use('/api/tracks', musicVideoRouter);
+
+// ── YouTube API ────────────────────────────────────────────────────────────────
+app.use('/api/youtube', youtubeRouter);
+
 // ── Audiobooks ────────────────────────────────────────────────────────────────
 app.use('/api/audiobooks', audiobooksRouter);
 
