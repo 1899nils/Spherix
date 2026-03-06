@@ -601,6 +601,19 @@ export function AlbumDetail() {
                           E
                         </span>
                       )}
+                      {track.musicVideoUrl && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setVideoTrackId(track.id);
+                          }}
+                          className="flex-shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#dc2626]/20 text-[#dc2626] hover:bg-[#dc2626]/30 transition-colors"
+                          title="Musikvideo abspielen"
+                        >
+                          <Video className="h-3 w-3" />
+                          <span className="text-[10px] font-medium">Video</span>
+                        </button>
+                      )}
                       <MusicVideoIndicator
                         track={track}
                         onSwitchToVideo={() => setVideoTrackId(track.id)}
