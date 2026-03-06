@@ -208,4 +208,19 @@ router.post('/:id/tracks', async (req, res, next) => {
   }
 });
 
+/** Remove track from playlist */
+router.delete('/:id/tracks/:trackId', async (req, res, next) => {
+  try {
+    const { id, trackId } = req.params;
+
+    await prisma.playlistTrack.deleteMany({
+      where: { playlistId: id, trackId },
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
