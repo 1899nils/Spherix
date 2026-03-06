@@ -179,10 +179,11 @@ model Playlist {
 }
 
 model PlaylistTrack {
-  id         String @id @default(uuid())
-  playlistId String @map("playlist_id")
-  trackId    String @map("track_id")
+  id         String   @id @default(uuid())
+  playlistId String   @map("playlist_id")
+  trackId    String   @map("track_id")
   position   Int
+  addedAt    DateTime @default(now()) @map("added_at")
 
   playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
   track    Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)

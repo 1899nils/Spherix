@@ -12,7 +12,11 @@ export interface Playlist {
   trackCount: number;
 }
 
+export interface PlaylistTrack extends TrackWithRelations {
+  addedAt: string;
+}
+
 export interface PlaylistWithTracks extends Playlist {
-  tracks: TrackWithRelations[];
+  tracks: PlaylistTrack[];
   trackCount: number;
 }
