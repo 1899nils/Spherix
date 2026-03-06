@@ -12,6 +12,22 @@ interface MusicVideoResult {
 }
 
 /**
+ * Get YouTube API key from user settings
+ */
+export async function getYouTubeApiKey(userId?: string): Promise<string | undefined> {
+  if (!userId) {
+    return process.env.YOUTUBE_API_KEY;
+  }
+
+  const settings = await prisma.userSettings.findUnique({
+    where: { userId },
+    select: { youtubeApiKey: true },
+  });
+
+  return settings?.youtubeApiKey || process.env.YOUTUBE_API_KEY;
+}
+
+/**
  * Check if we have a cached music video that's still valid
  */
 export async function getCachedMusicVideo(trackId: string): Promise<MusicVideoResult | null> {
@@ -110,54 +126,7 @@ export async function searchMusicBrainz(
 }
 
 /**
- * Search for music video on Last.fm (as fallback)
- */
-export async function searchLastFm(
-  trackTitle: string, 
-  artistName: string,
-  apiKey?: string
-): Promise<MusicVideoResult | null> {
-  if (!apiKey) {
-    logger.debug('Last.fm API key not configured, skipping music video search');
-    return null;
-  }
-
-  try {
-    const params = new URLSearchParams({
-      method: 'track.getInfo',
-      api_key: apiKey,
-      artist: artistName,
-      track: trackTitle,
-      format: 'json',
-    });
-
-    const response = await fetch(`https://ws.audioscrobbler.com/2.0/?${params.toString()}`, {
-      signal: AbortSignal.timeout(10_000),
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json() as {
-      track?: {
-        url?: string;
-        musicvideo?: { url?: string };
-      };
-    };
-
-    // Last.fm doesn't directly provide video URLs, but we can check for special fields
-    // This is a placeholder - Last.fm API doesn't really have music videos
-    // We'll use this as a signal to try YouTube instead
-    return null;
-  } catch (error) {
-    logger.warn('Last.fm music video search failed', { error: String(error) });
-    return null;
-  }
-}
-
-/**
- * Search for music video on YouTube (as final fallback)
+ * Search for music video on YouTube
  */
 export async function searchYouTube(
   trackTitle: string, 
@@ -228,8 +197,7 @@ export async function findMusicVideo(
   trackTitle: string,
   artistName: string,
   options: {
-    lastFmApiKey?: string;
-    youtubeApiKey?: string;
+    userId?: string;
     forceRefresh?: boolean;
   } = {}
 ): Promise<MusicVideoResult | null> {
@@ -251,21 +219,11 @@ export async function findMusicVideo(
     return result;
   }
 
-  // Try Last.fm as fallback
-  if (options.lastFmApiKey) {
-    logger.debug('Searching Last.fm for music video', { trackId });
-    result = await searchLastFm(trackTitle, artistName, options.lastFmApiKey);
-    
-    if (result) {
-      await saveMusicVideo(trackId, result);
-      return result;
-    }
-  }
-
-  // Try YouTube as final fallback
-  if (options.youtubeApiKey) {
+  // Try YouTube as fallback
+  const youtubeApiKey = await getYouTubeApiKey(options.userId);
+  if (youtubeApiKey) {
     logger.debug('Searching YouTube for music video', { trackId });
-    result = await searchYouTube(trackTitle, artistName, options.youtubeApiKey);
+    result = await searchYouTube(trackTitle, artistName, youtubeApiKey);
     
     if (result) {
       await saveMusicVideo(trackId, result);

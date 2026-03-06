@@ -13,6 +13,7 @@ router.get('/:id/musicvideo', async (req, res, next) => {
   try {
     const trackId = String(req.params.id);
     const forceRefresh = req.query.refresh === 'true';
+    const userId = req.session?.userId;
 
     // Get track info
     const track = await prisma.track.findUnique({
@@ -31,8 +32,7 @@ router.get('/:id/musicvideo', async (req, res, next) => {
       track.title,
       track.artist.name,
       {
-        lastFmApiKey: process.env.LASTFM_API_KEY,
-        youtubeApiKey: process.env.YOUTUBE_API_KEY,
+        userId,
         forceRefresh,
       }
     );
