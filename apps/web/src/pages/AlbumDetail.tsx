@@ -113,7 +113,7 @@ function PlaylistSelectorDialog({
 
         {/* Success Message */}
         {successMessage && (
-          <div className="px-4 py-2 bg-[#1db954]/20 text-[#1db954] text-sm text-center">
+          <div className="px-4 py-2 bg-[#dc2626]/20 text-[#dc2626] text-sm text-center">
             {successMessage}
           </div>
         )}
@@ -171,7 +171,7 @@ function PlaylistSelectorDialog({
               </div>
               {addToPlaylistMutation.isPending && 
                 addToPlaylistMutation.variables?.playlistId === playlist.id && (
-                <div className="h-4 w-4 border-2 border-[#1db954] border-t-transparent rounded-full animate-spin" />
+                <div className="h-4 w-4 border-2 border-[#dc2626] border-t-transparent rounded-full animate-spin" />
               )}
             </button>
           ))}
@@ -315,7 +315,7 @@ export function AlbumDetail() {
   const allTrackIds = tracks.map(t => t.id);
 
   return (
-    <div className="space-y-0 min-h-screen">
+    <div className="min-h-screen -mx-6">
       {/* Spotify-style Header with Dynamic Gradient Background */}
       <div 
         className="relative transition-all duration-700"
@@ -343,7 +343,7 @@ export function AlbumDetail() {
           }}
         />
         
-        <div className="relative flex flex-col md:flex-row gap-6 md:gap-8 p-6 md:p-8 pb-8">
+        <div className="relative flex flex-col md:flex-row gap-6 md:gap-8 px-6 md:px-8 py-6 md:py-8 pb-8">
           {/* Large Cover */}
           <div className="h-48 w-48 md:h-56 md:w-56 lg:h-64 lg:w-64 rounded-md overflow-hidden bg-[#282828] shrink-0 shadow-2xl mx-auto md:mx-0">
             {album.coverUrl && !coverError ? (
@@ -395,13 +395,13 @@ export function AlbumDetail() {
 
       {/* Action Bar - on the gradient background */}
       <div 
-        className="relative flex items-center gap-4 px-6 md:px-8 py-6 -mt-4"
+        className="relative flex items-center gap-4 px-6 md:px-8 py-6 -mt-4 w-full"
         style={{ background: 'linear-gradient(to bottom, transparent 0%, #121212 100%)' }}
       >
         {/* Big Green Play Button */}
         <button
           onClick={isCurrentAlbumPlaying ? togglePlay : handlePlayAll}
-          className="h-14 w-14 rounded-full bg-[#1db954] hover:bg-[#1ed760] hover:scale-105 transition-all flex items-center justify-center shadow-lg"
+          className="h-14 w-14 rounded-full bg-[#dc2626] hover:bg-[#1ed760] hover:scale-105 transition-all flex items-center justify-center shadow-lg"
         >
           {isCurrentAlbumPlaying ? (
             <Pause className="h-7 w-7 text-black fill-black" />
@@ -416,7 +416,7 @@ export function AlbumDetail() {
           title={isShuffled ? 'Zufallswiedergabe aus' : 'Zufallswiedergabe an'}
           className={`h-10 w-10 flex items-center justify-center transition-all ${
             isShuffled 
-              ? 'text-[#1db954]' 
+              ? 'text-[#dc2626]' 
               : 'text-[#b3b3b3] hover:text-white hover:scale-105'
           }`}
         >
@@ -477,7 +477,7 @@ export function AlbumDetail() {
                   <ExternalLink className="h-4 w-4 text-[#b3b3b3]" />
                   <span className="text-white text-sm">MusicBrainz</span>
                   {album.musicbrainzId && (
-                    <span className="ml-auto h-2 w-2 rounded-full bg-[#1db954]" />
+                    <span className="ml-auto h-2 w-2 rounded-full bg-[#dc2626]" />
                   )}
                 </button>
               </div>
@@ -487,7 +487,7 @@ export function AlbumDetail() {
       </div>
 
       {/* Track List - dark background */}
-      <div className="px-6 md:px-8 pb-8 bg-[#121212]">
+      <div className="px-6 md:px-8 pb-8 bg-[#121212] w-full">
         {/* Table Header */}
         <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[50px_1fr_auto_auto] gap-4 px-4 py-2 text-sm text-[#b3b3b3] border-b border-[#ffffff1a]">
           <span className="w-8 text-center">#</span>
@@ -513,25 +513,25 @@ export function AlbumDetail() {
                   </div>
                 )}
                 <div
-                  className={`group grid grid-cols-[auto_1fr_auto] md:grid-cols-[50px_1fr_auto_auto] gap-4 px-4 py-3 text-sm rounded-md hover:bg-[#ffffff1a] cursor-pointer transition-colors ${isCurrent ? 'text-[#1db954]' : ''}`}
+                  className={`group grid grid-cols-[auto_1fr_auto] md:grid-cols-[50px_1fr_auto_auto] gap-4 px-4 py-3 text-sm rounded-md hover:bg-[#ffffff1a] cursor-pointer transition-colors ${isCurrent ? 'text-[#dc2626]' : ''}`}
                   onClick={() => handlePlayTrack(track)}
                 >
                   {/* Track Number / Play Icon */}
                   <span className="w-8 text-center text-[#b3b3b3] flex items-center justify-center">
-                    <span className={`group-hover:hidden ${isCurrent ? 'text-[#1db954]' : ''}`}>
+                    <span className={`group-hover:hidden ${isCurrent ? 'text-[#dc2626]' : ''}`}>
                       {isCurrent && isPlaying ? (
-                        <span className="text-[#1db954]">♪</span>
+                        <span className="text-[#dc2626]">♪</span>
                       ) : (
                         track.trackNumber
                       )}
                     </span>
-                    <Play className={`h-4 w-4 hidden group-hover:block ${isCurrent ? 'text-[#1db954]' : 'text-white'}`} />
+                    <Play className={`h-4 w-4 hidden group-hover:block ${isCurrent ? 'text-[#dc2626]' : 'text-white'}`} />
                   </span>
 
                   {/* Title & Artist with Explicit Badge */}
                   <div className="min-w-0 flex flex-col justify-center gap-0.5">
                     <div className="flex items-center gap-2">
-                      <p className={`truncate font-normal ${isCurrent ? 'text-[#1db954]' : 'text-white'}`}>
+                      <p className={`truncate font-normal ${isCurrent ? 'text-[#dc2626]' : 'text-white'}`}>
                         {track.title}
                       </p>
                       {track.explicit && (
@@ -570,7 +570,7 @@ export function AlbumDetail() {
 
       {/* Album Info Footer */}
       {(album.label || album.country || album.genre) && (
-        <div className="px-6 md:px-8 pb-8 text-xs text-[#b3b3b3] bg-[#121212]">
+        <div className="px-6 md:px-8 pb-8 text-xs text-[#b3b3b3] bg-[#121212] w-full">
           <div className="pt-6 border-t border-[#ffffff1a] space-y-1">
             {album.year && <p><span className="text-white">{album.year}</span> veröffentlicht</p>}
             {album.label && <p>Label: {album.label}</p>}
