@@ -91,7 +91,7 @@ router.patch('/:id', async (req, res, next) => {
         ...(trackNumber !== undefined ? { trackNumber } : {}),
         ...(discNumber !== undefined ? { discNumber } : {}),
         ...(lyrics !== undefined ? { lyrics } : {}),
-        ...(explicit !== undefined ? { explicit } : {}),
+        ...(explicit !== undefined ? { explicit: explicit === true || explicit === 'true' } : {}),
       },
       include: {
         artist: { select: { id: true, name: true } },

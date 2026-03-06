@@ -1,14 +1,192 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { formatDuration } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import { MusicBrainzLinkModal } from '@/components/MusicBrainzLinkModal';
-import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations } from '@musicserver/shared';
-import { Play, Pause, Disc3, Pencil, ExternalLink, Heart, Clock } from 'lucide-react';
+import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations, Playlist } from '@musicserver/shared';
+import { 
+  Play, Pause, Disc3, Pencil, ExternalLink, Heart, Clock, 
+  Shuffle, MoreHorizontal, Plus, X, Check 
+} from 'lucide-react';
+
+// Extract dominant color from image data
+function extractDominantColor(imageData: ImageData): string {
+  const data = imageData.data;
+  let r = 0, g = 0, b = 0;
+  let count = 0;
+  
+  // Sample every 10th pixel for performance
+  for (let i = 0; i < data.length; i += 40) {
+    r += data[i];
+    g += data[i + 1];
+    b += data[i + 2];
+    count++;
+  }
+  
+  r = Math.floor(r / count);
+  g = Math.floor(g / count);
+  b = Math.floor(b / count);
+  
+  // Darken slightly for better text contrast
+  return `rgb(${Math.floor(r * 0.7)}, ${Math.floor(g * 0.7)}, ${Math.floor(b * 0.7)})`;
+}
+
+// Shuffle array helper
+function shuffleArray<T>(array: T[]): T[] {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+}
+
+// Playlist Selector Dialog
+function PlaylistSelectorDialog({
+  isOpen,
+  onClose,
+  trackIds,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  trackIds: string[];
+}) {
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const { data: playlistsData } = useQuery({
+    queryKey: ['playlists'],
+    queryFn: () => api.get<ApiResponse<Playlist[]>>('/playlists'),
+    enabled: isOpen,
+  });
+
+  const addToPlaylistMutation = useMutation({
+    mutationFn: ({ playlistId, trackIds }: { playlistId: string; trackIds: string[] }) =>
+      api.post(`/playlists/${playlistId}/tracks`, { trackIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['playlists'] });
+      setSuccessMessage('Tracks hinzugefügt!');
+      setTimeout(() => {
+        setSuccessMessage(null);
+        onClose();
+      }, 1500);
+    },
+  });
+
+  const createPlaylistMutation = useMutation({
+    mutationFn: (name: string) => api.post('/playlists', { name, trackIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['playlists'] });
+      setSuccessMessage('Playlist erstellt!');
+      setTimeout(() => {
+        setSuccessMessage(null);
+        onClose();
+      }, 1500);
+    },
+  });
+
+  const playlists = playlistsData?.data || [];
+  const filteredPlaylists = playlists.filter((p) =>
+    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Dialog */}
+      <div className="relative bg-[#282828] rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#ffffff1a]">
+          <h2 className="text-base font-semibold text-white">Zu Playlist hinzufügen</h2>
+          <button onClick={onClose} className="text-[#b3b3b3] hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="px-4 py-2 bg-[#1db954]/20 text-[#1db954] text-sm text-center">
+            {successMessage}
+          </div>
+        )}
+
+        {/* Search */}
+        <div className="p-4">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Playlist suchen"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-[#3e3e3e] text-white placeholder-[#b3b3b3] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-white/30"
+            />
+          </div>
+        </div>
+
+        {/* New Playlist Button */}
+        <button
+          onClick={() => {
+            const name = prompt('Name der neuen Playlist:');
+            if (name?.trim()) {
+              createPlaylistMutation.mutate(name.trim());
+            }
+          }}
+          className="flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+        >
+          <div className="h-10 w-10 rounded bg-[#3e3e3e] flex items-center justify-center">
+            <Plus className="h-5 w-5 text-[#b3b3b3]" />
+          </div>
+          <span className="text-white text-sm font-medium">Neue Playlist</span>
+        </button>
+
+        {/* Playlist List */}
+        <div className="flex-1 overflow-y-auto">
+          {filteredPlaylists.map((playlist) => (
+            <button
+              key={playlist.id}
+              onClick={() => addToPlaylistMutation.mutate({ playlistId: playlist.id, trackIds })}
+              disabled={addToPlaylistMutation.isPending}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+            >
+              <div className="h-10 w-10 rounded bg-[#3e3e3e] flex items-center justify-center overflow-hidden">
+                {playlist.coverUrl ? (
+                  <img src={playlist.coverUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <Disc3 className="h-5 w-5 text-[#b3b3b3]" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-medium truncate">{playlist.name}</p>
+                <p className="text-[#b3b3b3] text-xs">
+                  {playlist.trackCount} {playlist.trackCount === 1 ? 'Song' : 'Songs'}
+                </p>
+              </div>
+              {addToPlaylistMutation.isPending && 
+                addToPlaylistMutation.variables?.playlistId === playlist.id && (
+                <div className="h-4 w-4 border-2 border-[#1db954] border-t-transparent rounded-full animate-spin" />
+              )}
+            </button>
+          ))}
+
+          {filteredPlaylists.length === 0 && (
+            <div className="px-4 py-6 text-center text-[#b3b3b3] text-sm">
+              Keine Playlists gefunden
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function AlbumDetail() {
   const { id } = useParams<{ id: string }>();
@@ -16,8 +194,10 @@ export function AlbumDetail() {
   const [mbOpen, setMbOpen] = useState(false);
   const [editTrackId, setEditTrackId] = useState<string | null>(null);
   const [coverError, setCoverError] = useState(false);
-  const [dominantColor, setDominantColor] = useState<string>('');
-  const coverRef = useRef<HTMLImageElement>(null);
+  const [bgGradient, setBgGradient] = useState<string>('linear-gradient(to bottom, #525252 0%, #121212 100%)');
+  const [coverLoaded, setCoverLoaded] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['album', id],
@@ -25,13 +205,20 @@ export function AlbumDetail() {
     enabled: !!id,
   });
 
-  const { playTrack, currentTrack, isPlaying, togglePlay } = usePlayerStore();
+  const { 
+    playTrack, 
+    currentTrack, 
+    isPlaying, 
+    togglePlay, 
+    isShuffled, 
+    toggleShuffle 
+  } = usePlayerStore();
 
   const album = data?.data;
 
-  // Extract dominant color from cover image
+  // Extract dominant color when cover loads
   useEffect(() => {
-    if (album?.coverUrl && !coverError) {
+    if (album?.coverUrl && !coverError && coverLoaded) {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
@@ -40,23 +227,24 @@ export function AlbumDetail() {
           const ctx = canvas.getContext('2d');
           if (!ctx) return;
           
-          canvas.width = 1;
-          canvas.height = 1;
-          ctx.drawImage(img, 0, 0, 1, 1);
-          const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+          // Resize for performance
+          canvas.width = 100;
+          canvas.height = 100;
+          ctx.drawImage(img, 0, 0, 100, 100);
           
-          // Make it slightly darker and more saturated for better look
-          setDominantColor(`rgb(${r}, ${g}, ${b})`);
+          const imageData = ctx.getImageData(0, 0, 100, 100);
+          const dominantColor = extractDominantColor(imageData);
+          
+          // Create gradient from dominant color to background
+          setBgGradient(`linear-gradient(to bottom, ${dominantColor} 0%, ${dominantColor} 20%, #121212 65%, #121212 100%)`);
         } catch {
-          setDominantColor('');
+          setBgGradient('linear-gradient(to bottom, #525252 0%, #121212 100%)');
         }
       };
-      img.onerror = () => setDominantColor('');
+      img.onerror = () => setBgGradient('linear-gradient(to bottom, #525252 0%, #121212 100%)');
       img.src = album.coverUrl;
-    } else {
-      setDominantColor('');
     }
-  }, [album?.coverUrl, coverError]);
+  }, [album?.coverUrl, coverError, coverLoaded]);
 
   if (isLoading) {
     return <div className="text-muted-foreground p-8">Lade Album...</div>;
@@ -72,7 +260,13 @@ export function AlbumDetail() {
 
   const handlePlayAll = () => {
     if (tracks.length > 0) {
-      playTrack(tracks[0], tracks);
+      if (isShuffled) {
+        // Play shuffled
+        const shuffledTracks = shuffleArray(tracks);
+        playTrack(shuffledTracks[0], shuffledTracks);
+      } else {
+        playTrack(tracks[0], tracks);
+      }
     }
   };
 
@@ -118,34 +312,52 @@ export function AlbumDetail() {
     musicbrainzId: editTrack.musicbrainzId,
   } : {};
 
+  // Get all track IDs for adding to playlist
+  const allTrackIds = tracks.map(t => t.id);
+
   return (
-    <div className="space-y-0">
-      {/* Spotify-style Header with Dynamic Gradient */}
-      <div className="relative">
-        {/* Dynamic Background */}
+    <div className="space-y-0 min-h-screen">
+      {/* Spotify-style Header with Dynamic Gradient Background */}
+      <div 
+        className="relative transition-all duration-700"
+        style={{ background: bgGradient }}
+      >
+        {/* Optional: Blurred cover background overlay for more immersive effect */}
+        {album.coverUrl && !coverError && (
+          <div 
+            className="absolute inset-0 opacity-30 overflow-hidden"
+            style={{
+              backgroundImage: `url(${album.coverUrl})`,
+              backgroundSize: '150% 150%',
+              backgroundPosition: 'center',
+              filter: 'blur(60px)',
+              transform: 'scale(1.2)',
+            }}
+          />
+        )}
+        
+        {/* Gradient overlay to ensure smooth transition */}
         <div 
-          className="absolute inset-0 transition-colors duration-700"
+          className="absolute inset-0"
           style={{
-            background: dominantColor 
-              ? `linear-gradient(to bottom, ${dominantColor} 0%, ${dominantColor}e6 20%, rgba(24, 24, 24, 0.8) 55%, var(--background) 100%)`
-              : 'linear-gradient(to bottom, rgba(64, 64, 64, 0.6) 0%, var(--background) 100%)'
+            background: 'linear-gradient(to bottom, transparent 0%, transparent 40%, rgba(18, 18, 18, 0.3) 60%, rgba(18, 18, 18, 0.8) 85%, rgba(18, 18, 18, 1) 100%)'
           }}
         />
         
-        <div className="relative flex flex-col md:flex-row gap-6 md:gap-8 p-6 md:p-8 pb-4">
+        <div className="relative flex flex-col md:flex-row gap-6 md:gap-8 p-6 md:p-8 pb-8">
           {/* Large Cover */}
-          <div className="h-48 w-48 md:h-56 md:w-56 lg:h-64 lg:w-64 rounded-md overflow-hidden bg-muted shrink-0 shadow-2xl mx-auto md:mx-0">
+          <div className="h-48 w-48 md:h-56 md:w-56 lg:h-64 lg:w-64 rounded-md overflow-hidden bg-[#282828] shrink-0 shadow-2xl mx-auto md:mx-0">
             {album.coverUrl && !coverError ? (
               <img
-                ref={coverRef}
                 src={album.coverUrl}
                 alt={album.title}
                 className="h-full w-full object-cover"
                 onError={() => setCoverError(true)}
+                onLoad={() => setCoverLoaded(true)}
                 crossOrigin="anonymous"
               />
             ) : (
-              <div className="h-full w-full flex items-center justify-center text-muted-foreground bg-muted">
+              <div className="h-full w-full flex items-center justify-center text-muted-foreground bg-[#282828]">
                 <Disc3 className="h-24 w-24" />
               </div>
             )}
@@ -153,17 +365,17 @@ export function AlbumDetail() {
 
           {/* Album Info */}
           <div className="flex flex-col justify-end gap-3 min-w-0 text-center md:text-left">
-            <p className="text-xs uppercase tracking-wider text-white/70 font-medium hidden md:block">
+            <p className="text-xs uppercase tracking-wider text-white/80 font-medium">
               Album
             </p>
-            <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold leading-tight line-clamp-2 text-white drop-shadow-sm">
+            <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold leading-tight line-clamp-2 text-white">
               {album.title}
             </h1>
             
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-sm text-white/80">
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-sm text-white/90">
               <Link
                 to={`/music/artists/${album.artist.id}`}
-                className="font-semibold text-white hover:underline"
+                className="font-bold text-white hover:underline"
               >
                 {album.artist.name}
               </Link>
@@ -182,8 +394,11 @@ export function AlbumDetail() {
         </div>
       </div>
 
-      {/* Action Bar */}
-      <div className="relative flex items-center gap-4 px-6 md:px-8 py-4">
+      {/* Action Bar - on the gradient background */}
+      <div 
+        className="relative flex items-center gap-4 px-6 md:px-8 py-6 -mt-4"
+        style={{ background: 'linear-gradient(to bottom, transparent 0%, #121212 100%)' }}
+      >
         {/* Big Green Play Button */}
         <button
           onClick={isCurrentAlbumPlaying ? togglePlay : handlePlayAll}
@@ -196,32 +411,86 @@ export function AlbumDetail() {
           )}
         </button>
 
+        {/* Shuffle Button */}
+        <button
+          onClick={toggleShuffle}
+          title={isShuffled ? 'Zufallswiedergabe aus' : 'Zufallswiedergabe an'}
+          className={`h-10 w-10 flex items-center justify-center transition-all ${
+            isShuffled 
+              ? 'text-[#1db954]' 
+              : 'text-[#b3b3b3] hover:text-white hover:scale-105'
+          }`}
+        >
+          <Shuffle className="h-6 w-6" />
+        </button>
+
         {/* Heart Button */}
-        <button className="h-10 w-10 flex items-center justify-center text-muted-foreground hover:text-white hover:scale-105 transition-all">
+        <button className="h-10 w-10 flex items-center justify-center text-[#b3b3b3] hover:text-white hover:scale-105 transition-all">
           <Heart className="h-7 w-7" />
         </button>
 
-        {/* More Options */}
-        <div className="flex items-center gap-2 ml-auto">
-          <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)} className="text-white/70 hover:text-white">
-            <Pencil className="h-4 w-4 mr-2" />
-            Bearbeiten
-          </Button>
+        {/* More Options Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setShowMoreMenu(!showMoreMenu)}
+            className="h-10 w-10 flex items-center justify-center text-[#b3b3b3] hover:text-white transition-all"
+          >
+            <MoreHorizontal className="h-7 w-7" />
+          </button>
 
-          <Button variant="ghost" size="sm" onClick={() => setMbOpen(true)} className="text-white/70 hover:text-white">
-            <ExternalLink className="h-4 w-4 mr-2" />
-            MusicBrainz
-            {album.musicbrainzId && (
-              <span className="ml-1.5 h-2 w-2 rounded-full bg-[#1db954] inline-block" />
-            )}
-          </Button>
+          {/* Dropdown Menu */}
+          {showMoreMenu && (
+            <>
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowMoreMenu(false)} 
+              />
+              <div className="absolute top-full left-0 mt-1 w-64 bg-[#282828] rounded-md shadow-xl py-1 z-50">
+                <button
+                  onClick={() => {
+                    setShowMoreMenu(false);
+                    setEditOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+                >
+                  <Pencil className="h-4 w-4 text-[#b3b3b3]" />
+                  <span className="text-white text-sm">Bearbeiten</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowMoreMenu(false);
+                    setShowPlaylistSelector(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+                >
+                  <Plus className="h-4 w-4 text-[#b3b3b3]" />
+                  <span className="text-white text-sm">Zu Playlist hinzufügen</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowMoreMenu(false);
+                    setMbOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+                >
+                  <ExternalLink className="h-4 w-4 text-[#b3b3b3]" />
+                  <span className="text-white text-sm">MusicBrainz</span>
+                  {album.musicbrainzId && (
+                    <span className="ml-auto h-2 w-2 rounded-full bg-[#1db954]" />
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Track List */}
-      <div className="px-6 md:px-8 pb-8">
+      {/* Track List - dark background */}
+      <div className="px-6 md:px-8 pb-8 bg-[#121212]">
         {/* Table Header */}
-        <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[50px_1fr_auto_auto] gap-4 px-4 py-2 text-sm text-muted-foreground border-b border-border/50">
+        <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[50px_1fr_auto_auto] gap-4 px-4 py-2 text-sm text-[#b3b3b3] border-b border-[#ffffff1a]">
           <span className="w-8 text-center">#</span>
           <span>Titel</span>
           <span className="hidden md:block text-right w-24"></span>
@@ -240,16 +509,16 @@ export function AlbumDetail() {
             return (
               <div key={track.id}>
                 {showDiscHeader && (
-                  <div className="px-4 py-3 text-sm font-semibold text-muted-foreground mt-4 mb-2">
+                  <div className="px-4 py-3 text-sm font-semibold text-[#b3b3b3] mt-4 mb-2">
                     Disc {track.discNumber}
                   </div>
                 )}
                 <div
-                  className={`group grid grid-cols-[auto_1fr_auto] md:grid-cols-[50px_1fr_auto_auto] gap-4 px-4 py-3 text-sm rounded-md hover:bg-white/5 cursor-pointer transition-colors ${isCurrent ? 'text-[#1db954]' : ''}`}
+                  className={`group grid grid-cols-[auto_1fr_auto] md:grid-cols-[50px_1fr_auto_auto] gap-4 px-4 py-3 text-sm rounded-md hover:bg-[#ffffff1a] cursor-pointer transition-colors ${isCurrent ? 'text-[#1db954]' : ''}`}
                   onClick={() => handlePlayTrack(track)}
                 >
                   {/* Track Number / Play Icon */}
-                  <span className="w-8 text-center text-muted-foreground flex items-center justify-center">
+                  <span className="w-8 text-center text-[#b3b3b3] flex items-center justify-center">
                     <span className={`group-hover:hidden ${isCurrent ? 'text-[#1db954]' : ''}`}>
                       {isCurrent && isPlaying ? (
                         <span className="text-[#1db954]">♪</span>
@@ -257,22 +526,22 @@ export function AlbumDetail() {
                         track.trackNumber
                       )}
                     </span>
-                    <Play className={`h-4 w-4 hidden group-hover:block ${isCurrent ? 'text-[#1db954]' : 'text-foreground'}`} />
+                    <Play className={`h-4 w-4 hidden group-hover:block ${isCurrent ? 'text-[#1db954]' : 'text-white'}`} />
                   </span>
 
                   {/* Title & Artist with Explicit Badge */}
                   <div className="min-w-0 flex flex-col justify-center gap-0.5">
                     <div className="flex items-center gap-2">
-                      <p className={`truncate font-normal ${isCurrent ? 'text-[#1db954]' : 'text-foreground'}`}>
+                      <p className={`truncate font-normal ${isCurrent ? 'text-[#1db954]' : 'text-white'}`}>
                         {track.title}
                       </p>
                       {track.explicit && (
-                        <span className="flex-shrink-0 inline-flex items-center justify-center h-4 px-1.5 text-[10px] font-bold uppercase bg-muted text-muted-foreground rounded">
+                        <span className="flex-shrink-0 inline-flex items-center justify-center h-4 px-1.5 text-[10px] font-bold uppercase bg-[#ffffff1a] text-[#b3b3b3] rounded">
                           E
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-xs text-[#b3b3b3] truncate">
                       {track.artist.name}
                     </p>
                   </div>
@@ -286,11 +555,11 @@ export function AlbumDetail() {
                     }}
                     title="Track bearbeiten"
                   >
-                    <Pencil className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                    <Pencil className="h-3.5 w-3.5 text-[#b3b3b3] hover:text-white" />
                   </button>
 
                   {/* Duration */}
-                  <span className="text-muted-foreground text-right self-center tabular-nums">
+                  <span className="text-[#b3b3b3] text-right self-center tabular-nums">
                     {formatDuration(track.duration)}
                   </span>
                 </div>
@@ -302,9 +571,9 @@ export function AlbumDetail() {
 
       {/* Album Info Footer */}
       {(album.label || album.country || album.genre) && (
-        <div className="px-6 md:px-8 pb-8 text-xs text-muted-foreground">
-          <div className="pt-6 border-t border-border/50 space-y-1">
-            {album.year && <p><span className="text-foreground">{album.year}</span> veröffentlicht</p>}
+        <div className="px-6 md:px-8 pb-8 text-xs text-[#b3b3b3] bg-[#121212]">
+          <div className="pt-6 border-t border-[#ffffff1a] space-y-1">
+            {album.year && <p><span className="text-white">{album.year}</span> veröffentlicht</p>}
             {album.label && <p>Label: {album.label}</p>}
             {album.country && <p>Land: {album.country}</p>}
             {album.genre && <p>Genre: {album.genre}</p>}
@@ -348,6 +617,13 @@ export function AlbumDetail() {
           onClose={() => setMbOpen(false)}
         />
       )}
+
+      {/* Playlist Selector */}
+      <PlaylistSelectorDialog
+        isOpen={showPlaylistSelector}
+        onClose={() => setShowPlaylistSelector(false)}
+        trackIds={allTrackIds}
+      />
     </div>
   );
 }

@@ -452,11 +452,17 @@ router.post('/:id/match-musicbrainz', async (req, res, next) => {
           })
         : null;
 
+      // Check if track has explicit tag from MusicBrainz
+      const isExplicit = mbTrack.recording?.tags?.some(
+        (tag) => tag.name.toLowerCase() === 'explicit' || tag.name.toLowerCase() === 'explicit content'
+      ) ?? false;
+
       await prisma.track.update({
         where: { id: localTrack.id },
         data: {
           title: mbTrack.title,
           artistId,
+          explicit: isExplicit,
           ...(!mbTrackAlreadyClaimed ? { musicbrainzId: mbTrack.musicbrainzId } : {}),
         },
       });

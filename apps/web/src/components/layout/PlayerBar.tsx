@@ -6,7 +6,7 @@ import { useSectionStore } from '@/stores/sectionStore';
 import { formatDuration, cn } from '@/lib/utils';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1,
-  ChevronUp, Square, Film
+  ChevronUp, Square, Film, Shuffle
 } from 'lucide-react';
 
 // ── Shared Volume Control ─────────────────────────────────────────────────────
@@ -155,8 +155,8 @@ function ProgressBar({ progress, onSeek }: { progress: number; onSeek?: (percent
 
 function MusicPlayerBar() {
   const {
-    currentTrack, isPlaying, seek, duration, volume, isMuted,
-    togglePlay, next, prev, seekTo, setVolume, toggleMute, stop
+    currentTrack, isPlaying, seek, duration, volume, isMuted, isShuffled,
+    togglePlay, next, prev, seekTo, setVolume, toggleMute, stop, toggleShuffle
   } = usePlayerStore();
 
   const isRadio = !!(currentTrack && 'isRadio' in currentTrack);
@@ -219,6 +219,19 @@ function MusicPlayerBar() {
 
       {/* Center: Controls */}
       <div className="flex items-center justify-center gap-2 flex-1">
+        {/* Shuffle Button */}
+        <button 
+          onClick={toggleShuffle}
+          title={isShuffled ? 'Zufallswiedergabe aus' : 'Zufallswiedergabe an'}
+          className={`p-2 transition-colors ${
+            isShuffled 
+              ? 'text-red-600 hover:text-red-500' 
+              : 'text-white/70 hover:text-white'
+          }`}
+        >
+          <Shuffle className="h-5 w-5" />
+        </button>
+
         <button onClick={prev} className="p-2 text-white/70 hover:text-white">
           <SkipBack className="h-5 w-5" />
         </button>

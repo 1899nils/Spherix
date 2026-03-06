@@ -149,6 +149,8 @@ export interface MBRecording {
   tags?: MBTag[];
   isrcs?: string[];
   score?: number; // search relevance 0-100
+  /** Explicit content rating from MusicBrainz */
+  explicit?: boolean;
 }
 
 // ─── Search Responses ───────────────────────────────────────────────────────
