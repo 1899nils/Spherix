@@ -385,7 +385,7 @@ export function PlaylistDetail() {
                 </div>
               </div>
             );
-          })
+          })}
 
           {tracks.length === 0 && (
             <div className="text-center py-12 text-[#b3b3b3]">
