@@ -340,13 +340,23 @@ router.post('/:id/match-musicbrainz', async (req, res, next) => {
     const totalDiscs = release.media?.length ?? null;
 
     // Build track-level changes from MusicBrainz media
-    const mbTracks = release.media?.flatMap((m) =>
+    interface MBTrackInfo {
+      discNumber: number;
+      trackNumber: number;
+      title: string;
+      duration: number | null;
+      musicbrainzId: string;
+      recording?: { tags?: Array<{ name: string; count: number }> };
+    }
+
+    const mbTracks: MBTrackInfo[] = release.media?.flatMap((m) =>
       (m.tracks ?? []).map((t) => ({
         discNumber: m.position,
         trackNumber: t.position,
         title: t.title,
         duration: t.length ? t.length / 1000 : null,
         musicbrainzId: t.recording.id,
+        recording: t.recording,
       })),
     ) ?? [];
 
@@ -454,7 +464,7 @@ router.post('/:id/match-musicbrainz', async (req, res, next) => {
 
       // Check if track has explicit tag from MusicBrainz
       const isExplicit = mbTrack.recording?.tags?.some(
-        (tag) => tag.name.toLowerCase() === 'explicit' || tag.name.toLowerCase() === 'explicit content'
+        (tag: { name: string }) => tag.name.toLowerCase() === 'explicit' || tag.name.toLowerCase() === 'explicit content'
       ) ?? false;
 
       await prisma.track.update({
