@@ -107,6 +107,7 @@ export function AlbumDetail() {
     trackNumber:  editTrack.trackNumber,
     discNumber:   editTrack.discNumber,
     lyrics:       editTrack.lyrics,
+    explicit:     editTrack.explicit,
     format:       editTrack.format,
     bitrate:      editTrack.bitrate,
     sampleRate:   editTrack.sampleRate,
@@ -259,11 +260,18 @@ export function AlbumDetail() {
                     <Play className={`h-4 w-4 hidden group-hover:block ${isCurrent ? 'text-[#1db954]' : 'text-foreground'}`} />
                   </span>
 
-                  {/* Title & Artist */}
+                  {/* Title & Artist with Explicit Badge */}
                   <div className="min-w-0 flex flex-col justify-center gap-0.5">
-                    <p className={`truncate font-normal ${isCurrent ? 'text-[#1db954]' : 'text-foreground'}`}>
-                      {track.title}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className={`truncate font-normal ${isCurrent ? 'text-[#1db954]' : 'text-foreground'}`}>
+                        {track.title}
+                      </p>
+                      {track.explicit && (
+                        <span className="flex-shrink-0 inline-flex items-center justify-center h-4 px-1.5 text-[10px] font-bold uppercase bg-muted text-muted-foreground rounded">
+                          E
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground truncate">
                       {track.artist.name}
                     </p>

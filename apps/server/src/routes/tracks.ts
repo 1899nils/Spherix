@@ -82,7 +82,7 @@ router.get('/:id', async (req, res, next) => {
 /** Update track metadata */
 router.patch('/:id', async (req, res, next) => {
   try {
-    const { title, trackNumber, discNumber, lyrics } = req.body;
+    const { title, trackNumber, discNumber, lyrics, explicit } = req.body;
 
     const track = await prisma.track.update({
       where: { id: String(req.params.id) },
@@ -91,6 +91,7 @@ router.patch('/:id', async (req, res, next) => {
         ...(trackNumber !== undefined ? { trackNumber } : {}),
         ...(discNumber !== undefined ? { discNumber } : {}),
         ...(lyrics !== undefined ? { lyrics } : {}),
+        ...(explicit !== undefined ? { explicit } : {}),
       },
       include: {
         artist: { select: { id: true, name: true } },
