@@ -32,6 +32,7 @@ import videoScanRouter from './routes/video/scan.js';
 import streamingRouter from './routes/video/streaming.js';
 import sessionsRouter from './routes/video/sessions.js';
 import audiobooksRouter from './routes/audiobooks/audiobooks.js';
+import musicVideoRouter from './routes/musicvideos.js';
 import subsonicRouter from './subsonic/index.js';
 
 const app = express();

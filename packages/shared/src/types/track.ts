@@ -16,6 +16,11 @@ export interface Track {
   lyrics: string | null;
   explicit: boolean;
   missing: boolean;
+  
+  // Music Video fields
+  musicVideoUrl: string | null;
+  musicVideoSource: string | null;
+  musicVideoCheckedAt: string | null;
   createdAt: string;
 }
 
