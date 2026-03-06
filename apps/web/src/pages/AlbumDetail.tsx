@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -16,6 +16,8 @@ export function AlbumDetail() {
   const [mbOpen, setMbOpen] = useState(false);
   const [editTrackId, setEditTrackId] = useState<string | null>(null);
   const [coverError, setCoverError] = useState(false);
+  const [dominantColor, setDominantColor] = useState<string>('');
+  const coverRef = useRef<HTMLImageElement>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['album', id],
@@ -26,6 +28,35 @@ export function AlbumDetail() {
   const { playTrack, currentTrack, isPlaying, togglePlay } = usePlayerStore();
 
   const album = data?.data;
+
+  // Extract dominant color from cover image
+  useEffect(() => {
+    if (album?.coverUrl && !coverError) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          
+          canvas.width = 1;
+          canvas.height = 1;
+          ctx.drawImage(img, 0, 0, 1, 1);
+          const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+          
+          // Make it slightly darker and more saturated for better look
+          setDominantColor(`rgb(${r}, ${g}, ${b})`);
+        } catch {
+          setDominantColor('');
+        }
+      };
+      img.onerror = () => setDominantColor('');
+      img.src = album.coverUrl;
+    } else {
+      setDominantColor('');
+    }
+  }, [album?.coverUrl, coverError]);
 
   if (isLoading) {
     return <div className="text-muted-foreground p-8">Lade Album...</div>;
@@ -76,6 +107,7 @@ export function AlbumDetail() {
     trackNumber:  editTrack.trackNumber,
     discNumber:   editTrack.discNumber,
     lyrics:       editTrack.lyrics,
+    explicit:     editTrack.explicit,
     format:       editTrack.format,
     bitrate:      editTrack.bitrate,
     sampleRate:   editTrack.sampleRate,
@@ -88,19 +120,29 @@ export function AlbumDetail() {
 
   return (
     <div className="space-y-0">
-      {/* Spotify-style Header with Gradient */}
+      {/* Spotify-style Header with Dynamic Gradient */}
       <div className="relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-emerald-900/40 via-background/80 to-background pointer-events-none" />
+        {/* Dynamic Background */}
+        <div 
+          className="absolute inset-0 transition-colors duration-700"
+          style={{
+            background: dominantColor 
+              ? `linear-gradient(to bottom, ${dominantColor} 0%, ${dominantColor}e6 20%, rgba(24, 24, 24, 0.8) 55%, var(--background) 100%)`
+              : 'linear-gradient(to bottom, rgba(64, 64, 64, 0.6) 0%, var(--background) 100%)'
+          }}
+        />
         
         <div className="relative flex flex-col md:flex-row gap-6 md:gap-8 p-6 md:p-8 pb-4">
           {/* Large Cover */}
           <div className="h-48 w-48 md:h-56 md:w-56 lg:h-64 lg:w-64 rounded-md overflow-hidden bg-muted shrink-0 shadow-2xl mx-auto md:mx-0">
             {album.coverUrl && !coverError ? (
               <img
+                ref={coverRef}
                 src={album.coverUrl}
                 alt={album.title}
                 className="h-full w-full object-cover"
                 onError={() => setCoverError(true)}
+                crossOrigin="anonymous"
               />
             ) : (
               <div className="h-full w-full flex items-center justify-center text-muted-foreground bg-muted">
@@ -111,17 +153,17 @@ export function AlbumDetail() {
 
           {/* Album Info */}
           <div className="flex flex-col justify-end gap-3 min-w-0 text-center md:text-left">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium hidden md:block">
+            <p className="text-xs uppercase tracking-wider text-white/70 font-medium hidden md:block">
               Album
             </p>
-            <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold leading-tight line-clamp-2">
+            <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold leading-tight line-clamp-2 text-white drop-shadow-sm">
               {album.title}
             </h1>
             
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-sm text-white/80">
               <Link
                 to={`/music/artists/${album.artist.id}`}
-                className="font-semibold text-foreground hover:underline"
+                className="font-semibold text-white hover:underline"
               >
                 {album.artist.name}
               </Link>
@@ -141,36 +183,36 @@ export function AlbumDetail() {
       </div>
 
       {/* Action Bar */}
-      <div className="flex items-center gap-4 px-6 md:px-8 py-4">
+      <div className="relative flex items-center gap-4 px-6 md:px-8 py-4">
         {/* Big Green Play Button */}
         <button
           onClick={isCurrentAlbumPlaying ? togglePlay : handlePlayAll}
-          className="h-14 w-14 rounded-full bg-primary hover:bg-primary/90 hover:scale-105 transition-all flex items-center justify-center shadow-lg"
+          className="h-14 w-14 rounded-full bg-[#1db954] hover:bg-[#1ed760] hover:scale-105 transition-all flex items-center justify-center shadow-lg"
         >
           {isCurrentAlbumPlaying ? (
-            <Pause className="h-7 w-7 text-primary-foreground fill-primary-foreground" />
+            <Pause className="h-7 w-7 text-black fill-black" />
           ) : (
-            <Play className="h-7 w-7 text-primary-foreground fill-primary-foreground ml-0.5" />
+            <Play className="h-7 w-7 text-black fill-black ml-0.5" />
           )}
         </button>
 
         {/* Heart Button */}
-        <button className="h-10 w-10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:scale-105 transition-all">
+        <button className="h-10 w-10 flex items-center justify-center text-muted-foreground hover:text-white hover:scale-105 transition-all">
           <Heart className="h-7 w-7" />
         </button>
 
         {/* More Options */}
         <div className="flex items-center gap-2 ml-auto">
-          <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)} className="text-muted-foreground">
+          <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)} className="text-white/70 hover:text-white">
             <Pencil className="h-4 w-4 mr-2" />
             Bearbeiten
           </Button>
 
-          <Button variant="ghost" size="sm" onClick={() => setMbOpen(true)} className="text-muted-foreground">
+          <Button variant="ghost" size="sm" onClick={() => setMbOpen(true)} className="text-white/70 hover:text-white">
             <ExternalLink className="h-4 w-4 mr-2" />
             MusicBrainz
             {album.musicbrainzId && (
-              <span className="ml-1.5 h-2 w-2 rounded-full bg-primary inline-block" />
+              <span className="ml-1.5 h-2 w-2 rounded-full bg-[#1db954] inline-block" />
             )}
           </Button>
         </div>
@@ -203,31 +245,36 @@ export function AlbumDetail() {
                   </div>
                 )}
                 <div
-                  className={`group grid grid-cols-[auto_1fr_auto] md:grid-cols-[50px_1fr_auto_auto] gap-4 px-4 py-3 text-sm rounded-md hover:bg-white/5 cursor-pointer transition-colors ${isCurrent ? 'text-primary' : ''}`}
+                  className={`group grid grid-cols-[auto_1fr_auto] md:grid-cols-[50px_1fr_auto_auto] gap-4 px-4 py-3 text-sm rounded-md hover:bg-white/5 cursor-pointer transition-colors ${isCurrent ? 'text-[#1db954]' : ''}`}
                   onClick={() => handlePlayTrack(track)}
                 >
                   {/* Track Number / Play Icon */}
                   <span className="w-8 text-center text-muted-foreground flex items-center justify-center">
-                    <span className={`group-hover:hidden ${isCurrent ? 'text-primary' : ''}`}>
+                    <span className={`group-hover:hidden ${isCurrent ? 'text-[#1db954]' : ''}`}>
                       {isCurrent && isPlaying ? (
-                        <span className="text-primary">♪</span>
+                        <span className="text-[#1db954]">♪</span>
                       ) : (
                         track.trackNumber
                       )}
                     </span>
-                    <Play className={`h-4 w-4 hidden group-hover:block ${isCurrent ? 'text-primary' : 'text-foreground'}`} />
+                    <Play className={`h-4 w-4 hidden group-hover:block ${isCurrent ? 'text-[#1db954]' : 'text-foreground'}`} />
                   </span>
 
-                  {/* Title & Artist */}
-                  <div className="min-w-0 flex flex-col justify-center">
-                    <p className={`truncate font-normal ${isCurrent ? 'text-primary' : 'text-foreground'}`}>
-                      {track.title}
-                    </p>
-                    {track.artist.id !== album.artist.id && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {track.artist.name}
+                  {/* Title & Artist with Explicit Badge */}
+                  <div className="min-w-0 flex flex-col justify-center gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <p className={`truncate font-normal ${isCurrent ? 'text-[#1db954]' : 'text-foreground'}`}>
+                        {track.title}
                       </p>
-                    )}
+                      {track.explicit && (
+                        <span className="flex-shrink-0 inline-flex items-center justify-center h-4 px-1.5 text-[10px] font-bold uppercase bg-muted text-muted-foreground rounded">
+                          E
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {track.artist.name}
+                    </p>
                   </div>
 
                   {/* Edit Button (desktop) */}

@@ -268,6 +268,22 @@ function AlbumInfoTab({ form, onOpenMusicBrainz }: {
 
 // ── Track tab panels ──────────────────────────────────────────────────────────
 
+function CheckboxField({ label, checked, onChange }: {
+  label: string; checked: boolean; onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={e => onChange(e.target.checked)}
+        className="h-4 w-4 rounded border-border bg-background text-primary focus:ring-primary"
+      />
+      <label className="text-sm text-foreground">{label}</label>
+    </div>
+  );
+}
+
 function TrackGeneralTab({ form, onChange }: {
   form: Record<string, string>;
   onChange: (key: string, val: string) => void;
@@ -280,6 +296,11 @@ function TrackGeneralTab({ form, onChange }: {
         <NumberField label="Track-Nr." value={form.trackNumber ?? ''} onChange={v => onChange('trackNumber', v)} />
         <NumberField label="Disc-Nr."  value={form.discNumber ?? ''}  onChange={v => onChange('discNumber', v)} />
       </div>
+      <CheckboxField 
+        label="Explicit (unangemessene Inhalte)" 
+        checked={form.explicit === 'true'} 
+        onChange={v => onChange('explicit', String(v))} 
+      />
     </div>
   );
 }

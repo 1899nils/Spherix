@@ -14,6 +14,7 @@ export interface Track {
   channels: number | null;
   musicbrainzId: string | null;
   lyrics: string | null;
+  explicit: boolean;
   missing: boolean;
   createdAt: string;
 }

@@ -124,6 +124,7 @@ model Track {
   channels      Int?
   musicbrainzId String?  @unique @map("musicbrainz_id")
   lyrics        String?
+  explicit      Boolean  @default(false)
   missing       Boolean  @default(false)
   createdAt     DateTime @default(now()) @map("created_at")
 
