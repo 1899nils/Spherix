@@ -8,7 +8,7 @@ import { usePlayerStore } from '@/stores/playerStore';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import { MusicBrainzLinkModal } from '@/components/MusicBrainzLinkModal';
 import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations } from '@musicserver/shared';
-import { Play, Pause, Disc3, Pencil, ExternalLink } from 'lucide-react';
+import { Play, Pause, Disc3, Pencil, ExternalLink, Heart, MoreHorizontal, Clock } from 'lucide-react';
 
 export function AlbumDetail() {
   const { id } = useParams<{ id: string }>();
@@ -87,136 +87,181 @@ export function AlbumDetail() {
   } : {};
 
   return (
-    <div className="space-y-6">
-      {/* Album Header */}
-      <div className="flex gap-6 items-end">
-        {/* Cover */}
-        <div className="h-48 w-48 rounded-lg overflow-hidden bg-muted shrink-0 shadow-lg">
-          {album.coverUrl && !coverError ? (
-            <img
-              src={album.coverUrl}
-              alt={album.title}
-              className="h-full w-full object-cover"
-              onError={() => setCoverError(true)}
-            />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center text-muted-foreground">
-              <Disc3 className="h-16 w-16" />
+    <div className="space-y-0">
+      {/* Spotify-style Header with Gradient */}
+      <div className="relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-emerald-900/40 via-background/80 to-background pointer-events-none" />
+        
+        <div className="relative flex flex-col md:flex-row gap-6 md:gap-8 p-6 md:p-8 pb-4">
+          {/* Large Cover */}
+          <div className="h-48 w-48 md:h-56 md:w-56 lg:h-64 lg:w-64 rounded-md overflow-hidden bg-muted shrink-0 shadow-2xl mx-auto md:mx-0">
+            {album.coverUrl && !coverError ? (
+              <img
+                src={album.coverUrl}
+                alt={album.title}
+                className="h-full w-full object-cover"
+                onError={() => setCoverError(true)}
+              />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center text-muted-foreground bg-muted">
+                <Disc3 className="h-24 w-24" />
+              </div>
+            )}
+          </div>
+
+          {/* Album Info */}
+          <div className="flex flex-col justify-end gap-3 min-w-0 text-center md:text-left">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium hidden md:block">
+              Album
+            </p>
+            <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold leading-tight line-clamp-2">
+              {album.title}
+            </h1>
+            
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-sm text-muted-foreground">
+              <Link
+                to={`/music/artists/${album.artist.id}`}
+                className="font-semibold text-foreground hover:underline"
+              >
+                {album.artist.name}
+              </Link>
+              {album.year && (
+                <>
+                  <span className="hidden sm:inline">•</span>
+                  <span>{album.year}</span>
+                </>
+              )}
+              <span className="hidden sm:inline">•</span>
+              <span>{tracks.length} {tracks.length === 1 ? 'Song' : 'Songs'}</span>
+              <span className="hidden sm:inline">•</span>
+              <span>{totalMins} Min.</span>
             </div>
-          )}
+          </div>
         </div>
+      </div>
 
-        {/* Metadata */}
-        <div className="space-y-2 min-w-0">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Album</p>
-          <h1 className="text-3xl font-bold truncate">{album.title}</h1>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Link
-              to={`/music/artists/${album.artist.id}`}
-              className="font-medium text-foreground hover:underline"
-            >
-              {album.artist.name}
-            </Link>
-            {album.year && <span>&middot; {album.year}</span>}
-            {album.genre && <span>&middot; {album.genre}</span>}
-            <span>&middot; {tracks.length} Tracks</span>
-            <span>&middot; {totalMins} Min.</span>
-          </div>
+      {/* Action Bar */}
+      <div className="flex items-center gap-4 px-6 md:px-8 py-4">
+        {/* Big Green Play Button */}
+        <button
+          onClick={isCurrentAlbumPlaying ? togglePlay : handlePlayAll}
+          className="h-14 w-14 rounded-full bg-primary hover:bg-primary/90 hover:scale-105 transition-all flex items-center justify-center shadow-lg"
+        >
+          {isCurrentAlbumPlaying ? (
+            <Pause className="h-7 w-7 text-primary-foreground fill-primary-foreground" />
+          ) : (
+            <Play className="h-7 w-7 text-primary-foreground fill-primary-foreground ml-0.5" />
+          )}
+        </button>
 
-          <div className="flex items-center gap-2 pt-2">
-            <Button onClick={isCurrentAlbumPlaying ? togglePlay : handlePlayAll} size="sm">
-              {isCurrentAlbumPlaying ? (
-                <Pause className="h-4 w-4 mr-1" />
-              ) : (
-                <Play className="h-4 w-4 mr-1" />
-              )}
-              {isCurrentAlbumPlaying ? 'Pause' : 'Alle abspielen'}
-            </Button>
+        {/* Heart Button */}
+        <button className="h-10 w-10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:scale-105 transition-all">
+          <Heart className="h-7 w-7" />
+        </button>
 
-            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-              <Pencil className="h-4 w-4 mr-1" />
-              Metadaten bearbeiten
-            </Button>
+        {/* More Options */}
+        <div className="flex items-center gap-2 ml-auto">
+          <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)} className="text-muted-foreground">
+            <Pencil className="h-4 w-4 mr-2" />
+            Bearbeiten
+          </Button>
 
-            <Button variant="outline" size="sm" onClick={() => setMbOpen(true)}>
-              <ExternalLink className="h-4 w-4 mr-1" />
-              MusicBrainz
-              {album.musicbrainzId && (
-                <span className="ml-1 h-2 w-2 rounded-full bg-primary inline-block" />
-              )}
-            </Button>
-          </div>
+          <Button variant="ghost" size="sm" onClick={() => setMbOpen(true)} className="text-muted-foreground">
+            <ExternalLink className="h-4 w-4 mr-2" />
+            MusicBrainz
+            {album.musicbrainzId && (
+              <span className="ml-1.5 h-2 w-2 rounded-full bg-primary inline-block" />
+            )}
+          </Button>
         </div>
       </div>
 
       {/* Track List */}
-      <div className="border border-border rounded-lg overflow-hidden">
-        {/* Header */}
-        <div className="grid grid-cols-[auto_1fr_auto_80px] gap-4 px-4 py-2 text-xs text-muted-foreground uppercase tracking-wider border-b border-border bg-muted/30">
-          <span className="w-8">#</span>
+      <div className="px-6 md:px-8 pb-8">
+        {/* Table Header */}
+        <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[50px_1fr_auto_auto] gap-4 px-4 py-2 text-sm text-muted-foreground border-b border-border/50">
+          <span className="w-8 text-center">#</span>
           <span>Titel</span>
-          <span className="w-6" />
-          <span className="text-right">Dauer</span>
+          <span className="hidden md:block text-right w-24"></span>
+          <span className="text-right flex items-center justify-end gap-1">
+            <Clock className="h-4 w-4" />
+          </span>
         </div>
 
         {/* Tracks */}
-        {tracks.map((track: TrackWithRelations, index: number) => {
-          const isCurrent = currentTrack?.id === track.id;
-          const showDiscHeader = hasMultipleDiscs &&
-            (index === 0 || tracks[index - 1].discNumber !== track.discNumber);
+        <div className="mt-2">
+          {tracks.map((track: TrackWithRelations, index: number) => {
+            const isCurrent = currentTrack?.id === track.id;
+            const showDiscHeader = hasMultipleDiscs &&
+              (index === 0 || tracks[index - 1].discNumber !== track.discNumber);
 
-          return (
-            <div key={track.id}>
-              {showDiscHeader && (
-                <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-muted/20 border-b border-border">
-                  Disc {track.discNumber}
-                </div>
-              )}
-              <div
-                className={`group grid grid-cols-[auto_1fr_auto_80px] gap-4 px-4 py-2 text-sm hover:bg-muted/50 cursor-pointer transition-colors ${isCurrent ? 'bg-muted/30' : ''}`}
-                onClick={() => handlePlayTrack(track)}
-              >
-                <span className="w-8 text-muted-foreground flex items-center">
-                  <span className="group-hover:hidden">
-                    {isCurrent && isPlaying ? '♪' : track.trackNumber}
-                  </span>
-                  <Play className="h-4 w-4 hidden group-hover:block text-foreground" />
-                </span>
-                <div className="min-w-0">
-                  <p className={`truncate ${isCurrent ? 'text-primary font-medium' : ''}`}>
-                    {track.title}
-                  </p>
-                  {track.artist.id !== album.artist.id && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {track.artist.name}
-                    </p>
-                  )}
-                </div>
-                {/* Per-track edit button */}
-                <button
-                  className="w-6 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditTrackId(track.id);
-                  }}
-                  title="Track-Metadaten bearbeiten"
+            return (
+              <div key={track.id}>
+                {showDiscHeader && (
+                  <div className="px-4 py-3 text-sm font-semibold text-muted-foreground mt-4 mb-2">
+                    Disc {track.discNumber}
+                  </div>
+                )}
+                <div
+                  className={`group grid grid-cols-[auto_1fr_auto] md:grid-cols-[50px_1fr_auto_auto] gap-4 px-4 py-3 text-sm rounded-md hover:bg-white/5 cursor-pointer transition-colors ${isCurrent ? 'text-primary' : ''}`}
+                  onClick={() => handlePlayTrack(track)}
                 >
-                  <Pencil className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                </button>
-                <span className="text-muted-foreground text-right self-center tabular-nums">
-                  {formatDuration(track.duration)}
-                </span>
+                  {/* Track Number / Play Icon */}
+                  <span className="w-8 text-center text-muted-foreground flex items-center justify-center">
+                    <span className={`group-hover:hidden ${isCurrent ? 'text-primary' : ''}`}>
+                      {isCurrent && isPlaying ? (
+                        <span className="text-primary">♪</span>
+                      ) : (
+                        track.trackNumber
+                      )}
+                    </span>
+                    <Play className={`h-4 w-4 hidden group-hover:block ${isCurrent ? 'text-primary' : 'text-foreground'}`} />
+                  </span>
+
+                  {/* Title & Artist */}
+                  <div className="min-w-0 flex flex-col justify-center">
+                    <p className={`truncate font-normal ${isCurrent ? 'text-primary' : 'text-foreground'}`}>
+                      {track.title}
+                    </p>
+                    {track.artist.id !== album.artist.id && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {track.artist.name}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Edit Button (desktop) */}
+                  <button
+                    className="hidden md:flex w-24 opacity-0 group-hover:opacity-100 transition-opacity items-center justify-end"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditTrackId(track.id);
+                    }}
+                    title="Track bearbeiten"
+                  >
+                    <Pencil className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                  </button>
+
+                  {/* Duration */}
+                  <span className="text-muted-foreground text-right self-center tabular-nums">
+                    {formatDuration(track.duration)}
+                  </span>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* Album Info Footer */}
-      {(album.label || album.country) && (
-        <div className="text-xs text-muted-foreground space-y-1">
-          {album.label && <p>Label: {album.label}</p>}
-          {album.country && <p>Land: {album.country}</p>}
+      {(album.label || album.country || album.genre) && (
+        <div className="px-6 md:px-8 pb-8 text-xs text-muted-foreground">
+          <div className="pt-6 border-t border-border/50 space-y-1">
+            {album.year && <p><span className="text-foreground">{album.year}</span> veröffentlicht</p>}
+            {album.label && <p>Label: {album.label}</p>}
+            {album.country && <p>Land: {album.country}</p>}
+            {album.genre && <p>Genre: {album.genre}</p>}
+          </div>
         </div>
       )}
 
