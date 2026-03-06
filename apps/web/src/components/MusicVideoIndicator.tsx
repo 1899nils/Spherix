@@ -24,15 +24,20 @@ export function MusicVideoIndicator({
   const [isLoading, setIsLoading] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
 
+  // Safety check for undefined track
+  if (!track) {
+    return null;
+  }
+
   // Check if track has a music video on mount
   useEffect(() => {
-    if (track.musicVideoUrl && track.musicVideoSource) {
+    if (track?.musicVideoUrl && track?.musicVideoSource) {
       setVideoData({
         url: track.musicVideoUrl,
         source: track.musicVideoSource,
       });
     }
-  }, [track.musicVideoUrl, track.musicVideoSource]);
+  }, [track?.musicVideoUrl, track?.musicVideoSource]);
 
   const searchForVideo = async (force = false) => {
     setIsLoading(true);

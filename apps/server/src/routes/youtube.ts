@@ -1,6 +1,7 @@
 import { Router, type Request } from 'express';
 import { prisma } from '../config/database.js';
 import { logger } from '../config/logger.js';
+import { getQuotaStatus } from '../services/metadata/providers/youtube.provider.js';
 
 const router: Router = Router();
 
@@ -138,6 +139,31 @@ router.delete('/config', async (req, res, next) => {
     });
 
     res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/youtube/quota
+ * Get daily quota status
+ */
+router.get('/quota', async (req, res, next) => {
+  try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated', message: 'Bitte melde dich an' });
+      return;
+    }
+
+    const status = await getQuotaStatus();
+    
+    res.json({
+      data: {
+        ...status,
+        percentage: Math.round((status.used / status.limit) * 100),
+      },
+    });
   } catch (error) {
     next(error);
   }

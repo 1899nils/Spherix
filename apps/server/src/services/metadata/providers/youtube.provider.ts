@@ -1,6 +1,11 @@
 import { getCached, CACHE_TTLS } from '../cache.service.js';
 import { logger } from '../../../config/logger.js';
 import { prisma } from '../../../config/database.js';
+import { redis } from '../../../config/redis.js';
+
+// YouTube API daily quota limit (free tier: 100, we use 90 to be safe)
+const YOUTUBE_DAILY_LIMIT = 90;
+const YOUTUBE_COUNTER_KEY = 'youtube:daily:count';
 
 export interface YouTubeVideoResult {
   videoId: string;
@@ -8,6 +13,69 @@ export interface YouTubeVideoResult {
   channelTitle: string;
   thumbnail?: string;
   url: string;
+}
+
+/**
+ * Check and increment daily YouTube API quota
+ * Returns true if request is allowed, false if limit reached
+ */
+async function checkAndIncrementQuota(): Promise<boolean> {
+  try {
+    // Get current count
+    const current = await redis.get(YOUTUBE_COUNTER_KEY);
+    const count = current ? parseInt(current, 10) : 0;
+    
+    if (count >= YOUTUBE_DAILY_LIMIT) {
+      logger.warn('YouTube API daily quota reached', { 
+        limit: YOUTUBE_DAILY_LIMIT,
+        used: count 
+      });
+      return false;
+    }
+    
+    // Increment counter and set expiry if new
+    const multi = redis.multi();
+    multi.incr(YOUTUBE_COUNTER_KEY);
+    
+    // Set TTL to end of day if not already set
+    if (!current) {
+      const now = new Date();
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const ttlSeconds = Math.floor((endOfDay.getTime() - now.getTime()) / 1000);
+      multi.expire(YOUTUBE_COUNTER_KEY, ttlSeconds);
+    }
+    
+    await multi.exec();
+    
+    logger.debug('YouTube API quota used', { 
+      used: count + 1, 
+      limit: YOUTUBE_DAILY_LIMIT,
+      remaining: YOUTUBE_DAILY_LIMIT - count - 1 
+    });
+    
+    return true;
+  } catch (error) {
+    logger.error('Failed to check YouTube quota', { error: String(error) });
+    // Allow request on error (fail open)
+    return true;
+  }
+}
+
+/**
+ * Get current quota status for monitoring
+ */
+export async function getQuotaStatus(): Promise<{ used: number; limit: number; remaining: number }> {
+  try {
+    const current = await redis.get(YOUTUBE_COUNTER_KEY);
+    const used = current ? parseInt(current, 10) : 0;
+    return {
+      used,
+      limit: YOUTUBE_DAILY_LIMIT,
+      remaining: Math.max(0, YOUTUBE_DAILY_LIMIT - used),
+    };
+  } catch {
+    return { used: 0, limit: YOUTUBE_DAILY_LIMIT, remaining: YOUTUBE_DAILY_LIMIT };
+  }
 }
 
 /**
@@ -27,7 +95,7 @@ export async function getYouTubeApiKey(userId?: string): Promise<string | undefi
 }
 
 /**
- * Search for music video on YouTube with caching
+ * Search for music video on YouTube with caching and daily quota limit
  */
 export async function searchMusicVideo(
   trackTitle: string,
@@ -40,6 +108,18 @@ export async function searchMusicVideo(
   return getCached(
     cacheKey,
     async () => {
+      // Check daily quota before making API call
+      const quotaAvailable = await checkAndIncrementQuota();
+      if (!quotaAvailable) {
+        logger.warn('YouTube API quota exhausted, skipping search', {
+          track: trackTitle,
+          artist: artistName,
+        });
+        // Return empty result to avoid repeated searches
+        // This will be cached with short TTL to prevent hammering
+        return null;
+      }
+
       const params = new URLSearchParams({
         part: 'snippet',
         q: searchQuery,
@@ -221,6 +301,7 @@ export async function findMusicVideo(
 
 /**
  * Batch search for music videos (optimized for albums)
+ * Respects daily quota limit - stops when limit reached
  */
 export async function batchFindMusicVideos(
   tracks: Array<{ id: string; title: string; artistName: string }>,
@@ -231,11 +312,27 @@ export async function batchFindMusicVideos(
     return new Map(tracks.map(t => [t.id, null]));
   }
 
+  // Check remaining quota
+  const quotaStatus = await getQuotaStatus();
+  if (quotaStatus.remaining === 0) {
+    logger.warn('YouTube API quota exhausted, skipping batch search');
+    return new Map(tracks.map(t => [t.id, null]));
+  }
+
   const results = new Map<string, YouTubeVideoResult | null>();
+  const tracksToProcess = tracks.slice(0, quotaStatus.remaining); // Only process what quota allows
+  
+  if (tracksToProcess.length < tracks.length) {
+    logger.warn('YouTube API quota limited batch search', {
+      requested: tracks.length,
+      processing: tracksToProcess.length,
+      skipped: tracks.length - tracksToProcess.length,
+    });
+  }
 
   // Process sequentially to avoid rate limits
-  for (const track of tracks) {
-    // Check cache first
+  for (const track of tracksToProcess) {
+    // Check cache first (doesn't use quota)
     const cached = await getCachedVideo(track.id);
     if (cached) {
       const videoId = cached.url.match(/[?&]v=([^&]+)/)?.[1];
@@ -250,7 +347,7 @@ export async function batchFindMusicVideos(
       }
     }
 
-    // Search YouTube
+    // Search YouTube (uses quota)
     const result = await searchMusicVideo(track.title, track.artistName, apiKey);
     
     if (result) {
@@ -263,6 +360,11 @@ export async function batchFindMusicVideos(
     }
     
     results.set(track.id, result);
+  }
+
+  // Mark remaining tracks as not processed due to quota
+  for (const track of tracks.slice(tracksToProcess.length)) {
+    results.set(track.id, null);
   }
 
   return results;
