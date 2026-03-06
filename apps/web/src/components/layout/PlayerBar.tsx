@@ -3,10 +3,10 @@ import { usePlayerStore, type RadioStation, type PodcastEpisodePlayerItem } from
 import { useAudiobookPlayerStore } from '@/stores/audiobookPlayerStore';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { useSectionStore } from '@/stores/sectionStore';
-import { formatDuration } from '@/lib/utils';
+import { formatDuration, cn } from '@/lib/utils';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1,
-  ChevronUp, Square
+  ChevronUp, Square, Film
 } from 'lucide-react';
 
 // ── Shared Volume Control ─────────────────────────────────────────────────────
@@ -54,43 +54,40 @@ function ProgressBar({ progress, onSeek }: { progress: number; onSeek?: (percent
   const [isDragging, setIsDragging] = useState(false);
   const [dragProgress, setDragProgress] = useState(progress);
   const barRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const onSeekRef = useRef(onSeek);
 
-  // Update dragProgress when external progress changes (if not dragging)
+  // Keep refs in sync
   useEffect(() => {
+    onSeekRef.current = onSeek;
     if (!isDragging) {
       setDragProgress(progress);
     }
-  }, [progress, isDragging]);
+  }, [progress, onSeek, isDragging]);
 
-  const calculatePercent = (clientX: number) => {
+  const calculatePercent = useCallback((clientX: number) => {
     if (!barRef.current) return 0;
     const rect = barRef.current.getBoundingClientRect();
     const percent = (clientX - rect.left) / rect.width;
     return Math.max(0, Math.min(1, percent));
-  };
+  }, []);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!onSeek) return;
-    e.preventDefault();
-    setIsDragging(true);
-    const percent = calculatePercent(e.clientX);
-    setDragProgress(percent * 100);
-  };
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging) return;
-    const percent = calculatePercent(e.clientX);
-    setDragProgress(percent * 100);
-  }, [isDragging]);
-
-  const handleMouseUp = useCallback((e: MouseEvent) => {
-    if (!isDragging || !onSeek) return;
-    const percent = calculatePercent(e.clientX);
-    onSeek(percent);
-    setIsDragging(false);
-  }, [isDragging, onSeek]);
-
+  // Handle mouse events with refs to avoid re-creating listeners
   useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      const percent = calculatePercent(e.clientX);
+      setDragProgress(percent * 100);
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      const percent = calculatePercent(e.clientX);
+      onSeekRef.current?.(percent);
+    };
+
     if (isDragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
@@ -99,7 +96,23 @@ function ProgressBar({ progress, onSeek }: { progress: number; onSeek?: (percent
         window.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [isDragging, calculatePercent]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!onSeek) return;
+    e.preventDefault();
+    e.stopPropagation();
+    isDraggingRef.current = true;
+    setIsDragging(true);
+    const percent = calculatePercent(e.clientX);
+    setDragProgress(percent * 100);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (!onSeek || isDraggingRef.current) return;
+    const percent = calculatePercent(e.clientX);
+    onSeek(percent);
+  };
 
   const displayProgress = isDragging ? dragProgress : progress;
 
@@ -107,25 +120,27 @@ function ProgressBar({ progress, onSeek }: { progress: number; onSeek?: (percent
     <div 
       ref={barRef}
       className="absolute top-0 left-0 right-0 h-4 -mt-1.5 cursor-pointer group"
-      onClick={(e) => {
-        if (!onSeek) return;
-        const percent = calculatePercent(e.clientX);
-        onSeek(percent);
-      }}
+      onClick={handleClick}
     >
       {/* Track background */}
       <div className="absolute top-1.5 left-0 right-0 h-1 bg-white/20 rounded-full" />
       
-      {/* Filled progress */}
+      {/* Filled progress - no transition while dragging for instant response */}
       <div 
-        className="absolute top-1.5 left-0 h-1 bg-red-600 rounded-full transition-all duration-75"
+        className={cn(
+          "absolute top-1.5 left-0 h-1 bg-red-600 rounded-full",
+          !isDragging && "transition-all duration-150"
+        )}
         style={{ width: `${displayProgress}%` }}
       />
       
       {/* Draggable Handle */}
       {onSeek && (
         <div
-          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:scale-110"
+          className={cn(
+            "absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg transition-opacity duration-200 hover:scale-110",
+            isDragging ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )}
           style={{ left: `calc(${displayProgress}% - 8px)` }}
           onMouseDown={handleMouseDown}
         >
@@ -223,7 +238,7 @@ function MusicPlayerBar() {
 
         {/* Stop */}
         <button 
-          onClick={stop}
+          onClick={handleStop}
           className="p-2 text-white/70 hover:text-white ml-2"
         >
           <Square className="h-4 w-4 fill-current" />
@@ -342,25 +357,35 @@ function MinimizedVideoBar() {
     updateProgress(newTime, duration);
   };
 
+  const handleStop = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    stop();
+  };
+
   return (
     <div className="relative w-full h-full flex items-center px-4">
       <ProgressBar progress={progress} onSeek={handleVideoSeek} />
       
       {/* Left: Video Preview + Info */}
       <div className="flex items-center gap-4 w-[40%] pl-2">
-        {/* Video Thumbnail with hover */}
+        {/* Video Thumbnail with hover - use poster image instead of video element */}
         <div 
           className="relative h-14 w-24 rounded-lg bg-black overflow-hidden shrink-0 cursor-pointer ring-2 ring-white/10 shadow-lg"
           onClick={maximize}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          <video
-            src={activeVideo.streamUrl}
-            className="h-full w-full object-cover"
-            muted
-            playsInline
-          />
+          {activeVideo.posterUrl ? (
+            <img 
+              src={activeVideo.posterUrl} 
+              alt={activeVideo.title}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center text-white/30">
+              <Film className="h-6 w-6" />
+            </div>
+          )}
           {isHovered && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
               <ChevronUp className="h-6 w-6 text-white" />
