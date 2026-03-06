@@ -1,14 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { formatDuration } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import { MusicBrainzLinkModal } from '@/components/MusicBrainzLinkModal';
-import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations } from '@musicserver/shared';
-import { Play, Pause, Disc3, Pencil, ExternalLink, Heart, Clock } from 'lucide-react';
+import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations, Playlist } from '@musicserver/shared';
+import { 
+  Play, Pause, Disc3, Pencil, ExternalLink, Heart, Clock, 
+  Shuffle, MoreHorizontal, Plus, X, Check 
+} from 'lucide-react';
 
 // Extract dominant color from image data
 function extractDominantColor(imageData: ImageData): string {
@@ -32,6 +35,159 @@ function extractDominantColor(imageData: ImageData): string {
   return `rgb(${Math.floor(r * 0.7)}, ${Math.floor(g * 0.7)}, ${Math.floor(b * 0.7)})`;
 }
 
+// Shuffle array helper
+function shuffleArray<T>(array: T[]): T[] {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+}
+
+// Playlist Selector Dialog
+function PlaylistSelectorDialog({
+  isOpen,
+  onClose,
+  trackIds,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  trackIds: string[];
+}) {
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const { data: playlistsData } = useQuery({
+    queryKey: ['playlists'],
+    queryFn: () => api.get<ApiResponse<Playlist[]>>('/playlists'),
+    enabled: isOpen,
+  });
+
+  const addToPlaylistMutation = useMutation({
+    mutationFn: ({ playlistId, trackIds }: { playlistId: string; trackIds: string[] }) =>
+      api.post(`/playlists/${playlistId}/tracks`, { trackIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['playlists'] });
+      setSuccessMessage('Tracks hinzugefügt!');
+      setTimeout(() => {
+        setSuccessMessage(null);
+        onClose();
+      }, 1500);
+    },
+  });
+
+  const createPlaylistMutation = useMutation({
+    mutationFn: (name: string) => api.post('/playlists', { name, trackIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['playlists'] });
+      setSuccessMessage('Playlist erstellt!');
+      setTimeout(() => {
+        setSuccessMessage(null);
+        onClose();
+      }, 1500);
+    },
+  });
+
+  const playlists = playlistsData?.data || [];
+  const filteredPlaylists = playlists.filter((p) =>
+    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Dialog */}
+      <div className="relative bg-[#282828] rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#ffffff1a]">
+          <h2 className="text-base font-semibold text-white">Zu Playlist hinzufügen</h2>
+          <button onClick={onClose} className="text-[#b3b3b3] hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="px-4 py-2 bg-[#1db954]/20 text-[#1db954] text-sm text-center">
+            {successMessage}
+          </div>
+        )}
+
+        {/* Search */}
+        <div className="p-4">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Playlist suchen"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-[#3e3e3e] text-white placeholder-[#b3b3b3] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-white/30"
+            />
+          </div>
+        </div>
+
+        {/* New Playlist Button */}
+        <button
+          onClick={() => {
+            const name = prompt('Name der neuen Playlist:');
+            if (name?.trim()) {
+              createPlaylistMutation.mutate(name.trim());
+            }
+          }}
+          className="flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+        >
+          <div className="h-10 w-10 rounded bg-[#3e3e3e] flex items-center justify-center">
+            <Plus className="h-5 w-5 text-[#b3b3b3]" />
+          </div>
+          <span className="text-white text-sm font-medium">Neue Playlist</span>
+        </button>
+
+        {/* Playlist List */}
+        <div className="flex-1 overflow-y-auto">
+          {filteredPlaylists.map((playlist) => (
+            <button
+              key={playlist.id}
+              onClick={() => addToPlaylistMutation.mutate({ playlistId: playlist.id, trackIds })}
+              disabled={addToPlaylistMutation.isPending}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+            >
+              <div className="h-10 w-10 rounded bg-[#3e3e3e] flex items-center justify-center overflow-hidden">
+                {playlist.coverUrl ? (
+                  <img src={playlist.coverUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <Disc3 className="h-5 w-5 text-[#b3b3b3]" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-medium truncate">{playlist.name}</p>
+                <p className="text-[#b3b3b3] text-xs">
+                  {playlist.trackCount} {playlist.trackCount === 1 ? 'Song' : 'Songs'}
+                </p>
+              </div>
+              {addToPlaylistMutation.isPending && 
+                addToPlaylistMutation.variables?.playlistId === playlist.id && (
+                <div className="h-4 w-4 border-2 border-[#1db954] border-t-transparent rounded-full animate-spin" />
+              )}
+            </button>
+          ))}
+
+          {filteredPlaylists.length === 0 && (
+            <div className="px-4 py-6 text-center text-[#b3b3b3] text-sm">
+              Keine Playlists gefunden
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AlbumDetail() {
   const { id } = useParams<{ id: string }>();
   const [editOpen, setEditOpen] = useState(false);
@@ -40,6 +196,8 @@ export function AlbumDetail() {
   const [coverError, setCoverError] = useState(false);
   const [bgGradient, setBgGradient] = useState<string>('linear-gradient(to bottom, #525252 0%, #121212 100%)');
   const [coverLoaded, setCoverLoaded] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['album', id],
@@ -47,7 +205,14 @@ export function AlbumDetail() {
     enabled: !!id,
   });
 
-  const { playTrack, currentTrack, isPlaying, togglePlay } = usePlayerStore();
+  const { 
+    playTrack, 
+    currentTrack, 
+    isPlaying, 
+    togglePlay, 
+    isShuffled, 
+    toggleShuffle 
+  } = usePlayerStore();
 
   const album = data?.data;
 
@@ -95,7 +260,13 @@ export function AlbumDetail() {
 
   const handlePlayAll = () => {
     if (tracks.length > 0) {
-      playTrack(tracks[0], tracks);
+      if (isShuffled) {
+        // Play shuffled
+        const shuffledTracks = shuffleArray(tracks);
+        playTrack(shuffledTracks[0], shuffledTracks);
+      } else {
+        playTrack(tracks[0], tracks);
+      }
     }
   };
 
@@ -140,6 +311,9 @@ export function AlbumDetail() {
     filePath:     editTrack.filePath,
     musicbrainzId: editTrack.musicbrainzId,
   } : {};
+
+  // Get all track IDs for adding to playlist
+  const allTrackIds = tracks.map(t => t.id);
 
   return (
     <div className="space-y-0 min-h-screen">
@@ -237,25 +411,79 @@ export function AlbumDetail() {
           )}
         </button>
 
+        {/* Shuffle Button */}
+        <button
+          onClick={toggleShuffle}
+          title={isShuffled ? 'Zufallswiedergabe aus' : 'Zufallswiedergabe an'}
+          className={`h-10 w-10 flex items-center justify-center transition-all ${
+            isShuffled 
+              ? 'text-[#1db954]' 
+              : 'text-[#b3b3b3] hover:text-white hover:scale-105'
+          }`}
+        >
+          <Shuffle className="h-6 w-6" />
+        </button>
+
         {/* Heart Button */}
         <button className="h-10 w-10 flex items-center justify-center text-[#b3b3b3] hover:text-white hover:scale-105 transition-all">
           <Heart className="h-7 w-7" />
         </button>
 
-        {/* More Options */}
-        <div className="flex items-center gap-2 ml-auto">
-          <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)} className="text-[#b3b3b3] hover:text-white">
-            <Pencil className="h-4 w-4 mr-2" />
-            Bearbeiten
-          </Button>
+        {/* More Options Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setShowMoreMenu(!showMoreMenu)}
+            className="h-10 w-10 flex items-center justify-center text-[#b3b3b3] hover:text-white transition-all"
+          >
+            <MoreHorizontal className="h-7 w-7" />
+          </button>
 
-          <Button variant="ghost" size="sm" onClick={() => setMbOpen(true)} className="text-[#b3b3b3] hover:text-white">
-            <ExternalLink className="h-4 w-4 mr-2" />
-            MusicBrainz
-            {album.musicbrainzId && (
-              <span className="ml-1.5 h-2 w-2 rounded-full bg-[#1db954] inline-block" />
-            )}
-          </Button>
+          {/* Dropdown Menu */}
+          {showMoreMenu && (
+            <>
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowMoreMenu(false)} 
+              />
+              <div className="absolute top-full left-0 mt-1 w-64 bg-[#282828] rounded-md shadow-xl py-1 z-50">
+                <button
+                  onClick={() => {
+                    setShowMoreMenu(false);
+                    setEditOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+                >
+                  <Pencil className="h-4 w-4 text-[#b3b3b3]" />
+                  <span className="text-white text-sm">Bearbeiten</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowMoreMenu(false);
+                    setShowPlaylistSelector(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+                >
+                  <Plus className="h-4 w-4 text-[#b3b3b3]" />
+                  <span className="text-white text-sm">Zu Playlist hinzufügen</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowMoreMenu(false);
+                    setMbOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+                >
+                  <ExternalLink className="h-4 w-4 text-[#b3b3b3]" />
+                  <span className="text-white text-sm">MusicBrainz</span>
+                  {album.musicbrainzId && (
+                    <span className="ml-auto h-2 w-2 rounded-full bg-[#1db954]" />
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -389,6 +617,13 @@ export function AlbumDetail() {
           onClose={() => setMbOpen(false)}
         />
       )}
+
+      {/* Playlist Selector */}
+      <PlaylistSelectorDialog
+        isOpen={showPlaylistSelector}
+        onClose={() => setShowPlaylistSelector(false)}
+        trackIds={allTrackIds}
+      />
     </div>
   );
 }

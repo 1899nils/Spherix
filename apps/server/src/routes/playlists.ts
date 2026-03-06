@@ -169,4 +169,43 @@ router.post('/:id/played', async (req, res, next) => {
   }
 });
 
+/** Add tracks to playlist */
+router.post('/:id/tracks', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { trackIds } = req.body as { trackIds?: string[] };
+    
+    if (!trackIds || !Array.isArray(trackIds) || trackIds.length === 0) {
+      res.status(400).json({ error: 'trackIds array is required' });
+      return;
+    }
+
+    const playlist = await prisma.playlist.findUnique({
+      where: { id },
+      include: { tracks: { orderBy: { position: 'desc' }, take: 1 } },
+    });
+    
+    if (!playlist) {
+      res.status(404).json({ error: 'Playlist not found' });
+      return;
+    }
+
+    // Get starting position
+    const startPosition = playlist.tracks[0]?.position ?? -1;
+
+    // Add tracks
+    await prisma.playlistTrack.createMany({
+      data: trackIds.map((trackId, index) => ({
+        playlistId: id,
+        trackId,
+        position: startPosition + index + 1,
+      })),
+    });
+
+    res.json({ success: true, added: trackIds.length });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
