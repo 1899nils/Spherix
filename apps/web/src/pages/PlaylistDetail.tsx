@@ -123,7 +123,7 @@ export function PlaylistDetail() {
     }
   };
 
-  const handlePlayTrack = (track: TrackWithRelations) => {
+  const handlePlayTrack = (track: PlaylistTrack) => {
     playTrack(track, tracks);
   };
 
