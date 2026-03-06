@@ -6,6 +6,7 @@ export interface Album {
   artistId: string;
   year: number | null;
   releaseDate: string | null;
+  releaseType: string | null;
   genre: string | null;
   coverUrl: string | null;
   musicbrainzId: string | null;

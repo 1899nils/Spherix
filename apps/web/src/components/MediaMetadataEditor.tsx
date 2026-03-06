@@ -157,16 +157,65 @@ function AlbumGeneralTab({ form, onChange, isLocked }: {
 }) {
   return (
     <div className="space-y-4">
-      <TextField label="Titel"    value={form.title ?? ''}      onChange={v => onChange('title', v)}      locked={isLocked} />
+      {/* Titel */}
+      <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} locked={isLocked} />
+      
+      {/* Künstler & Albumkünstler */}
       <div className="grid grid-cols-2 gap-4">
         <TextField label="Künstler" value={form.artistName ?? ''} onChange={v => onChange('artistName', v)} />
-        <NumberField label="Jahr"   value={form.year ?? ''}       onChange={v => onChange('year', v)}       locked={isLocked} />
+        <TextField label="Albumkünstler" value={form.albumArtist ?? ''} onChange={v => onChange('albumArtist', v)} />
       </div>
+      
+      {/* Album & Release-Typ */}
       <div className="grid grid-cols-2 gap-4">
-        <TextField label="Genre"   value={form.genre ?? ''}      onChange={v => onChange('genre', v)}      locked={isLocked} />
-        <TextField label="Label"   value={form.label ?? ''}      onChange={v => onChange('label', v)}      locked={isLocked} />
+        <TextField label="Album" value={form.album ?? ''} onChange={v => onChange('album', v)} />
+        <div>
+          <FieldLabel label="Release-Typ" />
+          <select
+            value={form.releaseType ?? 'Album'}
+            onChange={e => onChange('releaseType', e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="Album">Album</option>
+            <option value="Single">Single</option>
+            <option value="EP">EP</option>
+            <option value="Live">Live</option>
+            <option value="Compilation">Compilation</option>
+            <option value="Soundtrack">Soundtrack</option>
+            <option value="Remix">Remix</option>
+            <option value="Mixtape">Mixtape</option>
+            <option value="Bootleg">Bootleg</option>
+            <option value="Interview">Interview</option>
+            <option value="Spokenword">Spokenword</option>
+            <option value="Audiobook">Audiobook</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
       </div>
-      <TextField label="Land"  value={form.country ?? ''}    onChange={v => onChange('country', v)} />
+      
+      {/* Jahr & Release-Date */}
+      <div className="grid grid-cols-2 gap-4">
+        <NumberField label="Jahr" value={form.year ?? ''} onChange={v => onChange('year', v)} locked={isLocked} />
+        <TextField label="Release-Datum" value={form.releaseDate ?? ''} onChange={v => onChange('releaseDate', v)} placeholder="YYYY-MM-DD" />
+      </div>
+      
+      {/* CD-Anzahl & Track-Anzahl */}
+      <div className="grid grid-cols-2 gap-4">
+        <NumberField label="CD-Anzahl" value={form.totalDiscs ?? ''} onChange={v => onChange('totalDiscs', v)} locked={isLocked} />
+        <NumberField label="Track-Anzahl" value={form.totalTracks ?? ''} onChange={v => onChange('totalTracks', v)} locked={isLocked} />
+      </div>
+      
+      {/* Genre & Label */}
+      <div className="grid grid-cols-2 gap-4">
+        <TextField label="Genre" value={form.genre ?? ''} onChange={v => onChange('genre', v)} locked={isLocked} />
+        <TextField label="Label" value={form.label ?? ''} onChange={v => onChange('label', v)} locked={isLocked} />
+      </div>
+      
+      {/* Land & MusicBrainz ID */}
+      <div className="grid grid-cols-2 gap-4">
+        <TextField label="Land" value={form.country ?? ''} onChange={v => onChange('country', v)} />
+        <ReadonlyField label="MusicBrainz ID" value={form.musicbrainzId ?? ''} />
+      </div>
     </div>
   );
 }
@@ -247,18 +296,25 @@ function AlbumInfoTab({ form, onOpenMusicBrainz }: {
 }) {
   return (
     <div className="space-y-4">
+      {/* Statistics */}
       <div className="grid grid-cols-2 gap-4">
         <ReadonlyField label="Tracks gesamt" value={form.totalTracks ?? ''} />
         <ReadonlyField label="Discs gesamt"  value={form.totalDiscs ?? ''} />
       </div>
-      <ReadonlyField label="MusicBrainz ID" value={form.musicbrainzId ?? ''} />
-      {onOpenMusicBrainz && (
-        <Button type="button" variant="outline" className="w-full" onClick={onOpenMusicBrainz}>
-          <Search className="h-4 w-4 mr-2" />
-          Mit MusicBrainz verknüpfen
-        </Button>
-      )}
-      <div className="rounded-md bg-muted/40 border border-border p-3 text-xs text-muted-foreground space-y-1">
+      
+      {/* MusicBrainz */}
+      <div className="pt-4 border-t border-border">
+        <ReadonlyField label="MusicBrainz ID" value={form.musicbrainzId ?? ''} />
+        {onOpenMusicBrainz && (
+          <Button type="button" variant="outline" className="w-full mt-4" onClick={onOpenMusicBrainz}>
+            <Search className="h-4 w-4 mr-2" />
+            Mit MusicBrainz verknüpfen
+          </Button>
+        )}
+      </div>
+      
+      {/* Hint */}
+      <div className="rounded-md bg-muted/40 border border-border p-3 text-xs text-muted-foreground space-y-1 mt-6">
         <p className="font-medium text-foreground/70">Hinweis</p>
         <p>Felder mit <Lock className="h-3 w-3 inline" /> wurden automatisch beim Scan befüllt. Sie können trotzdem manuell überschrieben werden.</p>
       </div>
@@ -738,8 +794,8 @@ export function MediaMetadataEditor({
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Modal */}
-      <div className="relative bg-background border border-border rounded-lg shadow-xl w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col">
+      {/* Modal - Fixed size for consistency */}
+      <div className="relative bg-background border border-border rounded-lg shadow-xl w-[900px] h-[650px] flex flex-col">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
