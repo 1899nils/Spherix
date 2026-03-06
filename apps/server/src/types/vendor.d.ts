@@ -1,9 +1,3 @@
-declare module 'express-session' {
-  interface SessionData {
-    userId?: string;
-  }
-}
-
 declare module 'node-id3' {
   interface Tags {
     title?: string;
