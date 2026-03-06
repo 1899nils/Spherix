@@ -57,6 +57,7 @@ router.get('/', async (req, res, next) => {
       artistId: a.artistId,
       year: a.year,
       releaseDate: a.releaseDate?.toISOString() ?? null,
+      releaseType: a.releaseType,
       genre: a.genre,
       coverUrl: a.coverUrl,
       musicbrainzId: a.musicbrainzId,
@@ -163,6 +164,7 @@ router.patch('/:id', async (req, res, next) => {
       data: {
         ...album,
         releaseDate: album.releaseDate?.toISOString() ?? null,
+        releaseType: album.releaseType,
         createdAt: album.createdAt.toISOString(),
         trackCount: album._count.tracks,
       },

@@ -92,6 +92,7 @@ router.get('/:id', async (req, res, next) => {
       artistId: a.artistId,
       year: a.year,
       releaseDate: a.releaseDate?.toISOString() ?? null,
+      releaseType: a.releaseType,
       genre: a.genre,
       coverUrl: a.coverUrl,
       musicbrainzId: a.musicbrainzId,
