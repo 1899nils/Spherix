@@ -10,6 +10,7 @@ export async function requireAdmin(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
+  // First check if user is authenticated
   const userId = (req.session as unknown as Record<string, unknown>).userId as
     | string
     | undefined;

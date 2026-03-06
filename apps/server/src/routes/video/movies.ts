@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../config/database.js';
 import { streamFile, VIDEO_MIME } from './stream.js';
-import { requireAdmin } from '../../middleware/requireAdmin.js';
+import { requireAuth } from '../../middleware/requireAuth.js';
 import {
   getMovieDetails,
   fetchGenreMap,
@@ -183,7 +183,7 @@ async function syncMovieGenres(
 }
 
 /** POST /api/video/movies/:id/link-tmdb — manually link movie to TMDb */
-router.post('/:id/link-tmdb', requireAdmin, async (req, res, next) => {
+router.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
   try {
     const { tmdbId } = req.body as { tmdbId: number };
     if (!tmdbId || typeof tmdbId !== 'number') {
@@ -262,7 +262,7 @@ router.post('/:id/link-tmdb', requireAdmin, async (req, res, next) => {
 });
 
 /** POST /api/video/movies/:id/unlink-tmdb — remove TMDb link */
-router.post('/:id/unlink-tmdb', requireAdmin, async (req, res, next) => {
+router.post('/:id/unlink-tmdb', requireAuth, async (req, res, next) => {
   try {
     const movie = await prisma.movie.findUnique({
       where: { id: req.params.id as string },

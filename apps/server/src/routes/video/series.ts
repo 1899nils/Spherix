@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../config/database.js';
 import { streamFile, VIDEO_MIME } from './stream.js';
-import { requireAdmin } from '../../middleware/requireAdmin.js';
+import { requireAuth } from '../../middleware/requireAuth.js';
 import {
   getSeriesDetails,
   fetchGenreMap,
@@ -242,7 +242,7 @@ async function syncSeriesGenres(
 }
 
 /** POST /api/video/series/:id/link-tmdb — manually link series to TMDb */
-seriesRouter.post('/:id/link-tmdb', requireAdmin, async (req, res, next) => {
+seriesRouter.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
   try {
     const { tmdbId } = req.body as { tmdbId: number };
     if (!tmdbId || typeof tmdbId !== 'number') {
@@ -321,7 +321,7 @@ seriesRouter.post('/:id/link-tmdb', requireAdmin, async (req, res, next) => {
 });
 
 /** POST /api/video/series/:id/unlink-tmdb — remove TMDb link */
-seriesRouter.post('/:id/unlink-tmdb', requireAdmin, async (req, res, next) => {
+seriesRouter.post('/:id/unlink-tmdb', requireAuth, async (req, res, next) => {
   try {
     const series = await prisma.series.findUnique({
       where: { id: req.params.id as string },
