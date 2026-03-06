@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
-import type { PlaylistWithTracks, TrackWithRelations, ApiResponse, Playlist } from '@musicserver/shared';
+import type { PlaylistWithTracks, TrackWithRelations, ApiResponse } from '@musicserver/shared';
 import { 
   Play, Pause, Disc3, Pencil, Clock, Heart, MoreHorizontal, 
   Shuffle, Plus, X
@@ -23,10 +23,10 @@ function shuffleArray<T>(array: T[]): T[] {
 
 export function PlaylistDetail() {
   const { id } = useParams<{ id: string }>();
-  const [editOpen, setEditOpen] = useState(false);
+  const [, setEditOpen] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [editTrackId, setEditTrackId] = useState<string | null>(null);
-  const queryClient = useQueryClient();
+
 
   const { data: playlistData, isLoading } = useQuery({
     queryKey: ['playlist', id],
@@ -111,15 +111,7 @@ export function PlaylistDetail() {
 
   const isCurrentPlaylistPlaying = currentTrack && tracks.some((t) => t.id === currentTrack.id) && isPlaying;
 
-  const deleteTrackMutation = useMutation({
-    mutationFn: async (trackId: string) => {
-      // API endpoint to remove track from playlist
-      return api.delete(`/playlists/${id}/tracks/${trackId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['playlist', id] });
-    },
-  });
+
 
   return (
     <div className="min-h-screen -mx-6">
