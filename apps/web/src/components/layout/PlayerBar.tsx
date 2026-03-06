@@ -155,7 +155,7 @@ function ProgressBar({ progress, onSeek }: { progress: number; onSeek?: (percent
 
 function MusicPlayerBar() {
   const {
-    currentTrack, isPlaying, seek, duration, volume, isMuted, isShuffled,
+    currentTrack, isPlaying, seek, duration, volume, isMuted, isShuffled, currentRadioTrack,
     togglePlay, next, prev, seekTo, setVolume, toggleMute, stop, toggleShuffle
   } = usePlayerStore();
 
@@ -164,9 +164,22 @@ function MusicPlayerBar() {
   const progress = duration > 0 ? (seek / duration) * 100 : 0;
 
   const getArtistName = () => {
-    if (isRadio) return 'Live Radio';
+    if (isRadio) {
+      // Show current track artist if available from ICY metadata
+      if (currentRadioTrack?.artist) {
+        return currentRadioTrack.artist;
+      }
+      return 'Live Radio';
+    }
     if (isPodcast) return (currentTrack as PodcastEpisodePlayerItem).podcastTitle;
     return (currentTrack as any).artist?.name || 'Unknown';
+  };
+
+  const getTrackTitle = () => {
+    if (isRadio && currentRadioTrack?.title) {
+      return currentRadioTrack.title;
+    }
+    return isRadio ? (currentTrack as RadioStation).name : currentTrack.title;
   };
 
   const handleSeek = (percent: number) => {
@@ -206,13 +219,13 @@ function MusicPlayerBar() {
         </div>
         <div className="min-w-0">
           <p className="text-sm font-medium text-white truncate">
-            {isRadio ? (currentTrack as RadioStation).name : currentTrack.title}
+            {getTrackTitle()}
           </p>
           <p className="text-xs text-white/50 truncate">
             {getArtistName()}
           </p>
           <p className="text-xs text-white/50 tabular-nums">
-            {isRadio ? 'LIVE' : `${formatDuration(seek)} / ${formatDuration(duration)}`}
+            {isRadio ? (currentRadioTrack ? 'LIVE • ' + (currentTrack as RadioStation).name : 'LIVE') : `${formatDuration(seek)} / ${formatDuration(duration)}`}
           </p>
         </div>
       </div>
