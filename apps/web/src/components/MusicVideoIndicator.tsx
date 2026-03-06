@@ -49,17 +49,9 @@ export function MusicVideoIndicator({
     }
   };
 
-  // If no video data yet, show a subtle indicator that allows searching
+  // If no video data yet, don't show anything (search is done via album menu or metadata editor)
   if (!videoData && !isLoading) {
-    return (
-      <button
-        onClick={() => searchForVideo()}
-        className="opacity-0 group-hover:opacity-50 hover:opacity-100 transition-opacity"
-        title="Nach Musikvideo suchen"
-      >
-        <Video className="h-4 w-4 text-muted-foreground" />
-      </button>
-    );
+    return null;
   }
 
   if (isLoading) {

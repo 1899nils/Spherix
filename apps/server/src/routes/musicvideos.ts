@@ -1,9 +1,109 @@
 import { Router } from 'express';
 import { prisma } from '../config/database.js';
-import { findMusicVideo } from '../services/musicvideo/musicvideo.service.js';
+import { findMusicVideo, getCachedMusicVideo } from '../services/musicvideo/musicvideo.service.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
+import { logger } from '../config/logger.js';
 
 const router: Router = Router();
+
+/**
+ * POST /api/albums/:id/musicvideo-search
+ * Search for music videos for all tracks in an album
+ */
+router.post('/:id/musicvideo-search', async (req, res, next) => {
+  try {
+    const albumId = String(req.params.id);
+    const forceRefresh = req.body.force === true;
+    const userId = req.session?.userId;
+
+    // Get album with tracks
+    const album = await prisma.album.findUnique({
+      where: { id: albumId },
+      include: {
+        tracks: {
+          include: { artist: { select: { name: true } } },
+          orderBy: [{ discNumber: 'asc' }, { trackNumber: 'asc' }],
+        },
+      },
+    });
+
+    if (!album) {
+      res.status(404).json({ error: 'Album not found' });
+      return;
+    }
+
+    if (album.tracks.length === 0) {
+      res.status(404).json({ error: 'Album has no tracks' });
+      return;
+    }
+
+    // Search for music videos for each track
+    const results: Array<{
+      trackId: string;
+      trackTitle: string;
+      found: boolean;
+      url?: string;
+      source?: string;
+    }> = [];
+
+    for (const track of album.tracks) {
+      // Check cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cached = await getCachedMusicVideo(track.id);
+        if (cached) {
+          results.push({
+            trackId: track.id,
+            trackTitle: track.title,
+            found: true,
+            url: cached.url,
+            source: cached.source,
+          });
+          continue;
+        }
+      }
+
+      // Search for video
+      try {
+        const result = await findMusicVideo(
+          track.id,
+          track.title,
+          track.artist.name,
+          { userId, forceRefresh }
+        );
+
+        results.push({
+          trackId: track.id,
+          trackTitle: track.title,
+          found: !!result,
+          url: result?.url,
+          source: result?.source,
+        });
+      } catch (error) {
+        logger.warn('Music video search failed for track', { 
+          trackId: track.id, 
+          error: String(error) 
+        });
+        results.push({
+          trackId: track.id,
+          trackTitle: track.title,
+          found: false,
+        });
+      }
+    }
+
+    const foundCount = results.filter(r => r.found).length;
+
+    res.json({
+      data: {
+        total: results.length,
+        found: foundCount,
+        results,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * GET /api/tracks/:id/musicvideo
