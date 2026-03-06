@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../config/database.js';
-import { findMusicVideo, getCachedMusicVideo } from '../services/musicvideo/musicvideo.service.js';
+import { youtube } from '../services/metadata/index.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
-import { logger } from '../config/logger.js';
 
 const router: Router = Router();
 
@@ -13,7 +12,6 @@ const router: Router = Router();
 router.post('/:id/musicvideo-search', async (req, res, next) => {
   try {
     const albumId = String(req.params.id);
-    const forceRefresh = req.body.force === true;
     const userId = req.session?.userId;
 
     // Get album with tracks
@@ -37,59 +35,25 @@ router.post('/:id/musicvideo-search', async (req, res, next) => {
       return;
     }
 
-    // Search for music videos for each track
-    const results: Array<{
-      trackId: string;
-      trackTitle: string;
-      found: boolean;
-      url?: string;
-      source?: string;
-    }> = [];
+    // Use the new batch search (forceRefresh not used in batch yet)
+    const trackData = album.tracks.map(t => ({
+      id: t.id,
+      title: t.title,
+      artistName: t.artist.name,
+    }));
 
-    for (const track of album.tracks) {
-      // Check cache first (unless force refresh)
-      if (!forceRefresh) {
-        const cached = await getCachedMusicVideo(track.id);
-        if (cached) {
-          results.push({
-            trackId: track.id,
-            trackTitle: track.title,
-            found: true,
-            url: cached.url,
-            source: cached.source,
-          });
-          continue;
-        }
-      }
+    const batchResults = await youtube.batchFindMusicVideos(trackData, userId);
 
-      // Search for video
-      try {
-        const result = await findMusicVideo(
-          track.id,
-          track.title,
-          track.artist.name,
-          { userId, forceRefresh }
-        );
-
-        results.push({
-          trackId: track.id,
-          trackTitle: track.title,
-          found: !!result,
-          url: result?.url,
-          source: result?.source,
-        });
-      } catch (error) {
-        logger.warn('Music video search failed for track', { 
-          trackId: track.id, 
-          error: String(error) 
-        });
-        results.push({
-          trackId: track.id,
-          trackTitle: track.title,
-          found: false,
-        });
-      }
-    }
+    const results = album.tracks.map(track => {
+      const result = batchResults.get(track.id);
+      return {
+        trackId: track.id,
+        trackTitle: track.title,
+        found: !!result,
+        url: result?.url,
+        source: 'youtube',
+      };
+    });
 
     const foundCount = results.filter(r => r.found).length;
 
@@ -126,22 +90,19 @@ router.get('/:id/musicvideo', async (req, res, next) => {
       return;
     }
 
-    // Search for music video
-    const result = await findMusicVideo(
+    // Use the new youtube provider
+    const result = await youtube.findMusicVideo(
       trackId,
       track.title,
       track.artist.name,
-      {
-        userId,
-        forceRefresh,
-      }
+      { userId, forceRefresh }
     );
 
     if (result) {
       res.json({
         data: {
           url: result.url,
-          source: result.source,
+          source: 'youtube',
           title: result.title,
         },
       });
@@ -167,7 +128,9 @@ router.post('/:id/musicvideo', requireAdmin, async (req, res, next) => {
       return;
     }
 
-    const track = await prisma.track.update({
+    // Extract video ID for validation (not stored separately)
+
+    await prisma.track.update({
       where: { id: trackId },
       data: {
         musicVideoUrl: url,
@@ -178,8 +141,8 @@ router.post('/:id/musicvideo', requireAdmin, async (req, res, next) => {
 
     res.json({
       data: {
-        url: track.musicVideoUrl,
-        source: track.musicVideoSource,
+        url,
+        source,
       },
     });
   } catch (error) {
@@ -195,14 +158,7 @@ router.delete('/:id/musicvideo', requireAdmin, async (req, res, next) => {
   try {
     const trackId = String(req.params.id);
 
-    await prisma.track.update({
-      where: { id: trackId },
-      data: {
-        musicVideoUrl: null,
-        musicVideoSource: null,
-        musicVideoCheckedAt: null,
-      },
-    });
+    await youtube.removeMusicVideo(trackId);
 
     res.json({ success: true });
   } catch (error) {
