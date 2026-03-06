@@ -6,10 +6,11 @@ import { formatDuration } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import { MusicBrainzLinkModal } from '@/components/MusicBrainzLinkModal';
+import { MusicVideoIndicator } from '@/components/MusicVideoIndicator';
 import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations, Playlist } from '@musicserver/shared';
 import { 
   Play, Pause, Disc3, Pencil, ExternalLink, Heart, Clock, 
-  Shuffle, MoreHorizontal, Plus, X
+  Shuffle, MoreHorizontal, Plus, X, Video
 } from 'lucide-react';
 
 // Extract dominant color from image data
@@ -197,6 +198,7 @@ export function AlbumDetail() {
   const [coverLoaded, setCoverLoaded] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
+  const [videoTrackId, setVideoTrackId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['album', id],
@@ -532,7 +534,7 @@ export function AlbumDetail() {
                     <Play className={`h-4 w-4 hidden group-hover:block ${isCurrent ? 'text-[#dc2626]' : 'text-white'}`} />
                   </span>
 
-                  {/* Title & Artist with Explicit Badge */}
+                  {/* Title & Artist with Explicit Badge & Video */}
                   <div className="min-w-0 flex flex-col justify-center gap-0.5">
                     <div className="flex items-center gap-2">
                       <p className={`truncate font-normal ${isCurrent ? 'text-[#dc2626]' : 'text-white'}`}>
@@ -543,6 +545,11 @@ export function AlbumDetail() {
                           E
                         </span>
                       )}
+                      <MusicVideoIndicator
+                        track={track}
+                        onSwitchToVideo={() => setVideoTrackId(track.id)}
+                        isPlayingVideo={videoTrackId === track.id}
+                      />
                     </div>
                     <p className="text-xs text-[#b3b3b3] truncate">
                       {track.artist.name}

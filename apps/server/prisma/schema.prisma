@@ -127,6 +127,11 @@ model Track {
   lyrics        String?
   explicit      Boolean  @default(false)
   missing       Boolean  @default(false)
+  
+  // Music Video fields
+  musicVideoUrl    String?   @map("music_video_url")
+  musicVideoSource String?   @map("music_video_source") // musicbrainz, lastfm, youtube
+  musicVideoCheckedAt DateTime? @map("music_video_checked_at")
   createdAt     DateTime @default(now()) @map("created_at")
 
   artist         Artist          @relation(fields: [artistId], references: [id], onDelete: Cascade)
