@@ -621,7 +621,7 @@ export function AlbumDetail() {
                       />
                     </div>
                     <p className="text-xs text-[#b3b3b3] truncate">
-                      {track.artist.name}
+                      {track.artist?.name ?? 'Unknown Artist'}
                     </p>
                   </div>
 
