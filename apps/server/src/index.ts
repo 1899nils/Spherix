@@ -157,6 +157,7 @@ app.get('/api/video/continue', async (_req, res, next) => {
 
 // ── Music Videos ───────────────────────────────────────────────────────────────
 app.use('/api/tracks', musicVideoRouter);
+app.use('/api/albums', musicVideoRouter);  // For album-level bulk search
 
 // ── YouTube API ────────────────────────────────────────────────────────────────
 app.use('/api/youtube', youtubeRouter);

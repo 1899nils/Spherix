@@ -388,6 +388,13 @@ function TrackInfoTab({ form }: { form: Record<string, string> }) {
     return `${m}:${String(s).padStart(2, '0')}`;
   };
 
+  // Extract video ID from URL
+  const getVideoId = (url: string) => {
+    if (!url) return null;
+    const match = url.match(/[?&]v=([^&]+)/);
+    return match ? match[1] : url.split('/').pop();
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
@@ -402,7 +409,48 @@ function TrackInfoTab({ form }: { form: Record<string, string> }) {
         <ReadonlyField label="Dauer"      value={formatDurationMs(form.duration ?? '')} />
         <ReadonlyField label="Dateigröße" value={formatFileSize(form.fileSize ?? '')} />
       </div>
+      
+      {/* MusicBrainz ID */}
       <ReadonlyField label="MusicBrainz ID" value={form.musicbrainzId ?? ''} />
+      
+      {/* Music Video Info */}
+      <div className="pt-4 border-t border-border">
+        <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">
+          Musikvideo
+        </h4>
+        {form.musicVideoUrl ? (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-4">
+              <ReadonlyField 
+                label="Quelle" 
+                value={form.musicVideoSource === 'musicbrainz' ? 'MusicBrainz' : 
+                       form.musicVideoSource === 'youtube' ? 'YouTube' : 
+                       form.musicVideoSource ?? 'Unbekannt'} 
+              />
+              <ReadonlyField 
+                label="Video ID" 
+                value={getVideoId(form.musicVideoUrl) ?? '–'} 
+              />
+            </div>
+            <div>
+              <FieldLabel label="Video URL" />
+              <a 
+                href={form.musicVideoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-xs text-primary hover:underline truncate"
+              >
+                {form.musicVideoUrl}
+              </a>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground italic">
+            Kein Musikvideo verknüpft
+          </p>
+        )}
+      </div>
+
       <div>
         <FieldLabel label="Dateipfad" />
         <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-xs text-muted-foreground break-all">

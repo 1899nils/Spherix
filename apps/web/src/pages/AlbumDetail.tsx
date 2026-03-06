@@ -10,7 +10,7 @@ import { MusicVideoIndicator } from '@/components/MusicVideoIndicator';
 import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations, Playlist } from '@musicserver/shared';
 import { 
   Play, Pause, Disc3, Pencil, ExternalLink, Heart, Clock, 
-  Shuffle, MoreHorizontal, Plus, X
+  Shuffle, MoreHorizontal, Plus, X, Video
 } from 'lucide-react';
 
 // Extract dominant color from image data
@@ -199,6 +199,20 @@ export function AlbumDetail() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
   const [videoTrackId, setVideoTrackId] = useState<string | null>(null);
+  const [mvSearchOpen, setMvSearchOpen] = useState(false);
+  const [mvSearchResults, setMvSearchResults] = useState<{
+    total: number;
+    found: number;
+    results: Array<{
+      trackId: string;
+      trackTitle: string;
+      found: boolean;
+      url?: string;
+      source?: string;
+    }>;
+  } | null>(null);
+
+  const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ['album', id],
@@ -280,6 +294,31 @@ export function AlbumDetail() {
   // Group tracks by disc if multi-disc
   const hasMultipleDiscs = new Set(tracks.map((t: TrackWithRelations) => t.discNumber)).size > 1;
 
+  // Music video search mutation for album
+  const mvSearchMutation = useMutation({
+    mutationFn: async ({ force = false }: { force?: boolean } = {}) => {
+      const response = await api.post<{
+        data: {
+          total: number;
+          found: number;
+          results: Array<{
+            trackId: string;
+            trackTitle: string;
+            found: boolean;
+            url?: string;
+            source?: string;
+          }>;
+        };
+      }>(`/albums/${id}/musicvideo-search`, { force });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      setMvSearchResults(data);
+      // Refresh album data to get updated video info
+      queryClient.invalidateQueries({ queryKey: ['album', id] });
+    },
+  });
+
   // Build initialData for the album editor
   const albumEditorData = {
     title:        album.title,
@@ -315,6 +354,8 @@ export function AlbumDetail() {
     fileSize:     editTrack.fileSize,
     filePath:     editTrack.filePath,
     musicbrainzId: editTrack.musicbrainzId,
+    musicVideoUrl: editTrack.musicVideoUrl,
+    musicVideoSource: editTrack.musicVideoSource,
   } : {};
 
   // Get all track IDs for adding to playlist
@@ -486,6 +527,21 @@ export function AlbumDetail() {
                     <span className="ml-auto h-2 w-2 rounded-full bg-[#dc2626]" />
                   )}
                 </button>
+
+                <button
+                  onClick={() => {
+                    setShowMoreMenu(false);
+                    setMvSearchOpen(true);
+                    mvSearchMutation.mutate({});
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+                >
+                  <Video className="h-4 w-4 text-[#b3b3b3]" />
+                  <span className="text-white text-sm">Musikvideos suchen</span>
+                  {tracks.some(t => t.musicVideoUrl) && (
+                    <span className="ml-auto h-2 w-2 rounded-full bg-[#dc2626]" />
+                  )}
+                </button>
               </div>
             </>
           )}
@@ -634,6 +690,101 @@ export function AlbumDetail() {
         onClose={() => setShowPlaylistSelector(false)}
         trackIds={allTrackIds}
       />
+
+      {/* Music Video Search Dialog */}
+      {mvSearchOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setMvSearchOpen(false)} />
+          <div className="relative bg-[#282828] rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded bg-red-600/20 flex items-center justify-center">
+                  <Video className="h-4 w-4 text-red-500" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Musikvideos suchen</h2>
+                  <p className="text-xs text-[#b3b3b3]">{album.title}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMvSearchOpen(false)}
+                className="text-[#b3b3b3] hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {mvSearchMutation.isPending ? (
+                <div className="flex items-center justify-center py-12 gap-3 text-[#b3b3b3]">
+                  <div className="h-5 w-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                  <span>Suche läuft...</span>
+                </div>
+              ) : mvSearchResults ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-[#b3b3b3]">
+                      {mvSearchResults.found} von {mvSearchResults.total} gefunden
+                    </span>
+                    <button
+                      onClick={() => mvSearchMutation.mutate({ force: true })}
+                      className="text-xs text-red-400 hover:text-red-300"
+                      disabled={mvSearchMutation.isPending}
+                    >
+                      Erneut suchen
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {mvSearchResults.results.map((result) => (
+                      <div
+                        key={result.trackId}
+                        className="flex items-center gap-3 p-3 rounded bg-white/5"
+                      >
+                        <div className={`h-2 w-2 rounded-full ${result.found ? 'bg-green-500' : 'bg-gray-500'}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white truncate">{result.trackTitle}</p>
+                          {result.found && result.source && (
+                            <p className="text-xs text-[#b3b3b3]">
+                              Gefunden auf {result.source === 'musicbrainz' ? 'MusicBrainz' : 
+                                           result.source === 'youtube' ? 'YouTube' : result.source}
+                            </p>
+                          )}
+                        </div>
+                        {result.found && result.url && (
+                          <a
+                            href={result.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-red-400 hover:text-red-300"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Öffnen
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-[#b3b3b3]">
+                  <Video className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Die Suche wird gestartet...</p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-white/10">
+              <button
+                onClick={() => setMvSearchOpen(false)}
+                className="w-full py-2 bg-white/10 hover:bg-white/20 text-white rounded text-sm transition-colors"
+              >
+                Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
