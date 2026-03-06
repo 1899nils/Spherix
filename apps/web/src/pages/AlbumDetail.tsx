@@ -563,15 +563,17 @@ export function AlbumDetail() {
         {/* Tracks */}
         <div className="mt-2">
           {tracks.map((track: TrackWithRelations, index: number) => {
+            if (!track || !track.id) return null;
+            
             const isCurrent = currentTrack?.id === track.id;
             const showDiscHeader = hasMultipleDiscs &&
-              (index === 0 || tracks[index - 1].discNumber !== track.discNumber);
+              (index === 0 || tracks[index - 1]?.discNumber !== track.discNumber);
 
             return (
               <div key={track.id}>
                 {showDiscHeader && (
                   <div className="px-4 py-3 text-sm font-semibold text-[#b3b3b3] mt-4 mb-2">
-                    Disc {track.discNumber}
+                    Disc {track.discNumber ?? 1}
                   </div>
                 )}
                 <div
@@ -584,7 +586,7 @@ export function AlbumDetail() {
                       {isCurrent && isPlaying ? (
                         <span className="text-[#dc2626]">♪</span>
                       ) : (
-                        track.trackNumber
+                        track.trackNumber ?? '-'
                       )}
                     </span>
                     <Play className={`h-4 w-4 hidden group-hover:block ${isCurrent ? 'text-[#dc2626]' : 'text-white'}`} />
@@ -594,7 +596,7 @@ export function AlbumDetail() {
                   <div className="min-w-0 flex flex-col justify-center gap-0.5">
                     <div className="flex items-center gap-2">
                       <p className={`truncate font-normal ${isCurrent ? 'text-[#dc2626]' : 'text-white'}`}>
-                        {track.title}
+                        {track.title ?? 'Unknown Title'}
                       </p>
                       {track.explicit && (
                         <span className="flex-shrink-0 inline-flex items-center justify-center h-4 px-1.5 text-[10px] font-bold uppercase bg-[#ffffff1a] text-[#b3b3b3] rounded">
@@ -614,11 +616,13 @@ export function AlbumDetail() {
                           <span className="text-[10px] font-medium">Video</span>
                         </button>
                       )}
-                      <MusicVideoIndicator
-                        track={track}
-                        onSwitchToVideo={() => setVideoTrackId(track.id)}
-                        isPlayingVideo={videoTrackId === track.id}
-                      />
+                      {track && (
+                        <MusicVideoIndicator
+                          track={track}
+                          onSwitchToVideo={() => setVideoTrackId(track.id)}
+                          isPlayingVideo={videoTrackId === track.id}
+                        />
+                      )}
                     </div>
                     <p className="text-xs text-[#b3b3b3] truncate">
                       {track.artist?.name ?? 'Unknown Artist'}

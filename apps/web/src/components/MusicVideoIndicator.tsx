@@ -24,11 +24,6 @@ export function MusicVideoIndicator({
   const [isLoading, setIsLoading] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
 
-  // Safety check for undefined track
-  if (!track) {
-    return null;
-  }
-
   // Check if track has a music video on mount
   useEffect(() => {
     if (track?.musicVideoUrl && track?.musicVideoSource) {
@@ -38,6 +33,11 @@ export function MusicVideoIndicator({
       });
     }
   }, [track?.musicVideoUrl, track?.musicVideoSource]);
+  
+  // Safety check for undefined track (after all hooks)
+  if (!track) {
+    return null;
+  }
 
   const searchForVideo = async (force = false) => {
     setIsLoading(true);
