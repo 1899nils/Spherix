@@ -238,7 +238,7 @@ function MusicPlayerBar() {
 
         {/* Stop */}
         <button 
-          onClick={handleStop}
+          onClick={(e) => { e.stopPropagation(); stop(); }}
           className="p-2 text-white/70 hover:text-white ml-2"
         >
           <Square className="h-4 w-4 fill-current" />
@@ -355,11 +355,6 @@ function MinimizedVideoBar() {
   const handleVideoSeek = (percent: number) => {
     const newTime = percent * duration;
     updateProgress(newTime, duration);
-  };
-
-  const handleStop = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    stop();
   };
 
   return (
