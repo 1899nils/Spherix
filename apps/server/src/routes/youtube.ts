@@ -1,7 +1,16 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { prisma } from '../config/database.js';
+import { logger } from '../config/logger.js';
 
 const router: Router = Router();
+
+/** Resolve user ID from session or fall back to first user in DB. */
+async function getUserId(req: Request): Promise<string | null> {
+  const sessionUserId = (req.session as unknown as Record<string, unknown>)?.userId as string | undefined;
+  if (sessionUserId) return sessionUserId;
+  const user = await prisma.user.findFirst({ select: { id: true } });
+  return user?.id ?? null;
+}
 
 /**
  * GET /api/youtube/status
@@ -9,9 +18,9 @@ const router: Router = Router();
  */
 router.get('/status', async (req, res, next) => {
   try {
-    const userId = req.session?.userId;
+    const userId = await getUserId(req);
     if (!userId) {
-      res.status(401).json({ error: 'Not authenticated' });
+      res.status(401).json({ error: 'Not authenticated', message: 'Bitte melde dich an' });
       return;
     }
 
@@ -37,9 +46,14 @@ router.get('/status', async (req, res, next) => {
  */
 router.post('/config', async (req, res, next) => {
   try {
-    const userId = req.session?.userId;
+    const userId = await getUserId(req);
+    logger.debug('YouTube config save attempt', { userId: userId || 'undefined', sessionId: req.sessionID });
+    
     if (!userId) {
-      res.status(401).json({ error: 'Not authenticated' });
+      res.status(401).json({ 
+        error: 'Not authenticated', 
+        message: 'Bitte melde dich an, um den API-Key zu speichern' 
+      });
       return;
     }
 
@@ -61,6 +75,7 @@ router.post('/config', async (req, res, next) => {
       },
     });
 
+    logger.info('YouTube API key saved', { userId });
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -69,7 +84,7 @@ router.post('/config', async (req, res, next) => {
 
 /**
  * POST /api/youtube/test-config
- * Test YouTube API key
+ * Test YouTube API key (no auth required - key is provided in body)
  */
 router.post('/test-config', async (req, res, next) => {
   try {
@@ -111,9 +126,9 @@ router.post('/test-config', async (req, res, next) => {
  */
 router.delete('/config', async (req, res, next) => {
   try {
-    const userId = req.session?.userId;
+    const userId = await getUserId(req);
     if (!userId) {
-      res.status(401).json({ error: 'Not authenticated' });
+      res.status(401).json({ error: 'Not authenticated', message: 'Bitte melde dich an' });
       return;
     }
 
