@@ -322,9 +322,9 @@ export function AlbumDetail() {
   // Build initialData for the album editor
   const albumEditorData = {
     title:        album.title,
-    artistName:   album.artist.name,
+    artistName:   album.artist?.name ?? '',
     album:        album.title,
-    albumArtist:  album.artist.name,
+    albumArtist:  album.artist?.name ?? '',
     year:         album.year,
     releaseDate:  album.releaseDate,
     releaseType:  album.releaseType,
@@ -341,7 +341,7 @@ export function AlbumDetail() {
   const editTrack = editTrackId ? tracks.find((t: TrackWithRelations) => t.id === editTrackId) : null;
   const trackEditorData = editTrack ? {
     title:        editTrack.title,
-    artistName:   editTrack.artist.name,
+    artistName:   editTrack.artist?.name ?? '',
     trackNumber:  editTrack.trackNumber,
     discNumber:   editTrack.discNumber,
     lyrics:       editTrack.lyrics,
