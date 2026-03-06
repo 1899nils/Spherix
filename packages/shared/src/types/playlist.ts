@@ -9,6 +9,7 @@ export interface Playlist {
   isPinned: boolean;
   lastPlayedAt: string | null;
   createdAt: string;
+  trackCount: number;
 }
 
 export interface PlaylistWithTracks extends Playlist {
