@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePlayerStore, type RadioStation, type PodcastEpisodePlayerItem } from '@/stores/playerStore';
 import { useAudiobookPlayerStore } from '@/stores/audiobookPlayerStore';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
@@ -48,25 +48,90 @@ function VolumeControl({
   );
 }
 
-// ── Progress Bar Component (Clickable) ────────────────────────────────────────
+// ── Progress Bar Component (Draggable with Handle) ────────────────────────────
 
 function ProgressBar({ progress, onSeek }: { progress: number; onSeek?: (percent: number) => void }) {
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!onSeek) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    onSeek(Math.max(0, Math.min(1, percent)));
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragProgress, setDragProgress] = useState(progress);
+  const barRef = useRef<HTMLDivElement>(null);
+
+  // Update dragProgress when external progress changes (if not dragging)
+  useEffect(() => {
+    if (!isDragging) {
+      setDragProgress(progress);
+    }
+  }, [progress, isDragging]);
+
+  const calculatePercent = (clientX: number) => {
+    if (!barRef.current) return 0;
+    const rect = barRef.current.getBoundingClientRect();
+    const percent = (clientX - rect.left) / rect.width;
+    return Math.max(0, Math.min(1, percent));
   };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!onSeek) return;
+    e.preventDefault();
+    setIsDragging(true);
+    const percent = calculatePercent(e.clientX);
+    setDragProgress(percent * 100);
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return;
+    const percent = calculatePercent(e.clientX);
+    setDragProgress(percent * 100);
+  }, [isDragging]);
+
+  const handleMouseUp = useCallback((e: MouseEvent) => {
+    if (!isDragging || !onSeek) return;
+    const percent = calculatePercent(e.clientX);
+    onSeek(percent);
+    setIsDragging(false);
+  }, [isDragging, onSeek]);
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  const displayProgress = isDragging ? dragProgress : progress;
 
   return (
     <div 
-      className="absolute top-0 left-0 right-0 h-1 bg-white/20 cursor-pointer group"
-      onClick={handleClick}
+      ref={barRef}
+      className="absolute top-0 left-0 right-0 h-4 -mt-1.5 cursor-pointer group"
+      onClick={(e) => {
+        if (!onSeek) return;
+        const percent = calculatePercent(e.clientX);
+        onSeek(percent);
+      }}
     >
+      {/* Track background */}
+      <div className="absolute top-1.5 left-0 right-0 h-1 bg-white/20 rounded-full" />
+      
+      {/* Filled progress */}
       <div 
-        className="h-full bg-red-600 transition-all duration-300 group-hover:h-1.5"
-        style={{ width: `${progress}%` }}
+        className="absolute top-1.5 left-0 h-1 bg-red-600 rounded-full transition-all duration-75"
+        style={{ width: `${displayProgress}%` }}
       />
+      
+      {/* Draggable Handle */}
+      {onSeek && (
+        <div
+          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:scale-110"
+          style={{ left: `calc(${displayProgress}% - 8px)` }}
+          onMouseDown={handleMouseDown}
+        >
+          <div className="absolute inset-1 bg-red-600 rounded-full" />
+        </div>
+      )}
     </div>
   );
 }
@@ -102,8 +167,8 @@ function MusicPlayerBar() {
       <ProgressBar progress={progress} onSeek={handleSeek} />
       
       {/* Left: Info */}
-      <div className="flex items-center gap-3 w-[30%]">
-        <div className="h-12 w-12 rounded bg-black overflow-hidden shrink-0">
+      <div className="flex items-center gap-4 w-[30%] pl-2">
+        <div className="h-14 w-14 rounded-lg bg-black overflow-hidden shrink-0 ring-2 ring-white/10 shadow-lg">
           {'isRadio' in currentTrack ? (
             currentTrack.favicon ? (
               <img src={currentTrack.favicon} alt="" className="h-full w-full object-contain p-1" />
@@ -202,8 +267,8 @@ function AudiobookPlayerBar() {
       <ProgressBar progress={progress} onSeek={handleSeek} />
       
       {/* Left: Info */}
-      <div className="flex items-center gap-3 w-[30%]">
-        <div className="h-12 w-12 rounded bg-black overflow-hidden shrink-0">
+      <div className="flex items-center gap-4 w-[30%] pl-2">
+        <div className="h-14 w-14 rounded-lg bg-black overflow-hidden shrink-0 ring-2 ring-white/10 shadow-lg">
           {currentBook.coverPath ? (
             <img src={currentBook.coverPath} alt="" className="h-full w-full object-cover" />
           ) : (
@@ -272,15 +337,20 @@ function MinimizedVideoBar() {
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  const handleVideoSeek = (percent: number) => {
+    const newTime = percent * duration;
+    updateProgress(newTime, duration);
+  };
+
   return (
     <div className="relative w-full h-full flex items-center px-4">
-      <ProgressBar progress={progress} />
+      <ProgressBar progress={progress} onSeek={handleVideoSeek} />
       
       {/* Left: Video Preview + Info */}
-      <div className="flex items-center gap-3 w-[40%]">
+      <div className="flex items-center gap-4 w-[40%] pl-2">
         {/* Video Thumbnail with hover */}
         <div 
-          className="relative h-12 w-20 rounded bg-black overflow-hidden shrink-0 cursor-pointer"
+          className="relative h-14 w-24 rounded-lg bg-black overflow-hidden shrink-0 cursor-pointer ring-2 ring-white/10 shadow-lg"
           onClick={maximize}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
@@ -384,7 +454,7 @@ export function PlayerBar() {
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50">
-      <footer className="liquid-glass rounded-2xl h-16 relative overflow-hidden shadow-[0_8px_32px_0_rgba(0,0,0,0.8)]">
+      <footer className="liquid-glass rounded-2xl h-[72px] relative overflow-hidden shadow-[0_8px_32px_0_rgba(0,0,0,0.8)]">
         {showEmpty && (
           <div className="flex items-center justify-center h-full">
             <p className="text-sm text-white/50 italic">
