@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../config/database.js';
+import { logger } from '../config/logger.js';
 
 const router: Router = Router();
 
@@ -11,7 +12,7 @@ router.get('/status', async (req, res, next) => {
   try {
     const userId = req.session?.userId;
     if (!userId) {
-      res.status(401).json({ error: 'Not authenticated' });
+      res.status(401).json({ error: 'Not authenticated', message: 'Bitte melde dich an' });
       return;
     }
 
@@ -38,8 +39,13 @@ router.get('/status', async (req, res, next) => {
 router.post('/config', async (req, res, next) => {
   try {
     const userId = req.session?.userId;
+    logger.debug('YouTube config save attempt', { userId: userId || 'undefined', sessionId: req.sessionID });
+    
     if (!userId) {
-      res.status(401).json({ error: 'Not authenticated' });
+      res.status(401).json({ 
+        error: 'Not authenticated', 
+        message: 'Bitte melde dich an, um den API-Key zu speichern' 
+      });
       return;
     }
 
@@ -61,6 +67,7 @@ router.post('/config', async (req, res, next) => {
       },
     });
 
+    logger.info('YouTube API key saved', { userId });
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -69,7 +76,7 @@ router.post('/config', async (req, res, next) => {
 
 /**
  * POST /api/youtube/test-config
- * Test YouTube API key
+ * Test YouTube API key (no auth required - key is provided in body)
  */
 router.post('/test-config', async (req, res, next) => {
   try {
@@ -113,7 +120,7 @@ router.delete('/config', async (req, res, next) => {
   try {
     const userId = req.session?.userId;
     if (!userId) {
-      res.status(401).json({ error: 'Not authenticated' });
+      res.status(401).json({ error: 'Not authenticated', message: 'Bitte melde dich an' });
       return;
     }
 
