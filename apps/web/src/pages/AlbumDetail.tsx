@@ -10,7 +10,7 @@ import { MusicVideoIndicator } from '@/components/MusicVideoIndicator';
 import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations, Playlist } from '@musicserver/shared';
 import { 
   Play, Pause, Disc3, Pencil, ExternalLink, Heart, Clock, 
-  Shuffle, MoreHorizontal, Plus, X, Video
+  Shuffle, MoreHorizontal, Plus, X
 } from 'lucide-react';
 
 // Extract dominant color from image data
