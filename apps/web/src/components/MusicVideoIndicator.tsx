@@ -24,7 +24,7 @@ export function MusicVideoIndicator({
   const [isLoading, setIsLoading] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
 
-  // Check if track has a music video on mount
+  // ALWAYS call all hooks before any conditional logic
   useEffect(() => {
     if (track?.musicVideoUrl && track?.musicVideoSource) {
       setVideoData({
@@ -33,9 +33,24 @@ export function MusicVideoIndicator({
       });
     }
   }, [track?.musicVideoUrl, track?.musicVideoSource]);
-  
-  // Safety check for undefined track (after all hooks)
+
+  // NOW we can do conditional returns
   if (!track) {
+    return null;
+  }
+
+  // If no video data yet, don't show anything
+  if (!videoData && !isLoading) {
+    return null;
+  }
+
+  if (isLoading) {
+    return (
+      <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />
+    );
+  }
+
+  if (!videoData) {
     return null;
   }
 
@@ -53,21 +68,6 @@ export function MusicVideoIndicator({
       setIsLoading(false);
     }
   };
-
-  // If no video data yet, don't show anything (search is done via album menu or metadata editor)
-  if (!videoData && !isLoading) {
-    return null;
-  }
-
-  if (isLoading) {
-    return (
-      <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />
-    );
-  }
-
-  if (!videoData) {
-    return null;
-  }
 
   return (
     <div 
