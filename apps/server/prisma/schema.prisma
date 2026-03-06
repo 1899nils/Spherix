@@ -36,6 +36,7 @@ model UserSettings {
   lastfmUsername    String? @map("lastfm_username")
   lastfmSessionKey String? @map("lastfm_session_key")
   tmdbApiKey       String? @map("tmdb_api_key")
+  youtubeApiKey    String? @map("youtube_api_key")
   theme            String  @default("dark")
   // Media library paths (configurable from Settings UI, fall back to env vars)
   musicPath        String? @map("music_path")

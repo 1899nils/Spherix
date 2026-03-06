@@ -322,6 +322,58 @@ export function Settings() {
     },
   });
 
+  // ─── YouTube ─────────────────────────────────────────────────────────────────
+
+  const { data: youtubeData, refetch: refetchYoutube } = useQuery({
+    queryKey: ['youtube-status'],
+    queryFn: () => api.get<ApiData<{ configured: boolean; apiKey: string | null }>>('/youtube/status'),
+  });
+
+  const [localYoutubeApiKey, setLocalYoutubeApiKey] = useState('');
+  const [youtubeFeedback, setYoutubeFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  useEffect(() => {
+    if (youtubeData?.data) {
+      setLocalYoutubeApiKey(''); // Don't show actual key, just placeholder
+    }
+  }, [youtubeData]);
+
+  const saveYoutubeConfig = useMutation({
+    mutationFn: (data: { apiKey: string }) => api.post('/youtube/config', data),
+    onSuccess: () => {
+      setYoutubeFeedback({ type: 'success', message: 'YouTube API-Key gespeichert!' });
+      refetchYoutube();
+      setLocalYoutubeApiKey('');
+      setTimeout(() => setYoutubeFeedback(null), 3000);
+    },
+    onError: (err: Error) => {
+      setYoutubeFeedback({ type: 'error', message: `Fehler: ${err.message}` });
+    },
+  });
+
+  const testYoutubeConfig = useMutation({
+    mutationFn: (data: { apiKey: string }) => api.post('/youtube/test-config', data),
+    onSuccess: () => {
+      setYoutubeFeedback({ type: 'success', message: 'API-Key ist gültig!' });
+      setTimeout(() => setYoutubeFeedback(null), 3000);
+    },
+    onError: (err: Error) => {
+      setYoutubeFeedback({ type: 'error', message: `Test fehlgeschlagen: ${err.message}` });
+    },
+  });
+
+  const disconnectYoutube = useMutation({
+    mutationFn: () => api.delete('/youtube/config'),
+    onSuccess: () => {
+      refetchYoutube();
+      setYoutubeFeedback({ type: 'success', message: 'YouTube API-Key entfernt!' });
+      setTimeout(() => setYoutubeFeedback(null), 3000);
+    },
+    onError: (err: Error) => {
+      setYoutubeFeedback({ type: 'error', message: `Fehler: ${err.message}` });
+    },
+  });
+
   // ─── Scanner ─────────────────────────────────────────────────────────────────
 
   const scanMusic = useMutation({
@@ -571,6 +623,92 @@ export function Settings() {
                   >
                     {connectLastfm.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                     Verbinden
+                  </Button>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold">YouTube Musikvideos</h2>
+            <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 bg-red-600/10 rounded-xl flex items-center justify-center shrink-0">
+                  <svg className="h-6 w-6 text-red-600" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-white">Musikvideo-Suche</p>
+                  <p className="text-sm text-zinc-400">
+                    {youtubeData?.data?.configured
+                      ? 'API-Key konfiguriert — Musikvideos werden automatisch gesucht.'
+                      : 'Hinterlege deinen YouTube API-Key, um Musikvideos für Songs zu finden.'}
+                  </p>
+                </div>
+                {youtubeData?.data?.configured && (
+                  <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-3 py-1 shrink-0">
+                    Konfiguriert ✓
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs text-zinc-400 font-medium">API-Key</label>
+                <input
+                  type="password"
+                  value={localYoutubeApiKey}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalYoutubeApiKey(e.target.value)}
+                  placeholder={youtubeData?.data?.configured ? '••••••••••••••••' : 'YouTube Data API v3 Key'}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
+                />
+                <p className="text-xs text-zinc-500">
+                  Erstelle einen API-Key in der <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Google Cloud Console</a> und aktiviere die YouTube Data API v3.
+                </p>
+              </div>
+
+              {youtubeFeedback && (
+                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                  youtubeFeedback.type === 'success'
+                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                }`}>
+                  {youtubeFeedback.type === 'success'
+                    ? <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    : <AlertCircle className="h-4 w-4 shrink-0" />}
+                  {youtubeFeedback.message}
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
+                  onClick={() => saveYoutubeConfig.mutate({ apiKey: localYoutubeApiKey })}
+                  disabled={saveYoutubeConfig.isPending || !localYoutubeApiKey}
+                >
+                  {saveYoutubeConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  Speichern
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => testYoutubeConfig.mutate({ apiKey: localYoutubeApiKey })}
+                  disabled={testYoutubeConfig.isPending || !localYoutubeApiKey}
+                >
+                  {testYoutubeConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  Verbindung testen
+                </Button>
+                {youtubeData?.data?.configured && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => disconnectYoutube.mutate()}
+                    disabled={disconnectYoutube.isPending}
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    {disconnectYoutube.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                    Entfernen
                   </Button>
                 )}
               </div>
