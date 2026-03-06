@@ -146,6 +146,7 @@ router.get('/:id', async (req, res, next) => {
         ...pt.track,
         fileSize: pt.track.fileSize.toString(),
         createdAt: pt.track.createdAt.toISOString(),
+        addedAt: pt.addedAt.toISOString(),
       })) as any,
     };
 

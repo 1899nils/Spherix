@@ -118,6 +118,7 @@ router.get('/:id', async (req, res, next) => {
         artistId: album.artistId,
         year: album.year,
         releaseDate: album.releaseDate?.toISOString() ?? null,
+        releaseType: album.releaseType,
         genre: album.genre,
         coverUrl: album.coverUrl,
         musicbrainzId: album.musicbrainzId,
@@ -139,13 +140,15 @@ router.get('/:id', async (req, res, next) => {
 /** Update album metadata */
 router.patch('/:id', async (req, res, next) => {
   try {
-    const { title, year, genre, label, country } = req.body;
+    const { title, year, releaseDate, releaseType, genre, label, country } = req.body;
 
     const album = await prisma.album.update({
       where: { id: String(req.params.id) },
       data: {
         ...(title !== undefined ? { title } : {}),
         ...(year !== undefined ? { year } : {}),
+        ...(releaseDate !== undefined ? { releaseDate: releaseDate ? new Date(releaseDate) : null } : {}),
+        ...(releaseType !== undefined ? { releaseType } : {}),
         ...(genre !== undefined ? { genre } : {}),
         ...(label !== undefined ? { label } : {}),
         ...(country !== undefined ? { country } : {}),

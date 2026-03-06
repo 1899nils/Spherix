@@ -282,7 +282,11 @@ export function AlbumDetail() {
   const albumEditorData = {
     title:        album.title,
     artistName:   album.artist.name,
+    album:        album.title,
+    albumArtist:  album.artist.name,
     year:         album.year,
+    releaseDate:  album.releaseDate,
+    releaseType:  album.releaseType,
     genre:        album.genre,
     label:        album.label,
     country:      album.country,
@@ -315,21 +319,21 @@ export function AlbumDetail() {
   const allTrackIds = tracks.map(t => t.id);
 
   return (
-    <div className="min-h-screen -mx-6">
+    <div className="min-h-screen bg-[#121212]">
       {/* Spotify-style Header with Dynamic Gradient Background */}
       <div 
-        className="relative transition-all duration-700"
+        className="relative transition-all duration-700 -mx-6"
         style={{ background: bgGradient }}
       >
         {/* Optional: Blurred cover background overlay for more immersive effect */}
         {album.coverUrl && !coverError && (
-          <div 
+        <div 
             className="absolute inset-0 opacity-30 overflow-hidden"
-            style={{
+          style={{
               backgroundImage: `url(${album.coverUrl})`,
               backgroundSize: '150% 150%',
               backgroundPosition: 'center',
-              filter: 'blur(60px)',
+            filter: 'blur(60px)',
               transform: 'scale(1.2)',
             }}
           />
@@ -395,7 +399,7 @@ export function AlbumDetail() {
 
       {/* Action Bar - on the gradient background */}
       <div 
-        className="relative flex items-center gap-4 px-6 md:px-8 py-6 -mt-4 w-full"
+        className="relative flex items-center gap-4 px-6 md:px-8 py-6 -mt-4 w-full -mx-6"
         style={{ background: 'linear-gradient(to bottom, transparent 0%, #121212 100%)' }}
       >
         {/* Big Green Play Button */}
@@ -487,7 +491,7 @@ export function AlbumDetail() {
       </div>
 
       {/* Track List - dark background */}
-      <div className="px-6 md:px-8 pb-8 bg-[#121212] w-full">
+      <div className="px-6 md:px-8 pb-8 bg-[#121212] w-full -mx-6">
         {/* Table Header */}
         <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[50px_1fr_auto_auto] gap-4 px-4 py-2 text-sm text-[#b3b3b3] border-b border-[#ffffff1a]">
           <span className="w-8 text-center">#</span>

@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
-import type { PlaylistWithTracks, TrackWithRelations, ApiResponse } from '@musicserver/shared';
+import type { PlaylistWithTracks, PlaylistTrack, ApiResponse } from '@musicserver/shared';
 import { 
   Play, Pause, Disc3, Pencil, Clock, Heart, MoreHorizontal, 
   Shuffle, Plus, X
@@ -19,6 +19,24 @@ function shuffleArray<T>(array: T[]): T[] {
     [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
   }
   return newArray;
+}
+
+// Format relative time (e.g. "vor 5 Min", "vor 2 Std", "vor 3 Tagen")
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (diffMins < 60) {
+    return `vor ${diffMins} Min`;
+  } else if (diffHours < 24) {
+    return `vor ${diffHours} Std`;
+  } else {
+    return `vor ${diffDays} Tag${diffDays === 1 ? '' : 'en'}`;
+  }
 }
 
 export function PlaylistDetail() {
@@ -266,10 +284,11 @@ export function PlaylistDetail() {
       {/* Track List */}
       <div className="px-6 md:px-8 pb-8 bg-[#121212] w-full">
         {/* Table Header */}
-        <div className="grid grid-cols-[auto_1fr_auto_60px] md:grid-cols-[50px_2fr_1fr_auto_60px] gap-4 px-4 py-2 text-sm text-[#b3b3b3] border-b border-[#ffffff1a] items-center">
+        <div className="grid grid-cols-[auto_1fr_auto_60px] md:grid-cols-[50px_2fr_1fr_1fr_auto_80px_60px] gap-4 px-4 py-2 text-sm text-[#b3b3b3] border-b border-[#ffffff1a] items-center">
           <span className="w-8 text-center">#</span>
           <span>Titel</span>
           <span className="hidden md:block">Album</span>
+          <span className="hidden md:block">Hinzugefügt</span>
           <span className="text-right flex items-center justify-end gap-1">
             <Clock className="h-4 w-4" />
           </span>
@@ -278,13 +297,13 @@ export function PlaylistDetail() {
 
         {/* Tracks */}
         <div className="mt-2">
-          {tracks.map((track: TrackWithRelations, index: number) => {
+          {tracks.map((track: PlaylistTrack, index: number) => {
             const isCurrent = currentTrack?.id === track.id;
 
             return (
               <div
                 key={track.id}
-                className={`group grid grid-cols-[auto_1fr_auto_60px] md:grid-cols-[50px_2fr_1fr_auto_60px] gap-4 px-4 py-3 text-sm rounded-md hover:bg-[#ffffff1a] cursor-pointer transition-colors items-center ${isCurrent ? 'text-[#dc2626]' : ''}`}
+                className={`group grid grid-cols-[auto_1fr_auto_60px] md:grid-cols-[50px_2fr_1fr_1fr_auto_80px_60px] gap-4 px-4 py-3 text-sm rounded-md hover:bg-[#ffffff1a] cursor-pointer transition-colors items-center ${isCurrent ? 'text-[#dc2626]' : ''}`}
                 onClick={() => handlePlayTrack(track)}
               >
                 {/* Track Number / Cover / Play Icon */}
@@ -319,9 +338,13 @@ export function PlaylistDetail() {
                     <p className={`truncate font-normal ${isCurrent ? 'text-[#dc2626]' : 'text-white'}`}>
                       {track.title}
                     </p>
-                    <p className="text-xs text-[#b3b3b3] truncate">
+                    <Link
+                      to={`/music/artists/${track.artist.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs text-[#b3b3b3] hover:text-white hover:underline truncate block"
+                    >
                       {track.artist.name}
-                    </p>
+                    </Link>
                   </div>
                 </div>
 
@@ -334,6 +357,13 @@ export function PlaylistDetail() {
                   >
                     {track.album?.title || '-'}
                   </Link>
+                </div>
+
+                {/* Added At */}
+                <div className="hidden md:block min-w-0">
+                  <span className="text-[#b3b3b3] text-xs">
+                    {formatRelativeTime(track.addedAt)}
+                  </span>
                 </div>
 
                 {/* Duration */}
@@ -355,7 +385,7 @@ export function PlaylistDetail() {
                 </div>
               </div>
             );
-          })}
+          })
 
           {tracks.length === 0 && (
             <div className="text-center py-12 text-[#b3b3b3]">
