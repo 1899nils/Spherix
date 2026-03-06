@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Button } from '@/components/ui/button';
 import { formatDuration } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
@@ -10,7 +9,7 @@ import { MusicBrainzLinkModal } from '@/components/MusicBrainzLinkModal';
 import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations, Playlist } from '@musicserver/shared';
 import { 
   Play, Pause, Disc3, Pencil, ExternalLink, Heart, Clock, 
-  Shuffle, MoreHorizontal, Plus, X, Check 
+  Shuffle, MoreHorizontal, Plus, X
 } from 'lucide-react';
 
 // Extract dominant color from image data
