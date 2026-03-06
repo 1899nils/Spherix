@@ -8,7 +8,7 @@ import { usePlayerStore } from '@/stores/playerStore';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import { MusicBrainzLinkModal } from '@/components/MusicBrainzLinkModal';
 import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations } from '@musicserver/shared';
-import { Play, Pause, Disc3, Pencil, ExternalLink, Heart, MoreHorizontal, Clock } from 'lucide-react';
+import { Play, Pause, Disc3, Pencil, ExternalLink, Heart, Clock } from 'lucide-react';
 
 export function AlbumDetail() {
   const { id } = useParams<{ id: string }>();
