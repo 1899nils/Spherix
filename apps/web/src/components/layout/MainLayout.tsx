@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Header } from './Header';
 import { useUIStore } from '@/stores/uiStore';
 import { CreatePlaylistModal } from './CreatePlaylistModal';
+import { ErrorBoundary } from './ErrorBoundary';
 
 export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -27,7 +28,9 @@ export function MainLayout() {
         {/* Scrollable Content */}
         <ScrollArea className="flex-1">
           <main className="p-6 pb-32">
-            <Outlet />
+            <ErrorBoundary>
+              <Outlet />
+            </ErrorBoundary>
           </main>
         </ScrollArea>
 
