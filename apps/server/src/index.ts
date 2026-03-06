@@ -34,6 +34,8 @@ import sessionsRouter from './routes/video/sessions.js';
 import audiobooksRouter from './routes/audiobooks/audiobooks.js';
 import musicVideoRouter from './routes/musicvideos.js';
 import youtubeRouter from './routes/youtube.js';
+import lyricsRouter from './routes/lyrics.js';
+import metadataRouter from './routes/metadata.js';
 import subsonicRouter from './subsonic/index.js';
 
 const app = express();
@@ -158,6 +160,13 @@ app.get('/api/video/continue', async (_req, res, next) => {
 // ── Music Videos ───────────────────────────────────────────────────────────────
 app.use('/api/tracks', musicVideoRouter);
 app.use('/api/albums', musicVideoRouter);  // For album-level bulk search
+
+// ── Lyrics ─────────────────────────────────────────────────────────────────────
+app.use('/api/tracks', lyricsRouter);
+app.use('/api/albums', lyricsRouter);
+
+// ── Metadata Orchestration ─────────────────────────────────────────────────────
+app.use('/api/metadata', metadataRouter);
 
 // ── YouTube API ────────────────────────────────────────────────────────────────
 app.use('/api/youtube', youtubeRouter);
