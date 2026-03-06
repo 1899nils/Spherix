@@ -20,13 +20,13 @@ export function MusicVideoIndicator({
   onSwitchToVideo,
   isPlayingVideo = false 
 }: MusicVideoIndicatorProps) {
+  // All hooks first - no exceptions!
   const [videoData, setVideoData] = useState<MusicVideoData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
 
-  // ALWAYS call all hooks before any conditional logic
   useEffect(() => {
-    if (track?.musicVideoUrl && track?.musicVideoSource) {
+    if (track && track.musicVideoUrl && track.musicVideoSource) {
       setVideoData({
         url: track.musicVideoUrl,
         source: track.musicVideoSource,
@@ -34,12 +34,11 @@ export function MusicVideoIndicator({
     }
   }, [track?.musicVideoUrl, track?.musicVideoSource]);
 
-  // NOW we can do conditional returns
+  // After all hooks, we can do conditional rendering
   if (!track) {
     return null;
   }
 
-  // If no video data yet, don't show anything
   if (!videoData && !isLoading) {
     return null;
   }
@@ -55,6 +54,7 @@ export function MusicVideoIndicator({
   }
 
   const searchForVideo = async (force = false) => {
+    if (!track?.id) return;
     setIsLoading(true);
     try {
       const response = await api.get<{ data: MusicVideoData }>(
@@ -62,7 +62,6 @@ export function MusicVideoIndicator({
       );
       setVideoData(response.data);
     } catch {
-      // No video found
       setVideoData(null);
     } finally {
       setIsLoading(false);
@@ -75,7 +74,6 @@ export function MusicVideoIndicator({
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
-      {/* Video Indicator */}
       <button
         onClick={() => onSwitchToVideo?.()}
         className={`flex items-center gap-1 px-2 py-1 rounded transition-colors ${
@@ -88,7 +86,6 @@ export function MusicVideoIndicator({
         <span className="text-xs font-medium">Video</span>
       </button>
 
-      {/* Tooltip with actions */}
       {showTooltip && (
         <div className="absolute bottom-full left-0 mb-2 w-64 bg-popover border rounded-lg shadow-lg p-3 z-50">
           <p className="text-xs text-muted-foreground mb-2">
