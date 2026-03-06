@@ -164,6 +164,7 @@ function MusicPlayerBar() {
   const progress = duration > 0 ? (seek / duration) * 100 : 0;
 
   const getArtistName = () => {
+    if (!currentTrack) return '';
     if (isRadio) {
       // Show current track artist if available from ICY metadata
       if (currentRadioTrack?.artist) {
@@ -176,6 +177,7 @@ function MusicPlayerBar() {
   };
 
   const getTrackTitle = () => {
+    if (!currentTrack) return '';
     if (isRadio && currentRadioTrack?.title) {
       return currentRadioTrack.title;
     }
