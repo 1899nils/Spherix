@@ -138,10 +138,28 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
-/** Update album metadata */
+/** Update album metadata (DB only — does not write audio file tags) */
 router.patch('/:id', async (req, res, next) => {
   try {
-    const { title, year, releaseDate, releaseType, genre, label, country } = req.body;
+    const { title, year, releaseDate, releaseType, genre, label, country, artistName, totalTracks, totalDiscs } = req.body;
+
+    // Resolve artist if name was changed
+    let artistId: string | undefined;
+    if (artistName !== undefined) {
+      const currentAlbum = await prisma.album.findUnique({
+        where: { id: String(req.params.id) },
+        include: { artist: { select: { id: true, name: true } } },
+      });
+      if (currentAlbum && artistName !== currentAlbum.artist.name) {
+        const existing = await prisma.artist.findFirst({
+          where: { name: artistName },
+          select: { id: true },
+        });
+        artistId = existing
+          ? existing.id
+          : (await prisma.artist.create({ data: { name: artistName }, select: { id: true } })).id;
+      }
+    }
 
     const album = await prisma.album.update({
       where: { id: String(req.params.id) },
@@ -153,6 +171,9 @@ router.patch('/:id', async (req, res, next) => {
         ...(genre !== undefined ? { genre } : {}),
         ...(label !== undefined ? { label } : {}),
         ...(country !== undefined ? { country } : {}),
+        ...(totalTracks !== undefined ? { totalTracks } : {}),
+        ...(totalDiscs !== undefined ? { totalDiscs } : {}),
+        ...(artistId !== undefined ? { artistId } : {}),
       },
       include: {
         artist: { select: { id: true, name: true } },

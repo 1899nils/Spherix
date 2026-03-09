@@ -79,10 +79,28 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
-/** Update track metadata */
+/** Update track metadata (DB only — does not write audio file tags) */
 router.patch('/:id', async (req, res, next) => {
   try {
-    const { title, trackNumber, discNumber, lyrics, explicit } = req.body;
+    const { title, trackNumber, discNumber, lyrics, explicit, artistName } = req.body;
+
+    // Resolve artist if name was changed
+    let artistId: string | undefined;
+    if (artistName !== undefined) {
+      const currentTrack = await prisma.track.findUnique({
+        where: { id: String(req.params.id) },
+        include: { artist: { select: { id: true, name: true } } },
+      });
+      if (currentTrack && artistName !== currentTrack.artist.name) {
+        const existing = await prisma.artist.findFirst({
+          where: { name: artistName },
+          select: { id: true },
+        });
+        artistId = existing
+          ? existing.id
+          : (await prisma.artist.create({ data: { name: artistName }, select: { id: true } })).id;
+      }
+    }
 
     const track = await prisma.track.update({
       where: { id: String(req.params.id) },
@@ -92,6 +110,7 @@ router.patch('/:id', async (req, res, next) => {
         ...(discNumber !== undefined ? { discNumber } : {}),
         ...(lyrics !== undefined ? { lyrics } : {}),
         ...(explicit !== undefined ? { explicit: explicit === true || explicit === 'true' } : {}),
+        ...(artistId !== undefined ? { artistId } : {}),
       },
       include: {
         artist: { select: { id: true, name: true } },
