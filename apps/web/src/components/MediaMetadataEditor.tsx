@@ -159,16 +159,10 @@ function AlbumGeneralTab({ form, onChange, isLocked }: {
     <div className="space-y-4">
       {/* Titel */}
       <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} locked={isLocked} />
-      
-      {/* Künstler & Albumkünstler */}
+
+      {/* Künstler & Release-Typ */}
       <div className="grid grid-cols-2 gap-4">
         <TextField label="Künstler" value={form.artistName ?? ''} onChange={v => onChange('artistName', v)} />
-        <TextField label="Albumkünstler" value={form.albumArtist ?? ''} onChange={v => onChange('albumArtist', v)} />
-      </div>
-      
-      {/* Album & Release-Typ */}
-      <div className="grid grid-cols-2 gap-4">
-        <TextField label="Album" value={form.album ?? ''} onChange={v => onChange('album', v)} />
         <div>
           <FieldLabel label="Release-Typ" />
           <select
@@ -192,25 +186,25 @@ function AlbumGeneralTab({ form, onChange, isLocked }: {
           </select>
         </div>
       </div>
-      
+
       {/* Jahr & Release-Date */}
       <div className="grid grid-cols-2 gap-4">
         <NumberField label="Jahr" value={form.year ?? ''} onChange={v => onChange('year', v)} locked={isLocked} />
         <TextField label="Release-Datum" value={form.releaseDate ?? ''} onChange={v => onChange('releaseDate', v)} placeholder="YYYY-MM-DD" />
       </div>
-      
+
       {/* CD-Anzahl & Track-Anzahl */}
       <div className="grid grid-cols-2 gap-4">
         <NumberField label="CD-Anzahl" value={form.totalDiscs ?? ''} onChange={v => onChange('totalDiscs', v)} locked={isLocked} />
         <NumberField label="Track-Anzahl" value={form.totalTracks ?? ''} onChange={v => onChange('totalTracks', v)} locked={isLocked} />
       </div>
-      
+
       {/* Genre & Label */}
       <div className="grid grid-cols-2 gap-4">
         <TextField label="Genre" value={form.genre ?? ''} onChange={v => onChange('genre', v)} locked={isLocked} />
         <TextField label="Label" value={form.label ?? ''} onChange={v => onChange('label', v)} locked={isLocked} />
       </div>
-      
+
       {/* Land & MusicBrainz ID */}
       <div className="grid grid-cols-2 gap-4">
         <TextField label="Land" value={form.country ?? ''} onChange={v => onChange('country', v)} />
@@ -944,7 +938,12 @@ export function MediaMetadataEditor({
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-border shrink-0">
-          <div className="text-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground space-y-0.5">
+            {(type === 'album' || type === 'track') && (
+              <p className="flex items-center gap-1 text-muted-foreground/70">
+                Änderungen werden nur in der Datenbank gespeichert · Audiodateien bleiben unverändert
+              </p>
+            )}
             {isLocked && (type === 'album' || type === 'track') && (
               <span className="flex items-center gap-1">
                 <Lock className="h-3 w-3" />

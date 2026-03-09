@@ -323,8 +323,6 @@ export function AlbumDetail() {
   const albumEditorData = {
     title:        album.title,
     artistName:   album.artist?.name ?? '',
-    album:        album.title,
-    albumArtist:  album.artist?.name ?? '',
     year:         album.year,
     releaseDate:  album.releaseDate,
     releaseType:  album.releaseType,
