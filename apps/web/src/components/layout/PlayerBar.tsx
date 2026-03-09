@@ -277,7 +277,7 @@ function MusicPlayerBar() {
 
       {/* Right: Volume + Last.fm */}
       <div className="flex items-center justify-end w-[30%] gap-3">
-        <LastfmIndicator isPlaying={isPlaying} />
+        <LastfmIndicator />
         <VolumeControl 
           volume={volume} 
           isMuted={isMuted} 
@@ -296,7 +296,7 @@ interface LastfmStatus {
   username?: string;
 }
 
-function LastfmIndicator({ isPlaying }: { isPlaying: boolean }) {
+function LastfmIndicator() {
   const { data: lastfmStatus } = useQuery<LastfmStatus>({
     queryKey: ['lastfm-status'],
     queryFn: async () => {
