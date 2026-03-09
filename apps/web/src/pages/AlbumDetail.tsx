@@ -362,34 +362,35 @@ export function AlbumDetail() {
   const allTrackIds = tracks.map(t => t.id);
 
   return (
-    <div className="min-h-screen bg-[#121212]">
-      {/* Spotify-style Header with Dynamic Gradient Background */}
-      <div 
+    <div className="min-h-screen -mt-6">
+      {/* Header with Dynamic Gradient Background — extends to top/side edges */}
+      <div
         className="relative transition-all duration-700 -mx-6"
         style={{ background: bgGradient }}
       >
-        {/* Optional: Blurred cover background overlay for more immersive effect */}
+        {/* Blurred cover background overlay */}
         {album.coverUrl && !coverError && (
-        <div 
+          <div
             className="absolute inset-0 opacity-30 overflow-hidden"
-          style={{
+            style={{
               backgroundImage: `url(${album.coverUrl})`,
               backgroundSize: '150% 150%',
               backgroundPosition: 'center',
-            filter: 'blur(60px)',
+              filter: 'blur(60px)',
               transform: 'scale(1.2)',
             }}
           />
         )}
-        
-        {/* Gradient overlay to ensure smooth transition */}
-        <div 
+
+        {/* Gradient overlay */}
+        <div
           className="absolute inset-0"
           style={{
             background: 'linear-gradient(to bottom, transparent 0%, transparent 40%, rgba(18, 18, 18, 0.3) 60%, rgba(18, 18, 18, 0.8) 85%, rgba(18, 18, 18, 1) 100%)'
           }}
         />
-        
+
+        {/* Cover + Album Info */}
         <div className="relative flex flex-col md:flex-row gap-6 md:gap-8 px-6 md:px-8 py-6 md:py-8 pb-8">
           {/* Large Cover */}
           <div className="h-48 w-48 md:h-56 md:w-56 lg:h-64 lg:w-64 rounded-md overflow-hidden bg-[#282828] shrink-0 shadow-2xl mx-auto md:mx-0">
@@ -417,7 +418,7 @@ export function AlbumDetail() {
             <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold leading-tight line-clamp-2 text-white">
               {album.title}
             </h1>
-            
+
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-sm text-white/90">
               <Link
                 to={`/music/artists/${album.artist?.id}`}
@@ -438,118 +439,115 @@ export function AlbumDetail() {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Action Bar - on the gradient background */}
-      <div 
-        className="relative flex items-center gap-4 px-6 md:px-8 py-6 -mt-4 w-full -mx-6"
-        style={{ background: 'linear-gradient(to bottom, transparent 0%, #121212 100%)' }}
-      >
-        {/* Big Green Play Button */}
-        <button
-          onClick={isCurrentAlbumPlaying ? togglePlay : handlePlayAll}
-          className="h-14 w-14 rounded-full bg-[#dc2626] hover:bg-[#1ed760] hover:scale-105 transition-all flex items-center justify-center shadow-lg"
-        >
-          {isCurrentAlbumPlaying ? (
-            <Pause className="h-7 w-7 text-black fill-black" />
-          ) : (
-            <Play className="h-7 w-7 text-black fill-black ml-0.5" />
-          )}
-        </button>
-
-        {/* Shuffle Button */}
-        <button
-          onClick={toggleShuffle}
-          title={isShuffled ? 'Zufallswiedergabe aus' : 'Zufallswiedergabe an'}
-          className={`h-10 w-10 flex items-center justify-center transition-all ${
-            isShuffled 
-              ? 'text-[#dc2626]' 
-              : 'text-[#b3b3b3] hover:text-white hover:scale-105'
-          }`}
-        >
-          <Shuffle className="h-6 w-6" />
-        </button>
-
-        {/* Heart Button */}
-        <button className="h-10 w-10 flex items-center justify-center text-[#b3b3b3] hover:text-white hover:scale-105 transition-all">
-          <Heart className="h-7 w-7" />
-        </button>
-
-        {/* More Options Dropdown */}
-        <div className="relative">
+        {/* Action Bar — inside gradient div for seamless look */}
+        <div className="relative flex items-center gap-4 px-6 md:px-8 pb-6">
+          {/* Play Button */}
           <button
-            onClick={() => setShowMoreMenu(!showMoreMenu)}
-            className="h-10 w-10 flex items-center justify-center text-[#b3b3b3] hover:text-white transition-all"
+            onClick={isCurrentAlbumPlaying ? togglePlay : handlePlayAll}
+            className="h-14 w-14 rounded-full bg-[#dc2626] hover:bg-[#b91c1c] hover:scale-105 transition-all flex items-center justify-center shadow-lg"
           >
-            <MoreHorizontal className="h-7 w-7" />
+            {isCurrentAlbumPlaying ? (
+              <Pause className="h-7 w-7 text-white fill-white" />
+            ) : (
+              <Play className="h-7 w-7 text-white fill-white ml-0.5" />
+            )}
           </button>
 
-          {/* Dropdown Menu */}
-          {showMoreMenu && (
-            <>
-              <div 
-                className="fixed inset-0 z-40" 
-                onClick={() => setShowMoreMenu(false)} 
-              />
-              <div className="absolute top-full left-0 mt-1 w-64 bg-[#282828] rounded-md shadow-xl py-1 z-50">
-                <button
-                  onClick={() => {
-                    setShowMoreMenu(false);
-                    setEditOpen(true);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
-                >
-                  <Pencil className="h-4 w-4 text-[#b3b3b3]" />
-                  <span className="text-white text-sm">Bearbeiten</span>
-                </button>
+          {/* Shuffle Button */}
+          <button
+            onClick={toggleShuffle}
+            title={isShuffled ? 'Zufallswiedergabe aus' : 'Zufallswiedergabe an'}
+            className={`h-10 w-10 flex items-center justify-center transition-all ${
+              isShuffled
+                ? 'text-[#dc2626]'
+                : 'text-[#b3b3b3] hover:text-white hover:scale-105'
+            }`}
+          >
+            <Shuffle className="h-6 w-6" />
+          </button>
 
-                <button
-                  onClick={() => {
-                    setShowMoreMenu(false);
-                    setShowPlaylistSelector(true);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
-                >
-                  <Plus className="h-4 w-4 text-[#b3b3b3]" />
-                  <span className="text-white text-sm">Zu Playlist hinzufügen</span>
-                </button>
+          {/* Heart Button */}
+          <button className="h-10 w-10 flex items-center justify-center text-[#b3b3b3] hover:text-white hover:scale-105 transition-all">
+            <Heart className="h-7 w-7" />
+          </button>
 
-                <button
-                  onClick={() => {
-                    setShowMoreMenu(false);
-                    setMbOpen(true);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
-                >
-                  <ExternalLink className="h-4 w-4 text-[#b3b3b3]" />
-                  <span className="text-white text-sm">MusicBrainz</span>
-                  {album.musicbrainzId && (
-                    <span className="ml-auto h-2 w-2 rounded-full bg-[#dc2626]" />
-                  )}
-                </button>
+          {/* More Options Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className="h-10 w-10 flex items-center justify-center text-[#b3b3b3] hover:text-white transition-all"
+            >
+              <MoreHorizontal className="h-7 w-7" />
+            </button>
 
-                <button
-                  onClick={() => {
-                    setShowMoreMenu(false);
-                    setMvSearchOpen(true);
-                    mvSearchMutation.mutate({});
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
-                >
-                  <Video className="h-4 w-4 text-[#b3b3b3]" />
-                  <span className="text-white text-sm">Musikvideos suchen</span>
-                  {tracks.some(t => t.musicVideoUrl) && (
-                    <span className="ml-auto h-2 w-2 rounded-full bg-[#dc2626]" />
-                  )}
-                </button>
-              </div>
-            </>
-          )}
+            {/* Dropdown Menu */}
+            {showMoreMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowMoreMenu(false)}
+                />
+                <div className="absolute top-full left-0 mt-1 w-64 bg-[#282828] rounded-md shadow-xl py-1 z-50">
+                  <button
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      setEditOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+                  >
+                    <Pencil className="h-4 w-4 text-[#b3b3b3]" />
+                    <span className="text-white text-sm">Bearbeiten</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      setShowPlaylistSelector(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+                  >
+                    <Plus className="h-4 w-4 text-[#b3b3b3]" />
+                    <span className="text-white text-sm">Zu Playlist hinzufügen</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      setMbOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+                  >
+                    <ExternalLink className="h-4 w-4 text-[#b3b3b3]" />
+                    <span className="text-white text-sm">MusicBrainz</span>
+                    {album.musicbrainzId && (
+                      <span className="ml-auto h-2 w-2 rounded-full bg-[#dc2626]" />
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      setMvSearchOpen(true);
+                      mvSearchMutation.mutate({});
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#ffffff1a] transition-colors text-left"
+                  >
+                    <Video className="h-4 w-4 text-[#b3b3b3]" />
+                    <span className="text-white text-sm">Musikvideos suchen</span>
+                    {tracks.some(t => t.musicVideoUrl) && (
+                      <span className="ml-auto h-2 w-2 rounded-full bg-[#dc2626]" />
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Track List - dark background */}
-      <div className="px-6 md:px-8 pb-8 bg-[#121212] w-full -mx-6">
+      {/* Track List */}
+      <div className="px-6 md:px-8 pb-8 -mx-6">
         {/* Table Header */}
         <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[50px_1fr_auto_auto] gap-4 px-4 py-2 text-sm text-[#b3b3b3] border-b border-[#ffffff1a]">
           <span className="w-8 text-center">#</span>
@@ -654,7 +652,7 @@ export function AlbumDetail() {
 
       {/* Album Info Footer */}
       {(album.label || album.country || album.genre) && (
-        <div className="px-6 md:px-8 pb-8 text-xs text-[#b3b3b3] bg-[#121212] w-full">
+        <div className="px-6 md:px-8 pb-8 text-xs text-[#b3b3b3] -mx-6">
           <div className="pt-6 border-t border-[#ffffff1a] space-y-1">
             {album.year && <p><span className="text-white">{album.year}</span> veröffentlicht</p>}
             {album.label && <p>Label: {album.label}</p>}
