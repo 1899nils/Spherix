@@ -220,6 +220,31 @@ export function AlbumDetail() {
     enabled: !!id,
   });
 
+  // Music video search mutation — must be declared before any early returns (Rules of Hooks)
+  const mvSearchMutation = useMutation({
+    mutationFn: async ({ force = false }: { force?: boolean } = {}) => {
+      const response = await api.post<{
+        data: {
+          total: number;
+          found: number;
+          results: Array<{
+            trackId: string;
+            trackTitle: string;
+            found: boolean;
+            url?: string;
+            source?: string;
+          }>;
+        };
+      }>(`/albums/${id}/musicvideo-search`, { force });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      setMvSearchResults(data);
+      // Refresh album data to get updated video info
+      queryClient.invalidateQueries({ queryKey: ['album', id] });
+    },
+  });
+
   const { 
     playTrack, 
     currentTrack, 
@@ -293,31 +318,6 @@ export function AlbumDetail() {
 
   // Group tracks by disc if multi-disc
   const hasMultipleDiscs = new Set(tracks.map((t: TrackWithRelations) => t.discNumber)).size > 1;
-
-  // Music video search mutation for album
-  const mvSearchMutation = useMutation({
-    mutationFn: async ({ force = false }: { force?: boolean } = {}) => {
-      const response = await api.post<{
-        data: {
-          total: number;
-          found: number;
-          results: Array<{
-            trackId: string;
-            trackTitle: string;
-            found: boolean;
-            url?: string;
-            source?: string;
-          }>;
-        };
-      }>(`/albums/${id}/musicvideo-search`, { force });
-      return response.data;
-    },
-    onSuccess: (data) => {
-      setMvSearchResults(data);
-      // Refresh album data to get updated video info
-      queryClient.invalidateQueries({ queryKey: ['album', id] });
-    },
-  });
 
   // Build initialData for the album editor
   const albumEditorData = {
@@ -420,10 +420,10 @@ export function AlbumDetail() {
             
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-sm text-white/90">
               <Link
-                to={`/music/artists/${album.artist.id}`}
+                to={`/music/artists/${album.artist?.id}`}
                 className="font-bold text-white hover:underline"
               >
-                {album.artist.name}
+                {album.artist?.name}
               </Link>
               {album.year && (
                 <>
@@ -695,7 +695,7 @@ export function AlbumDetail() {
         <MusicBrainzLinkModal
           albumId={album.id}
           albumTitle={album.title}
-          artistName={album.artist.name}
+          artistName={album.artist?.name ?? ''}
           musicbrainzId={album.musicbrainzId}
           onClose={() => setMbOpen(false)}
         />
