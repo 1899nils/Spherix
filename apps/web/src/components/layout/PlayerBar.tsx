@@ -299,35 +299,35 @@ interface LastfmStatus {
 function LastfmIndicator({ isPlaying }: { isPlaying: boolean }) {
   const { data: lastfmStatus } = useQuery<LastfmStatus>({
     queryKey: ['lastfm-status'],
-    queryFn: async () => {
-      return api.get<LastfmStatus>('/lastfm/status');
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    queryFn: async () => api.get<LastfmStatus>('/lastfm/status'),
+    staleTime: 5 * 60 * 1000,
   });
 
   const isConnected = lastfmStatus?.connected ?? false;
+  const tooltip = isConnected
+    ? `Last.fm verbunden als ${lastfmStatus?.username ?? '?'}`
+    : 'Last.fm nicht verbunden · Klicken zum Verbinden';
 
   return (
     <a
       href="/settings?tab=music"
-      title={isConnected ? `Last.fm verbunden${lastfmStatus?.username ? ` als ${lastfmStatus.username}` : ''}` : 'Last.fm nicht verbunden'}
+      title={tooltip}
       className={cn(
-        'flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors',
+        'flex items-center justify-center h-8 w-8 rounded-md transition-all hover:scale-110',
         isPlaying && isConnected
-          ? 'bg-red-600 text-white'
+          ? 'text-[#d51007]'
           : isConnected
-          ? 'bg-white/10 text-white/70 hover:bg-white/20'
-          : 'bg-white/5 text-white/40 hover:bg-white/10'
+          ? 'text-[#d51007]/50 hover:text-[#d51007]/80'
+          : 'text-white/25 hover:text-white/50'
       )}
     >
-      <svg
-        className="h-4 w-4"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-      >
-        <path d="M10.2 17.6c-2.6 0-4.3-1.2-4.3-3.5 0-2.4 1.8-3.6 4.6-3.6h.7v1.6h-.5c-1.4 0-2.4.6-2.4 1.9 0 1.2.8 1.8 2.1 1.8.7 0 1.4-.2 1.9-.5l.6 1.5c-.7.5-1.7.8-2.7.8zm3.4-.2V6.2h2.2v3.3c.5-.3 1.2-.5 1.9-.5 2.1 0 3.3 1.4 3.3 3.8v4.6h-2.2v-4.3c0-1.3-.5-2-1.5-2-.6 0-1.1.2-1.5.5v5.8h-2.2zm-6.6-.1V9.9H5v7.4h2zm-2-8.5c.7 0 1.2-.5 1.2-1.2 0-.6-.5-1.1-1.2-1.1-.6 0-1.1.5-1.1 1.1 0 .7.5 1.2 1.1 1.2z"/>
+      {/* Last.fm "as" logo */}
+      <svg className="h-5 w-5" viewBox="0 0 70 40" fill="currentColor" aria-label="Last.fm">
+        {/* "a" letter */}
+        <path d="M18 1C8.5 1 1 8.7 1 20s7.5 19 17 19c5.2 0 9.5-2.1 12.2-5.6v5h7V1h-7v5C27.5 3.1 23.2 1 18 1zm0 30.5c-6.5 0-10-4.6-10-11.5S11.5 8.5 18 8.5s10 4.6 10 11.5-3.5 11.5-10 11.5z"/>
+        {/* "s" letter */}
+        <path d="M53 1C43 1 36 5.8 36 14c0 6.8 4.4 10.8 13.2 13.2l3.8 1c4.8 1.3 6.5 3 6.5 5.8 0 3.2-2.8 5-8 5-5.2 0-9-2.3-12-5.8l-5.5 6C38 44.5 44.3 47 53 47c11 0 18-5.2 18-14 0-7-4.5-11-13.8-13.5L53 18C47.8 16.5 45.5 14.5 45.5 11c0-3 3-5 7.5-5 4.5 0 7.8 2 10.5 5L69 5.5C65.5 2.5 60 1 53 1z"/>
       </svg>
-      <span>last.fm</span>
     </a>
   );
 }
