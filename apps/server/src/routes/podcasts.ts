@@ -6,6 +6,15 @@ const router: Router = Router();
 
 // ─── Minimal RSS parser ──────────────────────────────────────────────────────
 
+function unescapeXml(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
 /** Extract text from a simple XML tag (handles CDATA) */
 function extractTag(xml: string, tag: string): string | null {
   const re = new RegExp(
@@ -14,7 +23,8 @@ function extractTag(xml: string, tag: string): string | null {
   );
   const m = xml.match(re);
   if (!m) return null;
-  return (m[1] ?? m[2] ?? '').trim() || null;
+  // m[1] = CDATA content (already plain text), m[2] = regular text (may contain XML entities)
+  return (m[1] ?? unescapeXml(m[2] ?? '')).trim() || null;
 }
 
 /** Extract an attribute value from a self-closing or open tag */
