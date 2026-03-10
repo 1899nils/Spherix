@@ -38,6 +38,7 @@ import { AudiobooksFavorites } from '@/pages/audiobooks/Favorites';
 import { AudiobookDetail } from '@/pages/audiobooks/AudiobookDetail';
 import { AuthorDetail } from '@/pages/audiobooks/AuthorDetail';
 import { MetadataSchema } from '@/pages/MetadataSchema';
+import { Watchlist } from '@/pages/Watchlist';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,6 +74,7 @@ export function App() {
             <Route path="/music/playlists/:id" element={<PlaylistDetail />} />
             <Route path="/music/podcasts" element={<Podcasts />} />
             <Route path="/music/podcasts/:id" element={<PodcastDetail />} />
+            <Route path="/music/watchlist" element={<Watchlist />} />
 
             {/* ── Video ─────────────────────────────────────────── */}
             <Route path="/video" element={<VideoHome />} />

@@ -49,6 +49,7 @@ const MUSIC_NAV: NavSection[] = [
       { to: '/music/radio',          icon: Radio,      label: 'Radio' },
       { to: '/music/podcasts',       icon: Headphones, label: 'Podcasts' },
       { to: '/music/recently-added', icon: Clock,      label: 'Zuletzt gehört' },
+      { to: '/music/watchlist',      icon: Bookmark,   label: 'Merkliste' },
     ],
   },
   {
