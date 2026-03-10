@@ -222,14 +222,31 @@ function MusicPlayerBar() {
           )}
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-white truncate">
-            {getTrackTitle()}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-white truncate">
+              {getTrackTitle()}
+            </p>
+            {isRadio && (
+              <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-pink-500/20 border border-pink-500/30 text-pink-400 text-[10px] font-bold tracking-wide leading-none">
+                <span className="h-1.5 w-1.5 rounded-full bg-pink-400 animate-pulse" />
+                LIVE
+              </span>
+            )}
+            {isPodcast && (
+              <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-500/20 border border-violet-500/30 text-violet-400 text-[10px] font-bold tracking-wide leading-none">
+                🎙 PODCAST
+              </span>
+            )}
+          </div>
           <p className="text-xs text-white/50 truncate">
             {getArtistName()}
           </p>
           <p className="text-xs text-white/50 tabular-nums">
-            {isRadio ? (currentRadioTrack ? 'LIVE • ' + (currentTrack as RadioStation).name : 'LIVE') : `${formatDuration(seek)} / ${formatDuration(duration)}`}
+            {isRadio
+              ? currentRadioTrack
+                ? (currentTrack as RadioStation).name
+                : (currentTrack as RadioStation).name
+              : `${formatDuration(seek)} / ${formatDuration(duration)}`}
           </p>
         </div>
       </div>
