@@ -24,6 +24,7 @@ model User {
   starredAlbums  StarredAlbum[]
   starredArtists StarredArtist[]
   radioStations  RadioStation[]
+  watchlistItems WatchlistItem[]
 
   @@index([email])
   @@index([username])
@@ -141,6 +142,7 @@ model Track {
   playHistory    PlayHistory[]
   playlistTracks PlaylistTrack[]
   starredTracks  StarredTrack[]
+  watchlistItems WatchlistItem[]
 
   @@index([artistId])
   @@index([albumId])
@@ -198,6 +200,29 @@ model PlaylistTrack {
   @@unique([playlistId, trackId])
   @@index([playlistId, position])
   @@map("playlist_tracks")
+}
+
+// ─── Watchlist ───────────────────────────────────────────────────────────────
+
+model WatchlistItem {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  title         String
+  artist        String
+  albumTitle    String?  @map("album_title")
+  coverUrl      String?  @map("cover_url")
+  duration      Int?
+  trackId       String?  @map("track_id")
+  mbRecordingId String?  @map("mb_recording_id")
+  source        String   @default("radio")
+  addedAt       DateTime @default(now()) @map("added_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track Track? @relation(fields: [trackId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, title, artist])
+  @@index([userId])
+  @@map("watchlist_items")
 }
 
 // ─── Starred / Favorites ────────────────────────────────────────────────────

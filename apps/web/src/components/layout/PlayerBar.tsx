@@ -4,12 +4,12 @@ import { usePlayerStore, type RadioStation, type PodcastEpisodePlayerItem } from
 import { useAudiobookPlayerStore } from '@/stores/audiobookPlayerStore';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { useSectionStore } from '@/stores/sectionStore';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatDuration, cn } from '@/lib/utils';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1,
-  ChevronUp, Square, Film, Shuffle
+  ChevronUp, Square, Film, Shuffle, BookmarkPlus, Check
 } from 'lucide-react';
 
 // ── Shared Volume Control ─────────────────────────────────────────────────────
@@ -156,6 +156,41 @@ function ProgressBar({ progress, onSeek }: { progress: number; onSeek?: (percent
 
 // ── Music Player Bar ──────────────────────────────────────────────────────────
 
+function WatchlistButton({ artist, title }: { artist: string; title: string }) {
+  const queryClient = useQueryClient();
+  const [added, setAdded] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      api.post('/watchlist', { artist, title, source: 'radio' }),
+    onSuccess: () => {
+      setAdded(true);
+      queryClient.invalidateQueries({ queryKey: ['watchlist'] });
+      setTimeout(() => setAdded(false), 3000);
+    },
+  });
+
+  if (added) {
+    return (
+      <span className="flex items-center gap-1 text-xs text-green-400 shrink-0">
+        <Check className="h-3.5 w-3.5" />
+        Gemerkt
+      </span>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => mutation.mutate()}
+      disabled={mutation.isPending}
+      title="Zur Merkliste hinzufügen"
+      className="shrink-0 p-1 text-white/40 hover:text-white transition-colors disabled:opacity-40"
+    >
+      <BookmarkPlus className="h-4 w-4" />
+    </button>
+  );
+}
+
 function MusicPlayerBar() {
   const {
     currentTrack, isPlaying, seek, duration, volume, isMuted, isShuffled, currentRadioTrack,
@@ -237,6 +272,12 @@ function MusicPlayerBar() {
               <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-500/20 border border-violet-500/30 text-violet-400 text-[10px] font-bold tracking-wide leading-none">
                 🎙 PODCAST
               </span>
+            )}
+            {isRadio && currentRadioTrack?.artist && currentRadioTrack?.title && (
+              <WatchlistButton
+                artist={currentRadioTrack.artist}
+                title={currentRadioTrack.title}
+              />
             )}
           </div>
           <p className="text-xs text-white/50 truncate">
