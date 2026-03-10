@@ -4,7 +4,7 @@ import { lastfmService, type LastfmTrackInfo } from '../lastfm/lastfm.service.js
 import { searchRecording } from '../musicbrainz/musicbrainz.service.js';
 import { prisma } from '../../config/database.js';
 
-const POLL_INTERVAL_MS = 10_000; // Poll every 10 seconds
+const POLL_INTERVAL_MS = 3_000; // Poll every 3 seconds
 /** Fallback minimum listen time when track duration is unknown */
 const MIN_SCROBBLE_SECONDS = 30;
 /** Scrobble only after listening to this fraction of the track */
