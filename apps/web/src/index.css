@@ -87,6 +87,15 @@
   }
 }
 
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 @layer components {
   .liquid-glass {
     @apply backdrop-blur-xl bg-white/5 border border-white/10 shadow-2xl;
