@@ -10,7 +10,6 @@ import { useUIStore } from '@/stores/uiStore';
 import { useSectionStore } from '@/stores/sectionStore';
 import { SectionSwitcher } from './SectionSwitcher';
 import {
-  PlayCircle,
   LayoutGrid,
   Radio,
   Clock,
@@ -44,21 +43,20 @@ type NavSection = { title: string; items: { to: string; icon: React.ElementType;
 
 const MUSIC_NAV: NavSection[] = [
   {
-    title: 'Mediathek',
+    title: 'Entdecken',
     items: [
-      { to: '/music',                icon: PlayCircle, label: 'Jetzt hören' },
-      { to: '/music/recently-added', icon: Clock,      label: 'Zuletzt hinzugefügt' },
-      { to: '/music/artists',        icon: Mic2,       label: 'Künstler' },
-      { to: '/music/albums',         icon: Disc3,      label: 'Alben' },
-      { to: '/music/songs',          icon: Music,      label: 'Titel' },
+      { to: '/music/browse',         icon: LayoutGrid, label: 'Entdecken' },
+      { to: '/music/radio',          icon: Radio,      label: 'Radio' },
+      { to: '/music/podcasts',       icon: Headphones, label: 'Podcasts' },
+      { to: '/music/recently-added', icon: Clock,      label: 'Zuletzt gehört' },
     ],
   },
   {
-    title: 'Entdecken',
+    title: 'Mediathek',
     items: [
-      { to: '/music/browse',    icon: LayoutGrid, label: 'Entdecken' },
-      { to: '/music/radio',     icon: Radio,      label: 'Radio' },
-      { to: '/music/podcasts',  icon: Headphones, label: 'Podcasts' },
+      { to: '/music/artists', icon: Mic2,  label: 'Künstler' },
+      { to: '/music/albums',  icon: Disc3, label: 'Alben' },
+      { to: '/music/songs',   icon: Music, label: 'Titel' },
     ],
   },
 ];
