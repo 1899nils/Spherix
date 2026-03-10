@@ -284,6 +284,53 @@ async function getNewAdditions() {
   }));
 }
 
+// ─── New Podcast Episodes ─────────────────────────────────────────────────────
+
+async function getNewPodcastEpisodes() {
+  // Get all subscribed podcasts
+  const podcasts = await prisma.podcast.findMany({
+    select: {
+      id: true,
+      title: true,
+      imageUrl: true,
+      episodes: {
+        orderBy: { publishedAt: 'desc' },
+        take: 1,
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          audioUrl: true,
+          imageUrl: true,
+          duration: true,
+          publishedAt: true,
+        },
+      },
+    },
+  });
+
+  // One latest episode per podcast, sorted by publishedAt
+  return podcasts
+    .flatMap(p =>
+      p.episodes.map(ep => ({
+        episodeId: ep.id,
+        episodeTitle: ep.title,
+        episodeDescription: ep.description,
+        audioUrl: ep.audioUrl,
+        episodeImageUrl: ep.imageUrl,
+        duration: ep.duration,
+        publishedAt: ep.publishedAt,
+        podcastId: p.id,
+        podcastTitle: p.title,
+        podcastImageUrl: p.imageUrl,
+      })),
+    )
+    .sort((a, b) =>
+      (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0),
+    )
+    .slice(0, 10);
+}
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 router.get('/summary', async (req, res) => {
@@ -296,16 +343,17 @@ router.get('/summary', async (req, res) => {
       select: { username: true },
     });
 
-    const [recentlyPlayed, topArtists, autoPlaylists, forYouPlaylists, newAdditions] =
+    const [recentlyPlayed, topArtists, autoPlaylists, forYouPlaylists, newAdditions, newPodcastEpisodes] =
       await Promise.all([
         getRecentlyPlayed(userId),
         getTopArtists(userId),
         getAutoPlaylists(userId),
         getForYouPlaylists(userId),
         getNewAdditions(),
+        getNewPodcastEpisodes(),
       ]);
 
-    res.json({ username: user?.username ?? '', recentlyPlayed, topArtists, autoPlaylists, forYouPlaylists, newAdditions });
+    res.json({ username: user?.username ?? '', recentlyPlayed, topArtists, autoPlaylists, forYouPlaylists, newAdditions, newPodcastEpisodes });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
