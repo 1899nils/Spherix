@@ -11,23 +11,59 @@ async function getUserId(req: any): Promise<string | null> {
 }
 
 /**
+ * Resolves M3U / PLS playlist URLs to the first actual stream URL inside them.
+ * Plain stream URLs are returned unchanged.
+ */
+async function resolveStreamUrl(url: string): Promise<string> {
+  const lower = url.toLowerCase().split('?')[0]; // ignore query params for extension check
+  if (!lower.endsWith('.m3u') && !lower.endsWith('.m3u8') && !lower.endsWith('.pls')) {
+    return url;
+  }
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    const text = await res.text();
+
+    if (lower.endsWith('.pls')) {
+      // PLS format: "File1=http://..."
+      const match = text.match(/^File\d+=(.+)$/im);
+      return match ? match[1].trim() : url;
+    }
+
+    // M3U/M3U8: first non-comment, non-empty line
+    const line = text
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => l && !l.startsWith('#'));
+    return line ?? url;
+  } catch {
+    return url; // keep original if fetch fails
+  }
+}
+
+/**
+ * Extracts the root domain from a hostname.
+ * e.g. streams.ffh.de  →  ffh.de
+ *      mp3.radio.de     →  radio.de
+ */
+function rootDomain(hostname: string): string {
+  const parts = hostname.split('.');
+  return parts.length > 2 ? parts.slice(-2).join('.') : hostname;
+}
+
+/**
  * Tries to find a logo for the given stream URL.
- * 1. Clearbit Logo API (high-quality brand logos)
+ * 1. Clearbit Logo API (high-quality brand logos, uses root domain)
  * 2. Google Favicon service as fallback
- * Returns null if the domain can't be extracted.
  */
 async function resolveStationLogo(streamUrl: string): Promise<string | null> {
   try {
     const { hostname } = new URL(streamUrl);
-    // Strip leading "www." so clearbit/google match the brand domain
-    const domain = hostname.replace(/^www\./, '');
+    const domain = rootDomain(hostname);
 
-    // Try Clearbit first — returns a proper logo if one exists
     const clearbitUrl = `https://logo.clearbit.com/${domain}`;
     const res = await fetch(clearbitUrl, { method: 'HEAD', signal: AbortSignal.timeout(4000) });
     if (res.ok) return clearbitUrl;
 
-    // Fallback: Google Favicon (always works, lower quality)
     return `https://www.google.com/s2/favicons?domain=${domain}&sz=256`;
   } catch {
     return null;
@@ -64,11 +100,12 @@ router.post('/stations', async (req, res) => {
       return;
     }
 
-    // Resolve logo in background — don't block the response
-    const logoUrl = await resolveStationLogo(url.trim());
+    // Resolve M3U/PLS playlist to actual stream URL, then fetch logo
+    const resolvedUrl = await resolveStreamUrl(url.trim());
+    const logoUrl = await resolveStationLogo(resolvedUrl);
 
     const station = await prisma.radioStation.create({
-      data: { userId, name: name.trim(), url: url.trim(), logoUrl },
+      data: { userId, name: name.trim(), url: resolvedUrl, logoUrl },
     });
     res.status(201).json(station);
   } catch (error) {
