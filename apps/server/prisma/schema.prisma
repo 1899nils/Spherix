@@ -23,6 +23,7 @@ model User {
   starredTracks  StarredTrack[]
   starredAlbums  StarredAlbum[]
   starredArtists StarredArtist[]
+  radioStations  RadioStation[]
 
   @@index([email])
   @@index([username])
@@ -381,6 +382,22 @@ model AudiobookChapter {
   @@unique([audiobookId, number])
   @@index([audiobookId])
   @@map("audiobook_chapters")
+}
+
+// ─── Radio ───────────────────────────────────────────────────────────────────
+
+model RadioStation {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  url       String
+  logoUrl   String?  @map("logo_url")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("radio_stations")
 }
 
 // ─── Podcasts ────────────────────────────────────────────────────────────────

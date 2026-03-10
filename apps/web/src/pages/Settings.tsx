@@ -2,12 +2,10 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { useUIStore } from '@/stores/uiStore';
 import {
   Loader2,
   RefreshCw,
   Music2,
-  Radio as RadioIcon,
   Globe,
   Server,
   Database,
@@ -47,25 +45,6 @@ interface ServerSettingsData {
   };
 }
 
-const REGIONS = [
-  'Alle',
-  'Baden-Württemberg',
-  'Bayern',
-  'Berlin',
-  'Brandenburg',
-  'Bremen',
-  'Hamburg',
-  'Hessen',
-  'Mecklenburg-Vorpommern',
-  'Niedersachsen',
-  'Nordrhein-Westfalen',
-  'Rheinland-Pfalz',
-  'Saarland',
-  'Sachsen',
-  'Sachsen-Anhalt',
-  'Schleswig-Holstein',
-  'Thüringen',
-];
 
 function StatusDot({ status }: { status: string }) {
   const color = status === 'ok' || status === 'ready' ? 'bg-green-500' : 'bg-red-500';
@@ -174,9 +153,6 @@ function ScanCard({
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<Tab>('general');
-
-  const radioRegion = useUIStore((state) => state.radioRegion);
-  const setRadioRegion = useUIStore((state) => state.setRadioRegion);
 
   // ─── Server Settings ────────────────────────────────────────────────────────
 
@@ -728,29 +704,6 @@ export function Settings() {
             />
           </section>
 
-          <section className="space-y-4">
-            <h2 className="text-lg font-semibold">Radio</h2>
-            <div className="rounded-xl border border-white/5 p-6 bg-white/5">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 bg-pink-500/10 rounded-xl flex items-center justify-center shrink-0">
-                  <RadioIcon className="h-6 w-6 text-pink-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-white">Bevorzugte Region</p>
-                  <p className="text-sm text-zinc-400">Wähle, welche regionalen Sender standardmäßig angezeigt werden.</p>
-                </div>
-                <select
-                  value={radioRegion}
-                  onChange={(e) => setRadioRegion(e.target.value)}
-                  className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all outline-none shrink-0"
-                >
-                  {REGIONS.map((region) => (
-                    <option key={region} value={region}>{region}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </section>
         </div>
       )}
 
