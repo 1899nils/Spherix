@@ -360,7 +360,7 @@ export function AlbumDetail() {
 
   return (
     <div className="min-h-screen bg-[#121212]">
-      {/* Header — solid dominant-color background with gradient overlay */}
+      {/* Header — solid dominant-color background, covers only the cover+info area */}
       <div
         className="relative -mx-6 transition-colors duration-700"
         style={{ backgroundColor: headerBgColor }}
@@ -379,16 +379,16 @@ export function AlbumDetail() {
           />
         )}
 
-        {/* Gradient overlay: transparent at top, fades to #121212 at bottom of action bar */}
+        {/* Gradient overlay: fades to #121212 at the bottom of the cover section */}
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.1) 35%, rgba(0,0,0,0.45) 68%, rgba(18,18,18,0.85) 86%, rgb(18,18,18) 100%)'
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.15) 50%, rgba(18,18,18,0.75) 80%, rgb(18,18,18) 100%)'
           }}
         />
 
         {/* Cover + Album Info */}
-        <div className="relative flex flex-col md:flex-row gap-6 md:gap-8 px-6 md:px-8 py-8 md:py-10 pb-6">
+        <div className="relative flex flex-col md:flex-row gap-6 md:gap-8 px-6 md:px-8 py-8 md:py-10 pb-8">
           {/* Large Cover */}
           <div className="h-48 w-48 md:h-56 md:w-56 lg:h-64 lg:w-64 rounded-md overflow-hidden bg-[#282828] shrink-0 shadow-2xl mx-auto md:mx-0">
             {album.coverUrl && !coverError ? (
@@ -436,9 +436,10 @@ export function AlbumDetail() {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Action Bar — inside colored header section */}
-        <div className="relative flex items-center gap-4 px-6 md:px-8 pb-8">
+      {/* Action Bar — solid #121212, no gradient, below the color break */}
+      <div className="flex items-center gap-4 px-6 md:px-8 py-6 -mx-6 bg-[#121212]">
           {/* Play Button */}
           <button
             onClick={isCurrentAlbumPlaying ? togglePlay : handlePlayAll}
@@ -541,7 +542,6 @@ export function AlbumDetail() {
             )}
           </div>
         </div>
-      </div>
 
       {/* Track List */}
       <div className="px-6 md:px-8 pb-8 -mx-6">
