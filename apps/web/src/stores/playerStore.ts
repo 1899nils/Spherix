@@ -215,8 +215,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   playStream: (station) => {
     const state = get();
 
-    // Stop any running radio metadata poller before switching
-    fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
+    // NOTE: we do NOT call /api/radio/stop here — the /api/radio/start endpoint
+    // internally calls radioPoller.start() which already stops any existing poller
+    // first. Sending an explicit stop before start caused a race condition where
+    // the stop arrived after start and killed the new poller, breaking scrobbling.
 
     if (state._howl) {
       state._howl.unload();
