@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Radio as RadioIcon, Play, Signal, Plus, Trash2, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Radio as RadioIcon, Play, Signal, Plus, Trash2, Loader2, Image as ImageIcon, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/Modal';
 import { usePlayerStore, type RadioStation } from '@/stores/playerStore';
@@ -31,18 +31,115 @@ async function createStation(data: { name: string; url: string; logoUrl?: string
   return res.json();
 }
 
+async function updateStation(id: string, data: { name?: string; url?: string; logoUrl?: string | null }): Promise<SavedStation> {
+  const res = await fetch(`${API}/radio/stations/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to update station');
+  return res.json();
+}
+
 async function deleteStation(id: string): Promise<void> {
   await fetch(`${API}/radio/stations/${id}`, { method: 'DELETE' });
 }
+
+// ─── Shared station form fields + logo preview ────────────────────────────────
+
+interface StationFormProps {
+  name: string;
+  url: string;
+  logoUrl: string;
+  onName: (v: string) => void;
+  onUrl: (v: string) => void;
+  onLogoUrl: (v: string) => void;
+  onSubmit: () => void;
+}
+
+function StationForm({ name, url, logoUrl, onName, onUrl, onLogoUrl, onSubmit }: StationFormProps) {
+  return (
+    <div className="flex gap-6">
+      {/* Logo Preview */}
+      <div className="shrink-0">
+        <div className="w-28 h-28 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt="Logo-Vorschau"
+              className="w-full h-full object-contain p-2"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+          ) : (
+            <span className="text-4xl">📻</span>
+          )}
+        </div>
+        <p className="text-[10px] text-zinc-500 text-center mt-2">Vorschau</p>
+      </div>
+
+      {/* Fields */}
+      <div className="flex-1 space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-zinc-300">Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => onName(e.target.value)}
+            placeholder="z.B. FFH"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-zinc-500 focus:outline-none focus:border-pink-500/50 transition-colors"
+            onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-zinc-300">Stream-URL</label>
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => onUrl(e.target.value)}
+            placeholder="http://mp3.ffh.de/radioffh/hqlivestream.mp3"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-zinc-500 focus:outline-none focus:border-pink-500/50 transition-colors"
+            onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
+          />
+          <p className="text-[11px] text-zinc-500">MP3/AAC-Stream, M3U oder PLS</p>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-zinc-300 flex items-center gap-1.5">
+            <ImageIcon className="h-3.5 w-3.5" />
+            Logo-URL
+            <span className="text-zinc-500 font-normal">(optional)</span>
+          </label>
+          <input
+            type="url"
+            value={logoUrl}
+            onChange={(e) => onLogoUrl(e.target.value)}
+            placeholder="https://beispiel.de/logo.png"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-zinc-500 focus:outline-none focus:border-pink-500/50 transition-colors"
+          />
+          <p className="text-[11px] text-zinc-500">Leer lassen → Logo wird automatisch gesucht</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function Radio() {
   const { playStream, currentTrack, isPlaying } = usePlayerStore();
   const queryClient = useQueryClient();
 
+  // Add modal state
   const [showAddModal, setShowAddModal] = useState(false);
-  const [name, setName] = useState('');
-  const [url, setUrl] = useState('');
-  const [logoUrl, setLogoUrl] = useState('');
+  const [addName, setAddName] = useState('');
+  const [addUrl, setAddUrl] = useState('');
+  const [addLogoUrl, setAddLogoUrl] = useState('');
+
+  // Edit modal state
+  const [editStation, setEditStation] = useState<SavedStation | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editUrl, setEditUrl] = useState('');
+  const [editLogoUrl, setEditLogoUrl] = useState('');
+
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const { data: stations = [], isLoading } = useQuery({
@@ -55,9 +152,16 @@ export function Radio() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['radio-stations'] });
       setShowAddModal(false);
-      setName('');
-      setUrl('');
-      setLogoUrl('');
+      setAddName(''); setAddUrl(''); setAddLogoUrl('');
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof updateStation>[1] }) =>
+      updateStation(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['radio-stations'] });
+      setEditStation(null);
     },
   });
 
@@ -78,19 +182,27 @@ export function Radio() {
   };
 
   const handleAdd = () => {
-    if (!name.trim() || !url.trim()) return;
-    addMutation.mutate({
-      name: name.trim(),
-      url: url.trim(),
-      logoUrl: logoUrl.trim() || undefined,
-    });
+    if (!addName.trim() || !addUrl.trim()) return;
+    addMutation.mutate({ name: addName.trim(), url: addUrl.trim(), logoUrl: addLogoUrl.trim() || undefined });
   };
 
-  const handleCloseModal = () => {
-    setShowAddModal(false);
-    setName('');
-    setUrl('');
-    setLogoUrl('');
+  const openEdit = (station: SavedStation) => {
+    setEditStation(station);
+    setEditName(station.name);
+    setEditUrl(station.url);
+    setEditLogoUrl(station.logoUrl ?? '');
+  };
+
+  const handleEdit = () => {
+    if (!editStation || !editName.trim()) return;
+    editMutation.mutate({
+      id: editStation.id,
+      data: {
+        name: editName.trim(),
+        url: editUrl.trim() || undefined,
+        logoUrl: editLogoUrl.trim() || null,
+      },
+    });
   };
 
   return (
@@ -153,14 +265,23 @@ export function Radio() {
                   isCurrent ? 'border-pink-500/50 bg-pink-500/5' : 'border-white/5 hover:bg-white/5'
                 }`}
               >
-                {/* Delete button */}
-                <button
-                  className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-red-500/80 rounded-full p-1.5"
-                  onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(station.id); }}
-                  title="Sender entfernen"
-                >
-                  <Trash2 className="h-3.5 w-3.5 text-white" />
-                </button>
+                {/* Action buttons (edit + delete) */}
+                <div className="absolute top-3 right-3 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    className="bg-black/60 hover:bg-white/20 rounded-full p-1.5"
+                    onClick={(e) => { e.stopPropagation(); openEdit(station); }}
+                    title="Sender bearbeiten"
+                  >
+                    <Pencil className="h-3.5 w-3.5 text-white" />
+                  </button>
+                  <button
+                    className="bg-black/60 hover:bg-red-500/80 rounded-full p-1.5"
+                    onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(station.id); }}
+                    title="Sender entfernen"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-white" />
+                  </button>
+                </div>
 
                 {/* Cover / Logo */}
                 <div className="aspect-square rounded-xl overflow-hidden mb-4 relative shadow-inner bg-black/20 flex items-center justify-center border border-white/5">
@@ -210,102 +331,68 @@ export function Radio() {
         </div>
       )}
 
-      {/* Add Station Modal */}
+      {/* ── Add Station Modal ──────────────────────────────────────────────── */}
       <Modal
         title="Sender hinzufügen"
         isOpen={showAddModal}
-        onClose={handleCloseModal}
+        onClose={() => { setShowAddModal(false); setAddName(''); setAddUrl(''); setAddLogoUrl(''); }}
         maxWidth="max-w-lg"
       >
-        <div className="flex gap-6">
-          {/* Logo Preview */}
-          <div className="shrink-0">
-            <div className="w-28 h-28 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
-              {logoUrl ? (
-                <img
-                  src={logoUrl}
-                  alt="Logo-Vorschau"
-                  className="w-full h-full object-contain p-2"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              ) : (
-                <span className="text-4xl">📻</span>
-              )}
-            </div>
-            <p className="text-[10px] text-zinc-500 text-center mt-2">Vorschau</p>
-          </div>
-
-          {/* Fields */}
-          <div className="flex-1 space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-zinc-300">Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="z.B. FFH"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-zinc-500 focus:outline-none focus:border-pink-500/50 transition-colors"
-                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-zinc-300">Stream-URL</label>
-              <input
-                type="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="http://mp3.ffh.de/radioffh/hqlivestream.mp3"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-zinc-500 focus:outline-none focus:border-pink-500/50 transition-colors"
-                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-              />
-              <p className="text-[11px] text-zinc-500">MP3/AAC-Stream, M3U oder PLS</p>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-zinc-300 flex items-center gap-1.5">
-                <ImageIcon className="h-3.5 w-3.5" />
-                Logo-URL
-                <span className="text-zinc-500 font-normal">(optional)</span>
-              </label>
-              <input
-                type="url"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="https://beispiel.de/logo.png"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-zinc-500 focus:outline-none focus:border-pink-500/50 transition-colors"
-              />
-              <p className="text-[11px] text-zinc-500">Leer lassen → Logo wird automatisch gesucht</p>
-            </div>
-          </div>
-        </div>
-
+        <StationForm
+          name={addName} url={addUrl} logoUrl={addLogoUrl}
+          onName={setAddName} onUrl={setAddUrl} onLogoUrl={setAddLogoUrl}
+          onSubmit={handleAdd}
+        />
         {addMutation.isError && (
           <p className="text-sm text-red-400 mt-4">Fehler beim Hinzufügen. Bitte URL prüfen.</p>
         )}
-
         <div className="flex gap-3 mt-6">
           <Button
             variant="ghost"
             className="flex-1 rounded-xl border border-white/10 hover:bg-white/5"
-            onClick={handleCloseModal}
+            onClick={() => { setShowAddModal(false); setAddName(''); setAddUrl(''); setAddLogoUrl(''); }}
           >
             Abbrechen
           </Button>
           <Button
             className="flex-1 bg-pink-500 hover:bg-pink-400 text-white rounded-xl gap-2"
             onClick={handleAdd}
-            disabled={!name.trim() || !url.trim() || addMutation.isPending}
+            disabled={!addName.trim() || !addUrl.trim() || addMutation.isPending}
           >
-            {addMutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Wird hinzugefügt…
-              </>
-            ) : (
-              <>
-                <Plus className="h-4 w-4" />
-                Hinzufügen
-              </>
-            )}
+            {addMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Wird hinzugefügt…</> : <><Plus className="h-4 w-4" /> Hinzufügen</>}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* ── Edit Station Modal ─────────────────────────────────────────────── */}
+      <Modal
+        title="Sender bearbeiten"
+        isOpen={!!editStation}
+        onClose={() => setEditStation(null)}
+        maxWidth="max-w-lg"
+      >
+        <StationForm
+          name={editName} url={editUrl} logoUrl={editLogoUrl}
+          onName={setEditName} onUrl={setEditUrl} onLogoUrl={setEditLogoUrl}
+          onSubmit={handleEdit}
+        />
+        {editMutation.isError && (
+          <p className="text-sm text-red-400 mt-4">Fehler beim Speichern.</p>
+        )}
+        <div className="flex gap-3 mt-6">
+          <Button
+            variant="ghost"
+            className="flex-1 rounded-xl border border-white/10 hover:bg-white/5"
+            onClick={() => setEditStation(null)}
+          >
+            Abbrechen
+          </Button>
+          <Button
+            className="flex-1 bg-pink-500 hover:bg-pink-400 text-white rounded-xl gap-2"
+            onClick={handleEdit}
+            disabled={!editName.trim() || editMutation.isPending}
+          >
+            {editMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Wird gespeichert…</> : 'Speichern'}
           </Button>
         </div>
       </Modal>
