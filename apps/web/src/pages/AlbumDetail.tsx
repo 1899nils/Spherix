@@ -13,26 +13,28 @@ import {
   Shuffle, MoreHorizontal, Plus, X, Video
 } from 'lucide-react';
 
-// Extract dominant color from image data
+// Extract dominant color — weighted towards saturated, mid-tone pixels for a vibrant result
 function extractDominantColor(imageData: ImageData): string {
   const data = imageData.data;
-  let r = 0, g = 0, b = 0;
-  let count = 0;
-  
-  // Sample every 10th pixel for performance
-  for (let i = 0; i < data.length; i += 40) {
-    r += data[i];
-    g += data[i + 1];
-    b += data[i + 2];
-    count++;
+  let wR = 0, wG = 0, wB = 0, wTotal = 0;
+
+  for (let i = 0; i < data.length; i += 20) {
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const lightness = (max + min) / 510;
+    const saturation = max === 0 ? 0 : (max - min) / max;
+    // Prefer moderately bright, saturated pixels; de-emphasise near-white/near-black
+    const weight = lightness > 0.06 && lightness < 0.92 ? 1 + saturation * 4 : 0.1;
+    wR += r * weight; wG += g * weight; wB += b * weight; wTotal += weight;
   }
-  
-  r = Math.floor(r / count);
-  g = Math.floor(g / count);
-  b = Math.floor(b / count);
-  
-  // Darken slightly for better text contrast
-  return `rgb(${Math.floor(r * 0.7)}, ${Math.floor(g * 0.7)}, ${Math.floor(b * 0.7)})`;
+
+  const r = Math.floor(wR / wTotal);
+  const g = Math.floor(wG / wTotal);
+  const b = Math.floor(wB / wTotal);
+
+  // Moderate darkening so white text stays readable
+  return `rgb(${Math.floor(r * 0.58)}, ${Math.floor(g * 0.58)}, ${Math.floor(b * 0.58)})`;
 }
 
 // Shuffle array helper
@@ -194,7 +196,7 @@ export function AlbumDetail() {
   const [mbOpen, setMbOpen] = useState(false);
   const [editTrackId, setEditTrackId] = useState<string | null>(null);
   const [coverError, setCoverError] = useState(false);
-  const [bgGradient, setBgGradient] = useState<string>('linear-gradient(to bottom, #525252 0%, #121212 100%)');
+  const [headerBgColor, setHeaderBgColor] = useState<string>('#383838');
   const [coverLoaded, setCoverLoaded] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
@@ -273,15 +275,12 @@ export function AlbumDetail() {
           ctx.drawImage(img, 0, 0, 100, 100);
           
           const imageData = ctx.getImageData(0, 0, 100, 100);
-          const dominantColor = extractDominantColor(imageData);
-          
-          // Create gradient from dominant color to background
-          setBgGradient(`linear-gradient(to bottom, ${dominantColor} 0%, ${dominantColor} 20%, #121212 65%, #121212 100%)`);
+          setHeaderBgColor(extractDominantColor(imageData));
         } catch {
-          setBgGradient('linear-gradient(to bottom, #525252 0%, #121212 100%)');
+          setHeaderBgColor('#383838');
         }
       };
-      img.onerror = () => setBgGradient('linear-gradient(to bottom, #525252 0%, #121212 100%)');
+      img.onerror = () => setHeaderBgColor('#383838');
       img.src = album.coverUrl;
     }
   }, [album?.coverUrl, coverError, coverLoaded]);
@@ -360,36 +359,36 @@ export function AlbumDetail() {
   const allTrackIds = tracks.map(t => t.id);
 
   return (
-    <div className="min-h-screen -mt-6">
-      {/* Header with Dynamic Gradient Background — extends to top/side edges */}
+    <div className="min-h-screen bg-[#121212]">
+      {/* Header — solid dominant-color background with gradient overlay */}
       <div
-        className="relative transition-all duration-700 -mx-6"
-        style={{ background: bgGradient }}
+        className="relative -mx-6 transition-colors duration-700"
+        style={{ backgroundColor: headerBgColor }}
       >
-        {/* Blurred cover background overlay */}
+        {/* Blurred cover overlay for depth */}
         {album.coverUrl && !coverError && (
           <div
-            className="absolute inset-0 opacity-30 overflow-hidden"
+            className="absolute inset-0 opacity-20 overflow-hidden"
             style={{
               backgroundImage: `url(${album.coverUrl})`,
               backgroundSize: '150% 150%',
               backgroundPosition: 'center',
-              filter: 'blur(60px)',
-              transform: 'scale(1.2)',
+              filter: 'blur(50px)',
+              transform: 'scale(1.3)',
             }}
           />
         )}
 
-        {/* Gradient overlay */}
+        {/* Gradient overlay: transparent at top, fades to #121212 at bottom of action bar */}
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(to bottom, transparent 0%, transparent 40%, rgba(18, 18, 18, 0.3) 60%, rgba(18, 18, 18, 0.8) 85%, rgba(18, 18, 18, 1) 100%)'
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.1) 35%, rgba(0,0,0,0.45) 68%, rgba(18,18,18,0.85) 86%, rgb(18,18,18) 100%)'
           }}
         />
 
         {/* Cover + Album Info */}
-        <div className="relative flex flex-col md:flex-row gap-6 md:gap-8 px-6 md:px-8 py-6 md:py-8 pb-8">
+        <div className="relative flex flex-col md:flex-row gap-6 md:gap-8 px-6 md:px-8 py-8 md:py-10 pb-6">
           {/* Large Cover */}
           <div className="h-48 w-48 md:h-56 md:w-56 lg:h-64 lg:w-64 rounded-md overflow-hidden bg-[#282828] shrink-0 shadow-2xl mx-auto md:mx-0">
             {album.coverUrl && !coverError ? (
@@ -438,8 +437,8 @@ export function AlbumDetail() {
           </div>
         </div>
 
-        {/* Action Bar — inside gradient div for seamless look */}
-        <div className="relative flex items-center gap-4 px-6 md:px-8 pb-6">
+        {/* Action Bar — inside colored header section */}
+        <div className="relative flex items-center gap-4 px-6 md:px-8 pb-8">
           {/* Play Button */}
           <button
             onClick={isCurrentAlbumPlaying ? togglePlay : handlePlayAll}
