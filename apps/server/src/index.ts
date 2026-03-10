@@ -36,6 +36,7 @@ import musicVideoRouter from './routes/musicvideos.js';
 import youtubeRouter from './routes/youtube.js';
 import lyricsRouter from './routes/lyrics.js';
 import metadataRouter from './routes/metadata.js';
+import discoverRouter from './routes/discover.js';
 import subsonicRouter from './subsonic/index.js';
 
 const app = express();
@@ -170,6 +171,9 @@ app.use('/api/metadata', metadataRouter);
 
 // ── YouTube API ────────────────────────────────────────────────────────────────
 app.use('/api/youtube', youtubeRouter);
+
+// ── Discover ──────────────────────────────────────────────────────────────────
+app.use('/api/discover', discoverRouter);
 
 // ── Audiobooks ────────────────────────────────────────────────────────────────
 app.use('/api/audiobooks', audiobooksRouter);
