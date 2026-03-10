@@ -52,19 +52,17 @@ function rootDomain(hostname: string): string {
 
 /**
  * Tries to find a logo for the given stream URL.
- * 1. Clearbit Logo API (high-quality brand logos, uses root domain)
- * 2. Google Favicon service as fallback
+ * Uses Clearbit Logo API with the root domain. If Clearbit returns a non-image
+ * response (404), the browser will gracefully fall back to the 📻 emoji via
+ * the onError handler on the frontend.
  */
-async function resolveStationLogo(streamUrl: string): Promise<string | null> {
+function resolveStationLogo(streamUrl: string): string | null {
   try {
     const { hostname } = new URL(streamUrl);
     const domain = rootDomain(hostname);
-
-    const clearbitUrl = `https://logo.clearbit.com/${domain}`;
-    const res = await fetch(clearbitUrl, { method: 'HEAD', signal: AbortSignal.timeout(4000) });
-    if (res.ok) return clearbitUrl;
-
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=256`;
+    // Clearbit returns a proper logo or a 404 — no HEAD check needed,
+    // the frontend handles broken images with onError.
+    return `https://logo.clearbit.com/${domain}`;
   } catch {
     return null;
   }
@@ -94,15 +92,20 @@ router.post('/stations', async (req, res) => {
     const userId = await getUserId(req);
     if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
 
-    const { name, url } = req.body as { name?: string; url?: string };
+    const { name, url, logoUrl: customLogo } = req.body as {
+      name?: string;
+      url?: string;
+      logoUrl?: string;
+    };
     if (!name?.trim() || !url?.trim()) {
       res.status(400).json({ error: 'name and url are required' });
       return;
     }
 
-    // Resolve M3U/PLS playlist to actual stream URL, then fetch logo
+    // Resolve M3U/PLS playlist to the actual stream URL
     const resolvedUrl = await resolveStreamUrl(url.trim());
-    const logoUrl = await resolveStationLogo(resolvedUrl);
+    // Use custom logo if provided, otherwise auto-resolve from domain
+    const logoUrl = customLogo?.trim() || resolveStationLogo(resolvedUrl);
 
     const station = await prisma.radioStation.create({
       data: { userId, name: name.trim(), url: resolvedUrl, logoUrl },

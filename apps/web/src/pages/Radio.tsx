@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Radio as RadioIcon, Play, Signal, Plus, Trash2, Loader2 } from 'lucide-react';
+import { Radio as RadioIcon, Play, Signal, Plus, Trash2, Loader2, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/Modal';
 import { usePlayerStore, type RadioStation } from '@/stores/playerStore';
@@ -21,7 +21,7 @@ async function fetchStations(): Promise<SavedStation[]> {
   return res.json();
 }
 
-async function createStation(data: { name: string; url: string }): Promise<SavedStation> {
+async function createStation(data: { name: string; url: string; logoUrl?: string }): Promise<SavedStation> {
   const res = await fetch(`${API}/radio/stations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -42,6 +42,7 @@ export function Radio() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const { data: stations = [], isLoading } = useQuery({
@@ -56,6 +57,7 @@ export function Radio() {
       setShowAddModal(false);
       setName('');
       setUrl('');
+      setLogoUrl('');
     },
   });
 
@@ -77,7 +79,18 @@ export function Radio() {
 
   const handleAdd = () => {
     if (!name.trim() || !url.trim()) return;
-    addMutation.mutate({ name: name.trim(), url: url.trim() });
+    addMutation.mutate({
+      name: name.trim(),
+      url: url.trim(),
+      logoUrl: logoUrl.trim() || undefined,
+    });
+  };
+
+  const handleCloseModal = () => {
+    setShowAddModal(false);
+    setName('');
+    setUrl('');
+    setLogoUrl('');
   };
 
   return (
@@ -201,64 +214,99 @@ export function Radio() {
       <Modal
         title="Sender hinzufügen"
         isOpen={showAddModal}
-        onClose={() => { setShowAddModal(false); setName(''); setUrl(''); }}
-        maxWidth="max-w-md"
+        onClose={handleCloseModal}
+        maxWidth="max-w-lg"
       >
-        <div className="space-y-5">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-300">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="z.B. FFH"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-500 focus:outline-none focus:border-pink-500/50 focus:bg-white/8 transition-colors"
-              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-300">Stream-URL</label>
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="z.B. http://mp3.ffh.de/radioffh/hqlivestream.mp3"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-500 focus:outline-none focus:border-pink-500/50 focus:bg-white/8 transition-colors"
-              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-            />
-            <p className="text-xs text-zinc-500">MP3/AAC-Streams oder M3U/PLS-Playlists</p>
-          </div>
-
-          {addMutation.isError && (
-            <p className="text-sm text-red-400">Fehler beim Hinzufügen. Bitte URL prüfen.</p>
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <Button
-              variant="ghost"
-              className="flex-1 rounded-xl border border-white/10 hover:bg-white/5"
-              onClick={() => { setShowAddModal(false); setName(''); setUrl(''); }}
-            >
-              Abbrechen
-            </Button>
-            <Button
-              className="flex-1 bg-pink-500 hover:bg-pink-400 text-white rounded-xl gap-2"
-              onClick={handleAdd}
-              disabled={!name.trim() || !url.trim() || addMutation.isPending}
-            >
-              {addMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Logo wird geladen…
-                </>
+        <div className="flex gap-6">
+          {/* Logo Preview */}
+          <div className="shrink-0">
+            <div className="w-28 h-28 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt="Logo-Vorschau"
+                  className="w-full h-full object-contain p-2"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
               ) : (
-                <>
-                  <Plus className="h-4 w-4" />
-                  Hinzufügen
-                </>
+                <span className="text-4xl">📻</span>
               )}
-            </Button>
+            </div>
+            <p className="text-[10px] text-zinc-500 text-center mt-2">Vorschau</p>
           </div>
+
+          {/* Fields */}
+          <div className="flex-1 space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-zinc-300">Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="z.B. FFH"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-zinc-500 focus:outline-none focus:border-pink-500/50 transition-colors"
+                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-zinc-300">Stream-URL</label>
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="http://mp3.ffh.de/radioffh/hqlivestream.mp3"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-zinc-500 focus:outline-none focus:border-pink-500/50 transition-colors"
+                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              />
+              <p className="text-[11px] text-zinc-500">MP3/AAC-Stream, M3U oder PLS</p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-zinc-300 flex items-center gap-1.5">
+                <ImageIcon className="h-3.5 w-3.5" />
+                Logo-URL
+                <span className="text-zinc-500 font-normal">(optional)</span>
+              </label>
+              <input
+                type="url"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="https://beispiel.de/logo.png"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-zinc-500 focus:outline-none focus:border-pink-500/50 transition-colors"
+              />
+              <p className="text-[11px] text-zinc-500">Leer lassen → Logo wird automatisch gesucht</p>
+            </div>
+          </div>
+        </div>
+
+        {addMutation.isError && (
+          <p className="text-sm text-red-400 mt-4">Fehler beim Hinzufügen. Bitte URL prüfen.</p>
+        )}
+
+        <div className="flex gap-3 mt-6">
+          <Button
+            variant="ghost"
+            className="flex-1 rounded-xl border border-white/10 hover:bg-white/5"
+            onClick={handleCloseModal}
+          >
+            Abbrechen
+          </Button>
+          <Button
+            className="flex-1 bg-pink-500 hover:bg-pink-400 text-white rounded-xl gap-2"
+            onClick={handleAdd}
+            disabled={!name.trim() || !url.trim() || addMutation.isPending}
+          >
+            {addMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Wird hinzugefügt…
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" />
+                Hinzufügen
+              </>
+            )}
+          </Button>
         </div>
       </Modal>
     </div>
