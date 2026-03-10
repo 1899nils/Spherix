@@ -248,6 +248,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       fetch('/api/radio/stop', { method: 'POST', credentials: 'include' }).catch(() => {});
     };
 
+    // Start server-side ICY polling immediately — before the stream buffers —
+    // so metadata is ready the moment onplay fires and the SSE connection opens.
+    fetch('/api/radio/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stationUrl: station.url, stationName: station.name }),
+      credentials: 'include',
+    }).catch(() => {});
+
     const howl = new Howl({
       src: [station.url],
       html5: true,
@@ -255,9 +264,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       volume: state.isMuted ? 0 : state.volume,
       onplay: () => {
         set({ isPlaying: true, duration: 0, seek: 0 });
-        // Both calls must live here so they are always paired:
-        // if a transient onstop fires during buffering and kills the poller,
-        // the next onplay will restart everything cleanly.
+        // Re-start poller in case a transient onstop fired during buffering and
+        // killed it. The SSE connection opened here immediately receives the
+        // current track that was already fetched during buffering above.
         fetch('/api/radio/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
