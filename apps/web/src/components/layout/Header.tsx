@@ -7,7 +7,7 @@ export function Header() {
   const navigate = useNavigate();
 
   return (
-    <header className="h-16 flex items-center justify-between px-8 bg-background/50 backdrop-blur-md sticky top-0 z-40 border-b border-white/5">
+    <header className="h-16 flex items-center justify-between px-8 bg-background/50 backdrop-blur-md sticky top-0 z-40">
       {/* Left: Empty for balance or could have breadcrumbs */}
       <div className="w-1/4"></div>
 

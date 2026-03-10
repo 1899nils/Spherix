@@ -27,7 +27,7 @@ export function MainLayout() {
 
         {/* Scrollable Content */}
         <ScrollArea className="flex-1">
-          <main className="p-6 pb-32">
+          <main className="p-6 pb-32 bg-[#121212]">
             <ErrorBoundary>
               <Outlet />
             </ErrorBoundary>
