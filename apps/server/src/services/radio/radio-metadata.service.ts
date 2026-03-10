@@ -75,7 +75,7 @@ async function fetchIcyTitle(streamUrl: string): Promise<string | null> {
         const raw = new TextDecoder()
           .decode(buffer.subarray(metaInt + 1, metaInt + 1 + metaLength))
           .replace(/\0/g, '');
-        const match = raw.match(/StreamTitle='([^']*)'/);
+        const match = raw.match(/StreamTitle='(.*?)(?:';|'$)/s);
         return match ? match[1].trim() : null;
       }
     } finally {
