@@ -253,19 +253,22 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       volume: state.isMuted ? 0 : state.volume,
       onplay: () => {
         set({ isPlaying: true, duration: 0, seek: 0 });
-        // Start server-side ICY metadata polling for Last.fm scrobbling
-        fetch('/api/radio/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stationUrl: station.url, stationName: station.name }),
-          credentials: 'include',
-        }).catch(() => {});
         startRadioTrackPolling();
       },
       onpause: () => stopRadioPolling(),
       onstop: () => stopRadioPolling(),
       onend: () => stopRadioPolling(),
     });
+
+    // Start ICY metadata polling immediately — don't wait for onplay.
+    // This way the server is already fetching metadata while Howler is buffering,
+    // so the song name appears as soon as audio starts instead of 5-8 seconds later.
+    fetch('/api/radio/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stationUrl: station.url, stationName: station.name }),
+      credentials: 'include',
+    }).catch(() => {});
 
     set({
       currentTrack: station,
