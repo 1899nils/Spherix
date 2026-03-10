@@ -6,7 +6,7 @@ import { usePlayerStore } from '@/stores/playerStore';
 import type { TrackWithRelations } from '@musicserver/shared';
 import {
   Play, Pause, Music, Radio as RadioIcon, ListMusic, Disc3,
-  ChevronRight, Shuffle, User2, Loader2,
+  ChevronRight, Shuffle, User2, Loader2, Headphones,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -53,6 +53,19 @@ interface NewAlbum {
   year: number | null;
 }
 
+interface NewPodcastEpisode {
+  episodeId: string;
+  episodeTitle: string;
+  episodeDescription: string | null;
+  audioUrl: string;
+  episodeImageUrl: string | null;
+  duration: number | null;
+  publishedAt: string | null;
+  podcastId: string;
+  podcastTitle: string;
+  podcastImageUrl: string | null;
+}
+
 interface DiscoverSummary {
   username: string;
   recentlyPlayed: RecentItem[];
@@ -60,6 +73,7 @@ interface DiscoverSummary {
   autoPlaylists: AutoPlaylist[];
   forYouPlaylists: PlaylistItem[];
   newAdditions: NewAlbum[];
+  newPodcastEpisodes: NewPodcastEpisode[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -72,32 +86,6 @@ function greeting() {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-
-function CoverImage({
-  src, alt, size = 'md', icon: Icon = Music, rounded = false,
-}: {
-  src: string | null; alt: string; size?: 'sm' | 'md' | 'lg';
-  icon?: React.ElementType; rounded?: boolean;
-}) {
-  const [error, setError] = useState(false);
-  const dim = size === 'sm' ? 'h-12 w-12' : size === 'md' ? 'h-full w-full' : 'h-full w-full';
-  const iconDim = size === 'sm' ? 'h-5 w-5' : 'h-10 w-10';
-
-  if (src && !error) {
-    return (
-      <img
-        src={src} alt={alt}
-        className={`${dim} object-cover ${rounded ? 'rounded-full' : ''}`}
-        onError={() => setError(true)}
-      />
-    );
-  }
-  return (
-    <div className={`${dim} flex items-center justify-center bg-[#2a2a2a] ${rounded ? 'rounded-full' : ''}`}>
-      <Icon className={`${iconDim} text-[#b3b3b3]`} />
-    </div>
-  );
-}
 
 /** Horizontal scroll section with optional "all" link */
 function Section({
@@ -253,10 +241,57 @@ function RecentCard({
   );
 }
 
+/** Podcast episode card for the new-episodes row */
+function PodcastEpisodeCard({
+  episode, onPlay, isPlaying,
+}: {
+  episode: NewPodcastEpisode; onPlay: () => void; isPlaying: boolean;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const coverSrc = episode.episodeImageUrl ?? episode.podcastImageUrl;
+
+  const pub = episode.publishedAt
+    ? new Date(episode.publishedAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })
+    : null;
+
+  return (
+    <div className="group relative shrink-0 w-44 snap-start cursor-pointer" onClick={onPlay}>
+      {/* Cover */}
+      <div className="relative w-44 h-44 rounded-lg overflow-hidden mb-3 shadow-lg bg-[#2a2a2a]">
+        {coverSrc && !imgError ? (
+          <img src={coverSrc} alt={episode.episodeTitle} className="w-full h-full object-cover" onError={() => setImgError(true)} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Headphones className="h-14 w-14 text-[#b3b3b3]" />
+          </div>
+        )}
+        {/* Play overlay */}
+        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-3">
+          <button className="h-12 w-12 rounded-full bg-[#dc2626] hover:bg-[#b91c1c] hover:scale-105 transition-all flex items-center justify-center shadow-xl">
+            {isPlaying
+              ? <Pause className="h-5 w-5 text-white fill-white" />
+              : <Play className="h-5 w-5 text-white fill-white ml-0.5" />}
+          </button>
+        </div>
+        {/* "Neu" badge */}
+        <div className="absolute top-2 left-2 bg-[#dc2626] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+          NEU
+        </div>
+      </div>
+
+      <p className={`text-sm font-semibold truncate leading-snug ${isPlaying ? 'text-[#dc2626]' : 'text-white'}`}>
+        {episode.episodeTitle}
+      </p>
+      <p className="text-[#b3b3b3] text-xs truncate mt-0.5">{episode.podcastTitle}</p>
+      {pub && <p className="text-[#5a5a5a] text-xs mt-0.5">{pub}</p>}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function Browse() {
-  const { playTrack, playStream, currentTrack, isPlaying, togglePlay } = usePlayerStore();
+  const { playTrack, playStream, playPodcastEpisode, currentTrack, isPlaying, togglePlay } = usePlayerStore();
   const [loadingMix, setLoadingMix] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -322,6 +357,23 @@ export function Browse() {
     return mix.trackIds.includes(currentTrack.id);
   };
 
+  const handlePlayPodcastEpisode = (ep: NewPodcastEpisode) => {
+    const isPodcastCurrent = currentTrack && 'isPodcast' in currentTrack && currentTrack.id === ep.episodeId;
+    if (isPodcastCurrent && isPlaying) { togglePlay(); return; }
+    playPodcastEpisode({
+      id: ep.episodeId,
+      title: ep.episodeTitle,
+      audioUrl: ep.audioUrl,
+      imageUrl: ep.episodeImageUrl ?? ep.podcastImageUrl,
+      podcastTitle: ep.podcastTitle,
+      duration: ep.duration,
+      isPodcast: true,
+    });
+  };
+
+  const isPodcastEpisodePlaying = (ep: NewPodcastEpisode) =>
+    !!(currentTrack && 'isPodcast' in currentTrack && currentTrack.id === ep.episodeId && isPlaying);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -368,9 +420,6 @@ export function Browse() {
                 subtitle={`${pl.trackCount} ${pl.trackCount === 1 ? 'Song' : 'Songs'}`}
                 coverUrl={pl.coverUrl}
                 icon={ListMusic}
-                playable
-                isPlaying={currentTrack && 'id' in currentTrack &&
-                  isPlaying && false /* handled elsewhere */}
               />
             </Link>
           ))}
@@ -420,6 +469,20 @@ export function Browse() {
                 playable={false}
               />
             </Link>
+          ))}
+        </Section>
+      )}
+
+      {/* ── Neue Podcast-Folgen ─────────────────────────────────────────────── */}
+      {summary && summary.newPodcastEpisodes.length > 0 && (
+        <Section title="Neue Podcast-Folgen" href="/music/podcasts">
+          {summary.newPodcastEpisodes.map((ep) => (
+            <PodcastEpisodeCard
+              key={ep.episodeId}
+              episode={ep}
+              onPlay={() => handlePlayPodcastEpisode(ep)}
+              isPlaying={isPodcastEpisodePlaying(ep)}
+            />
           ))}
         </Section>
       )}
