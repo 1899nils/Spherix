@@ -116,6 +116,51 @@ router.post('/stations', async (req, res) => {
   }
 });
 
+/** Update a radio station (name, url, logoUrl) */
+router.patch('/stations/:id', async (req, res) => {
+  try {
+    const userId = await getUserId(req);
+    if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+
+    const { name, url, logoUrl } = req.body as {
+      name?: string;
+      url?: string;
+      logoUrl?: string | null;
+    };
+
+    const data: Record<string, string | null> = {};
+    if (name?.trim()) data.name = name.trim();
+    if (url?.trim()) {
+      data.url = await resolveStreamUrl(url.trim());
+      // If no explicit logo given, re-resolve from new URL
+      if (logoUrl === undefined) {
+        data.logoUrl = resolveStationLogo(data.url);
+      }
+    }
+    if (logoUrl !== undefined) {
+      // null = clear logo, '' = clear logo, string = set logo
+      data.logoUrl = logoUrl?.trim() || resolveStationLogo(
+        (data.url as string | undefined) ?? url?.trim() ?? ''
+      ) ?? null;
+    }
+
+    const station = await prisma.radioStation.updateMany({
+      where: { id: req.params.id, userId },
+      data,
+    });
+
+    if (station.count === 0) {
+      res.status(404).json({ error: 'Station not found' });
+      return;
+    }
+
+    const updated = await prisma.radioStation.findUnique({ where: { id: req.params.id } });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
 /** Delete a radio station */
 router.delete('/stations/:id', async (req, res) => {
   try {
