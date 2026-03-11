@@ -6,11 +6,10 @@ import { formatDuration } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import { MusicBrainzLinkModal } from '@/components/MusicBrainzLinkModal';
-import { MusicVideoIndicator } from '@/components/MusicVideoIndicator';
 import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations, Playlist } from '@musicserver/shared';
 import { 
   Play, Pause, Disc3, Pencil, ExternalLink, Heart, Clock,
-  Shuffle, MoreHorizontal, Plus, X, Video, Link2
+  Shuffle, MoreHorizontal, Plus, X, Video, Link2, SkipBack, SkipForward
 } from 'lucide-react';
 
 // Extract dominant color — weighted towards saturated, mid-tone pixels for a vibrant result
@@ -201,6 +200,8 @@ export function AlbumDetail() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
   const [videoTrackId, setVideoTrackId] = useState<string | null>(null);
+  const [videoQueue, setVideoQueue] = useState<TrackWithRelations[]>([]);
+  const [videoQueueIndex, setVideoQueueIndex] = useState(0);
   const [mvSearchOpen, setMvSearchOpen] = useState(false);
   const [mvSearchResults, setMvSearchResults] = useState<{
     total: number;
@@ -272,14 +273,56 @@ export function AlbumDetail() {
 
   const {
     playTrack,
-    currentTrack, 
-    isPlaying, 
-    togglePlay, 
-    isShuffled, 
-    toggleShuffle 
+    currentTrack,
+    isPlaying,
+    togglePlay,
+    isShuffled,
+    toggleShuffle,
+    queue: playerQueue,
+    pause: pauseAudio,
   } = usePlayerStore();
 
   const album = data?.data;
+
+  // Build and open the video queue starting at a specific track
+  const openVideoQueue = (clickedTrackId: string, albumTracks: TrackWithRelations[]) => {
+    const albumTrackIds = new Set(albumTracks.map(t => t.id));
+    const queueAlbumTracks = playerQueue.filter(
+      (t): t is TrackWithRelations => 'id' in t && albumTrackIds.has(t.id)
+    );
+    const orderedTracks = queueAlbumTracks.length > 0 ? queueAlbumTracks : albumTracks;
+    const withVideo = orderedTracks.filter(t => t.musicVideoUrl);
+    const idx = withVideo.findIndex(t => t.id === clickedTrackId);
+    setVideoQueue(withVideo);
+    setVideoQueueIndex(idx >= 0 ? idx : 0);
+    setVideoTrackId(clickedTrackId);
+    pauseAudio();
+  };
+
+  // Listen for YouTube postMessage events to auto-advance the video queue
+  useEffect(() => {
+    if (!videoTrackId) return;
+    const handleMessage = (event: MessageEvent) => {
+      if (typeof event.data !== 'string') return;
+      try {
+        const msg = JSON.parse(event.data) as { event?: string; info?: number };
+        // YouTube state 0 = ended
+        if (msg.event === 'onStateChange' && msg.info === 0) {
+          setVideoQueueIndex(prev => {
+            const next = prev + 1;
+            if (next >= videoQueue.length) {
+              setVideoTrackId(null);
+              return 0;
+            }
+            setVideoTrackId(videoQueue[next].id);
+            return next;
+          });
+        }
+      } catch { /* ignore */ }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [videoTrackId, videoQueue]);
 
   // Extract dominant color when cover loads
   useEffect(() => {
@@ -623,23 +666,12 @@ export function AlbumDetail() {
                       )}
                       {track.musicVideoUrl && (
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setVideoTrackId(track.id);
-                          }}
-                          className="flex-shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#dc2626]/20 text-[#dc2626] hover:bg-[#dc2626]/30 transition-colors"
+                          onClick={(e) => { e.stopPropagation(); openVideoQueue(track.id, tracks); }}
+                          className="flex-shrink-0 inline-flex items-center justify-center h-4 w-4 bg-[#ffffff1a] text-[#b3b3b3] hover:text-white hover:bg-[#ffffff33] rounded transition-colors"
                           title="Musikvideo abspielen"
                         >
-                          <Video className="h-3 w-3" />
-                          <span className="text-[10px] font-medium">Video</span>
+                          <Video className="h-2.5 w-2.5" />
                         </button>
-                      )}
-                      {track && (
-                        <MusicVideoIndicator
-                          track={track}
-                          onSwitchToVideo={() => setVideoTrackId(track.id)}
-                          isPlayingVideo={videoTrackId === track.id}
-                        />
                       )}
                     </div>
                     <p className="text-xs text-[#b3b3b3] truncate">
@@ -874,6 +906,115 @@ export function AlbumDetail() {
           </div>
         </div>
       )}
+
+      {/* Inline Music Video Player */}
+      {videoTrackId && (() => {
+        const vTrack = videoQueue[videoQueueIndex] ?? tracks.find((t: TrackWithRelations) => t.id === videoTrackId);
+        if (!vTrack?.musicVideoUrl) return null;
+
+        const ytMatch = vTrack.musicVideoUrl.match(
+          /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
+        );
+        const embedUrl = ytMatch
+          ? `https://www.youtube-nocookie.com/embed/${ytMatch[1]}?autoplay=1&rel=0&enablejsapi=1`
+          : null;
+
+        const hasPrev = videoQueueIndex > 0;
+        const hasNext = videoQueueIndex < videoQueue.length - 1;
+
+        const goPrev = () => {
+          const idx = videoQueueIndex - 1;
+          setVideoQueueIndex(idx);
+          setVideoTrackId(videoQueue[idx].id);
+        };
+        const goNext = () => {
+          const idx = videoQueueIndex + 1;
+          setVideoQueueIndex(idx);
+          setVideoTrackId(videoQueue[idx].id);
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div className="relative w-full max-w-3xl mx-4">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  {/* Prev / Next */}
+                  <button
+                    onClick={goPrev}
+                    disabled={!hasPrev}
+                    className="flex-shrink-0 flex items-center justify-center h-8 w-8 bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded transition-colors"
+                    title="Vorheriges Video"
+                  >
+                    <SkipBack className="h-4 w-4" />
+                  </button>
+                  <div className="min-w-0">
+                    <p className="text-white font-medium truncate">{vTrack.title}</p>
+                    <p className="text-[#b3b3b3] text-xs truncate">
+                      {vTrack.artist?.name}
+                      {videoQueue.length > 1 && (
+                        <span className="ml-2 text-[#666]">{videoQueueIndex + 1} / {videoQueue.length}</span>
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    onClick={goNext}
+                    disabled={!hasNext}
+                    className="flex-shrink-0 flex items-center justify-center h-8 w-8 bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded transition-colors"
+                    title="Nächstes Video"
+                  >
+                    <SkipForward className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                  <a
+                    href={vTrack.musicVideoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded text-sm transition-colors"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Extern
+                  </a>
+                  <button
+                    onClick={() => setVideoTrackId(null)}
+                    className="flex items-center justify-center h-8 w-8 bg-white/10 hover:bg-white/20 text-white rounded transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Video */}
+              <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ paddingTop: '56.25%' }}>
+                {embedUrl ? (
+                  <iframe
+                    key={vTrack.id}
+                    className="absolute inset-0 w-full h-full"
+                    src={embedUrl}
+                    title={vTrack.title ?? 'Musikvideo'}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-[#b3b3b3]">
+                    <Video className="h-8 w-8" />
+                    <p className="text-sm">Kein einbettbares Format erkannt.</p>
+                    <a
+                      href={vTrack.musicVideoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-red-400 hover:text-red-300 underline"
+                    >
+                      Im Browser öffnen
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
