@@ -7,9 +7,9 @@ import { usePlayerStore } from '@/stores/playerStore';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import { MusicBrainzLinkModal } from '@/components/MusicBrainzLinkModal';
 import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations, Playlist } from '@musicserver/shared';
-import { 
+import {
   Play, Pause, Disc3, Pencil, ExternalLink, Heart, Clock,
-  Shuffle, MoreHorizontal, Plus, X, Video, Link2, SkipBack, SkipForward
+  Shuffle, MoreHorizontal, Plus, X, Video, Link2, SkipBack, SkipForward, Download, Loader2
 } from 'lucide-react';
 
 // Extract dominant color — weighted towards saturated, mid-tone pixels for a vibrant result
@@ -202,6 +202,7 @@ export function AlbumDetail() {
   const [videoTrackId, setVideoTrackId] = useState<string | null>(null);
   const [videoQueue, setVideoQueue] = useState<TrackWithRelations[]>([]);
   const [videoQueueIndex, setVideoQueueIndex] = useState(0);
+  const [downloadingVideoIds, setDownloadingVideoIds] = useState<Set<string>>(new Set());
   const [mvSearchOpen, setMvSearchOpen] = useState(false);
   const [mvSearchResults, setMvSearchResults] = useState<{
     total: number;
@@ -268,6 +269,31 @@ export function AlbumDetail() {
       setMvManualInputTrackId(null);
       setMvManualUrl('');
       queryClient.invalidateQueries({ queryKey: ['album', id] });
+    },
+  });
+
+  const downloadVideoMutation = useMutation({
+    mutationFn: (trackId: string) => api.post(`/tracks/${trackId}/musicvideo/download`, {}),
+    onMutate: (trackId) => {
+      setDownloadingVideoIds(prev => new Set(prev).add(trackId));
+    },
+    onSettled: (_data, _err, trackId) => {
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts++;
+        try {
+          const res = await api.get<{ data: { source: string } }>(`/tracks/${trackId}/musicvideo/status`);
+          if (res.data.source !== 'downloading') {
+            clearInterval(interval);
+            setDownloadingVideoIds(prev => { const s = new Set(prev); s.delete(trackId); return s; });
+            queryClient.invalidateQueries({ queryKey: ['album', id] });
+          }
+        } catch { /* ignore */ }
+        if (attempts >= 120) {
+          clearInterval(interval);
+          setDownloadingVideoIds(prev => { const s = new Set(prev); s.delete(trackId); return s; });
+        }
+      }, 5000);
     },
   });
 
@@ -907,31 +933,18 @@ export function AlbumDetail() {
         </div>
       )}
 
-      {/* Inline Music Video Player */}
+      {/* Music Video Player */}
       {videoTrackId && (() => {
         const vTrack = videoQueue[videoQueueIndex] ?? tracks.find((t: TrackWithRelations) => t.id === videoTrackId);
-        if (!vTrack?.musicVideoUrl) return null;
+        if (!vTrack) return null;
 
-        const ytMatch = vTrack.musicVideoUrl.match(
-          /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
-        );
-        const embedUrl = ytMatch
-          ? `https://www.youtube-nocookie.com/embed/${ytMatch[1]}?autoplay=1&rel=0&enablejsapi=1`
-          : null;
-
+        const isLocal = vTrack.musicVideoSource === 'local';
+        const isDownloading = downloadingVideoIds.has(vTrack.id) || vTrack.musicVideoSource === 'downloading';
         const hasPrev = videoQueueIndex > 0;
         const hasNext = videoQueueIndex < videoQueue.length - 1;
 
-        const goPrev = () => {
-          const idx = videoQueueIndex - 1;
-          setVideoQueueIndex(idx);
-          setVideoTrackId(videoQueue[idx].id);
-        };
-        const goNext = () => {
-          const idx = videoQueueIndex + 1;
-          setVideoQueueIndex(idx);
-          setVideoTrackId(videoQueue[idx].id);
-        };
+        const goPrev = () => { const idx = videoQueueIndex - 1; setVideoQueueIndex(idx); setVideoTrackId(videoQueue[idx].id); };
+        const goNext = () => { const idx = videoQueueIndex + 1; setVideoQueueIndex(idx); setVideoTrackId(videoQueue[idx].id); };
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -939,75 +952,48 @@ export function AlbumDetail() {
               {/* Header */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  {/* Prev / Next */}
-                  <button
-                    onClick={goPrev}
-                    disabled={!hasPrev}
-                    className="flex-shrink-0 flex items-center justify-center h-8 w-8 bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded transition-colors"
-                    title="Vorheriges Video"
-                  >
+                  <button onClick={goPrev} disabled={!hasPrev} className="flex-shrink-0 flex items-center justify-center h-8 w-8 bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded transition-colors">
                     <SkipBack className="h-4 w-4" />
                   </button>
                   <div className="min-w-0">
                     <p className="text-white font-medium truncate">{vTrack.title}</p>
                     <p className="text-[#b3b3b3] text-xs truncate">
                       {vTrack.artist?.name}
-                      {videoQueue.length > 1 && (
-                        <span className="ml-2 text-[#666]">{videoQueueIndex + 1} / {videoQueue.length}</span>
-                      )}
+                      {videoQueue.length > 1 && <span className="ml-2 text-[#666]">{videoQueueIndex + 1} / {videoQueue.length}</span>}
                     </p>
                   </div>
-                  <button
-                    onClick={goNext}
-                    disabled={!hasNext}
-                    className="flex-shrink-0 flex items-center justify-center h-8 w-8 bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded transition-colors"
-                    title="Nächstes Video"
-                  >
+                  <button onClick={goNext} disabled={!hasNext} className="flex-shrink-0 flex items-center justify-center h-8 w-8 bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded transition-colors">
                     <SkipForward className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                  <a
-                    href={vTrack.musicVideoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded text-sm transition-colors"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Extern
-                  </a>
-                  <button
-                    onClick={() => setVideoTrackId(null)}
-                    className="flex items-center justify-center h-8 w-8 bg-white/10 hover:bg-white/20 text-white rounded transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
+                <button onClick={() => setVideoTrackId(null)} className="ml-4 flex items-center justify-center h-8 w-8 bg-white/10 hover:bg-white/20 text-white rounded transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
               </div>
 
-              {/* Video */}
-              <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ paddingTop: '56.25%' }}>
-                {embedUrl ? (
-                  <iframe
+              {/* Player area */}
+              <div className="relative w-full bg-[#181818] rounded-lg overflow-hidden" style={{ paddingTop: '56.25%' }}>
+                {isLocal ? (
+                  <video
                     key={vTrack.id}
                     className="absolute inset-0 w-full h-full"
-                    src={embedUrl}
-                    title={vTrack.title ?? 'Musikvideo'}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
+                    src={`/api/tracks/${vTrack.id}/musicvideo/stream`}
+                    controls
+                    autoPlay
                   />
                 ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-[#b3b3b3]">
-                    <Video className="h-8 w-8" />
-                    <p className="text-sm">Kein einbettbares Format erkannt.</p>
-                    <a
-                      href={vTrack.musicVideoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-red-400 hover:text-red-300 underline"
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-[#b3b3b3]">
+                    <Video className="h-10 w-10 opacity-40" />
+                    <p className="text-sm">Video noch nicht heruntergeladen</p>
+                    <button
+                      onClick={() => { downloadVideoMutation.mutate(vTrack.id); }}
+                      disabled={isDownloading}
+                      className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-full text-sm font-semibold hover:bg-[#ddd] disabled:opacity-60 transition-colors"
                     >
-                      Im Browser öffnen
-                    </a>
+                      {isDownloading
+                        ? <><Loader2 className="h-4 w-4 animate-spin" /> Wird heruntergeladen...</>
+                        : <><Download className="h-4 w-4" /> Herunterladen</>}
+                    </button>
                   </div>
                 )}
               </div>
