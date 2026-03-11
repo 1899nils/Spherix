@@ -82,16 +82,22 @@ export async function getQuotaStatus(): Promise<{ used: number; limit: number; r
  * Get YouTube API key from user settings
  */
 export async function getYouTubeApiKey(userId?: string): Promise<string | undefined> {
-  if (!userId) {
-    return process.env.YOUTUBE_API_KEY;
+  if (userId) {
+    const settings = await prisma.userSettings.findUnique({
+      where: { userId },
+      select: { youtubeApiKey: true },
+    });
+    if (settings?.youtubeApiKey) return settings.youtubeApiKey;
   }
 
-  const settings = await prisma.userSettings.findUnique({
-    where: { userId },
+  if (process.env.YOUTUBE_API_KEY) return process.env.YOUTUBE_API_KEY;
+
+  // Fallback: use any stored key in the database (single-user setups without sessions)
+  const anySettings = await prisma.userSettings.findFirst({
+    where: { youtubeApiKey: { not: null } },
     select: { youtubeApiKey: true },
   });
-
-  return settings?.youtubeApiKey || process.env.YOUTUBE_API_KEY;
+  return anySettings?.youtubeApiKey ?? undefined;
 }
 
 /**
