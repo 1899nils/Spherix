@@ -57,10 +57,10 @@ export function App() {
         <Routes>
           <Route element={<MainLayout />}>
             {/* Root redirect */}
-            <Route path="/" element={<Navigate to="/music" replace />} />
+            <Route path="/" element={<Navigate to="/music/browse" replace />} />
 
             {/* ── Music ─────────────────────────────────────────── */}
-            <Route path="/music" element={<Home />} />
+            <Route path="/music" element={<Navigate to="/music/browse" replace />} />
             <Route path="/music/browse" element={<Browse />} />
             <Route path="/music/radio" element={<Radio />} />
             <Route path="/music/recently-added" element={<RecentlyAdded />} />

@@ -446,16 +446,17 @@ model Podcast {
 }
 
 model PodcastEpisode {
-  id          String    @id @default(uuid())
-  podcastId   String    @map("podcast_id")
-  guid        String
-  title       String
-  description String?
-  audioUrl    String    @map("audio_url")
-  imageUrl    String?   @map("image_url")
-  duration    Int?
-  fileSize    BigInt?   @map("file_size")
-  publishedAt DateTime? @map("published_at")
+  id             String    @id @default(uuid())
+  podcastId      String    @map("podcast_id")
+  guid           String
+  title          String
+  description    String?
+  audioUrl       String    @map("audio_url")
+  imageUrl       String?   @map("image_url")
+  duration       Int?
+  fileSize       BigInt?   @map("file_size")
+  publishedAt    DateTime? @map("published_at")
+  listenProgress Int?      @map("listen_progress")
 
   podcast Podcast @relation(fields: [podcastId], references: [id], onDelete: Cascade)
 

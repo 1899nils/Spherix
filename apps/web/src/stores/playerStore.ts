@@ -19,6 +19,7 @@ export interface PodcastEpisodePlayerItem {
   imageUrl?: string | null;
   podcastTitle: string;
   duration?: number | null;
+  listenProgress?: number | null;
   isPodcast: true;
 }
 
@@ -304,26 +305,56 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     stopRadioTrackPolling(state);
     set({ currentRadioTrack: null, _radioEventSource: null });
 
+    const resumeAt = episode.listenProgress ?? 0;
+    let seekApplied = false;
+    let lastSavedPosition = -1;
+
+    const saveProgress = (position: number) => {
+      const rounded = Math.floor(position);
+      if (Math.abs(rounded - lastSavedPosition) < 5) return; // save at most every 5s change
+      lastSavedPosition = rounded;
+      fetch(`/api/podcasts/episodes/${episode.id}/progress`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ position: rounded }),
+      }).catch(() => {});
+    };
+
     const howl = new Howl({
       src: [episode.audioUrl],
       html5: true,
       format: ['mp3', 'm4a', 'ogg', 'aac'],
       volume: state.isMuted ? 0 : state.volume,
       onplay: () => {
+        if (!seekApplied && resumeAt > 0) {
+          seekApplied = true;
+          howl.seek(resumeAt);
+        }
         const { _seekInterval: stale } = get();
         if (stale) clearInterval(stale);
         set({ isPlaying: true, duration: howl.duration(), hasScrobbled: false });
         const interval = setInterval(() => {
           if (howl.playing()) {
-            set({ seek: howl.seek() as number });
+            const pos = howl.seek() as number;
+            set({ seek: pos });
+            saveProgress(pos);
           }
         }, 1000);
         set({ _seekInterval: interval });
       },
-      onpause: () => set({ isPlaying: false }),
+      onpause: () => {
+        saveProgress(howl.seek() as number);
+        set({ isPlaying: false });
+      },
       onstop: () => set({ isPlaying: false }),
       onend: () => {
         stopSeekUpdates(get());
+        // Mark episode as fully listened (reset progress)
+        fetch(`/api/podcasts/episodes/${episode.id}/progress`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ position: 0 }),
+        }).catch(() => {});
         set({ isPlaying: false, seek: 0 });
       },
       onload: () => set({ duration: howl.duration() }),
@@ -334,7 +365,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       queue: [episode],
       queueIndex: 0,
       _howl: howl,
-      seek: 0,
+      seek: resumeAt,
     });
 
     howl.play();

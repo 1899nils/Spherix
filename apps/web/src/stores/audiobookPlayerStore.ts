@@ -93,6 +93,18 @@ export const useAudiobookPlayerStore = create<AudiobookPlayerState>((set, get) =
 
     const { speed, volume } = state;
     let seekApplied = false;
+    let lastSavedAbsolutePosition = -1;
+
+    const saveProgress = (absolutePosition: number) => {
+      const rounded = Math.floor(absolutePosition);
+      if (Math.abs(rounded - lastSavedAbsolutePosition) < 5) return;
+      lastSavedAbsolutePosition = rounded;
+      fetch(`/api/audiobooks/${book.id}/progress`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ position: rounded }),
+      }).catch(() => {});
+    };
 
     const howl = new Howl({
       src: [src],
@@ -122,6 +134,10 @@ export const useAudiobookPlayerStore = create<AudiobookPlayerState>((set, get) =
           const chSeek = isMultiFile ? raw : raw - (chapter?.startTime ?? 0);
           set({ seek: Math.max(0, chSeek) });
 
+          // Save absolute position: for multi-file use chapter startTime offset, for single-file use raw
+          const absolutePos = isMultiFile ? (chapter?.startTime ?? 0) + chSeek : raw;
+          saveProgress(absolutePos);
+
           // Detect chapter end for single-file books
           if (!isMultiFile && chapter?.endTime != null && raw >= chapter.endTime - 0.5) {
             howl.stop();
@@ -133,6 +149,10 @@ export const useAudiobookPlayerStore = create<AudiobookPlayerState>((set, get) =
       onpause: () => {
         const { _seekInterval } = get();
         if (_seekInterval) clearInterval(_seekInterval);
+        const raw = howl.seek() as number;
+        const chSeek = isMultiFile ? raw : raw - (chapter?.startTime ?? 0);
+        const absolutePos = isMultiFile ? (chapter?.startTime ?? 0) + chSeek : raw;
+        saveProgress(absolutePos);
         set({ isPlaying: false, _seekInterval: null });
       },
       onstop: () => {
