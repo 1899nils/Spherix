@@ -299,6 +299,7 @@ export function AlbumDetail() {
         if (attempts >= 120) {
           clearInterval(interval);
           setDownloadingVideoIds(prev => { const s = new Set(prev); s.delete(trackId); return s; });
+          queryClient.invalidateQueries({ queryKey: ['album', id] });
         }
       }, 5000);
     },
