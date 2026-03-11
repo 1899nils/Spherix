@@ -272,12 +272,19 @@ export function AlbumDetail() {
     },
   });
 
+  const [videoDownloadError, setVideoDownloadError] = useState<string | null>(null);
+
   const downloadVideoMutation = useMutation({
     mutationFn: (trackId: string) => api.post(`/tracks/${trackId}/musicvideo/download`, {}),
     onMutate: (trackId) => {
+      setVideoDownloadError(null);
       setDownloadingVideoIds(prev => new Set(prev).add(trackId));
     },
-    onSettled: (_data, _err, trackId) => {
+    onError: (err: Error, trackId) => {
+      setDownloadingVideoIds(prev => { const s = new Set(prev); s.delete(trackId); return s; });
+      setVideoDownloadError(err.message);
+    },
+    onSuccess: (_data, trackId) => {
       let attempts = 0;
       const interval = setInterval(async () => {
         attempts++;
@@ -986,7 +993,7 @@ export function AlbumDetail() {
                     <Video className="h-10 w-10 opacity-40" />
                     <p className="text-sm">Video noch nicht heruntergeladen</p>
                     <button
-                      onClick={() => { downloadVideoMutation.mutate(vTrack.id); }}
+                      onClick={() => { setVideoDownloadError(null); downloadVideoMutation.mutate(vTrack.id); }}
                       disabled={isDownloading}
                       className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-full text-sm font-semibold hover:bg-[#ddd] disabled:opacity-60 transition-colors"
                     >
@@ -994,6 +1001,9 @@ export function AlbumDetail() {
                         ? <><Loader2 className="h-4 w-4 animate-spin" /> Wird heruntergeladen...</>
                         : <><Download className="h-4 w-4" /> Herunterladen</>}
                     </button>
+                    {videoDownloadError && (
+                      <p className="text-xs text-red-400 max-w-xs text-center">{videoDownloadError}</p>
+                    )}
                   </div>
                 )}
               </div>

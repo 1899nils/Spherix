@@ -81,11 +81,13 @@ function MusicVideoCard({
   onPlay,
   onDownload,
   isDownloading,
+  error,
 }: {
   track: TrackWithRelations;
   onPlay: () => void;
   onDownload: () => void;
   isDownloading: boolean;
+  error?: string;
 }) {
   const isLocal = track.musicVideoSource === 'local';
   const isPending = isDownloading || track.musicVideoSource === 'downloading';
@@ -143,6 +145,9 @@ function MusicVideoCard({
           <Download className="h-3 w-3" /> Herunterladen
         </button>
       )}
+      {error && (
+        <p className="mt-1 text-xs text-red-400 break-words">{error}</p>
+      )}
     </div>
   );
 }
@@ -171,14 +176,19 @@ export function ArtistDetail() {
   });
 
   const [downloadingTrackIds, setDownloadingTrackIds] = useState<Set<string>>(new Set());
+  const [videoDownloadErrors, setVideoDownloadErrors] = useState<Record<string, string>>({});
 
   const downloadVideoMutation = useMutation({
     mutationFn: (trackId: string) => api.post(`/tracks/${trackId}/musicvideo/download`, {}),
     onMutate: (trackId) => {
       setDownloadingTrackIds(prev => new Set(prev).add(trackId));
+      setVideoDownloadErrors(prev => { const e = { ...prev }; delete e[trackId]; return e; });
     },
-    onSettled: (_, __, trackId) => {
-      // Poll for completion every 5s, up to 10 minutes
+    onError: (err: Error, trackId) => {
+      setDownloadingTrackIds(prev => { const s = new Set(prev); s.delete(trackId); return s; });
+      setVideoDownloadErrors(prev => ({ ...prev, [trackId]: err.message }));
+    },
+    onSuccess: (_data, trackId) => {
       let attempts = 0;
       const interval = setInterval(async () => {
         attempts++;
@@ -405,6 +415,7 @@ export function ArtistDetail() {
                   onPlay={() => setVideoTrackId(track.id)}
                   onDownload={() => downloadVideoMutation.mutate(track.id)}
                   isDownloading={downloadingTrackIds.has(track.id)}
+                  error={videoDownloadErrors[track.id]}
                 />
               ))}
             </div>
