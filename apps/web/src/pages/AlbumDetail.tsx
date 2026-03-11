@@ -6,7 +6,6 @@ import { formatDuration } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import { MusicBrainzLinkModal } from '@/components/MusicBrainzLinkModal';
-import { MusicVideoIndicator } from '@/components/MusicVideoIndicator';
 import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations, Playlist } from '@musicserver/shared';
 import { 
   Play, Pause, Disc3, Pencil, ExternalLink, Heart, Clock,
@@ -623,23 +622,12 @@ export function AlbumDetail() {
                       )}
                       {track.musicVideoUrl && (
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setVideoTrackId(track.id);
-                          }}
-                          className="flex-shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#dc2626]/20 text-[#dc2626] hover:bg-[#dc2626]/30 transition-colors"
+                          onClick={(e) => { e.stopPropagation(); setVideoTrackId(track.id); }}
+                          className="flex-shrink-0 inline-flex items-center justify-center h-4 w-4 bg-[#ffffff1a] text-[#b3b3b3] hover:text-white hover:bg-[#ffffff33] rounded transition-colors"
                           title="Musikvideo abspielen"
                         >
-                          <Video className="h-3 w-3" />
-                          <span className="text-[10px] font-medium">Video</span>
+                          <Video className="h-2.5 w-2.5" />
                         </button>
-                      )}
-                      {track && (
-                        <MusicVideoIndicator
-                          track={track}
-                          onSwitchToVideo={() => setVideoTrackId(track.id)}
-                          isPlayingVideo={videoTrackId === track.id}
-                        />
                       )}
                     </div>
                     <p className="text-xs text-[#b3b3b3] truncate">
@@ -874,6 +862,77 @@ export function AlbumDetail() {
           </div>
         </div>
       )}
+
+      {/* Inline Music Video Player */}
+      {videoTrackId && (() => {
+        const vTrack = tracks.find((t: TrackWithRelations) => t.id === videoTrackId);
+        if (!vTrack?.musicVideoUrl) return null;
+
+        // Extract YouTube video ID from URL
+        const ytMatch = vTrack.musicVideoUrl.match(
+          /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
+        );
+        const embedUrl = ytMatch
+          ? `https://www.youtube-nocookie.com/embed/${ytMatch[1]}?autoplay=1&rel=0`
+          : null;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div className="relative w-full max-w-3xl mx-4">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="min-w-0">
+                  <p className="text-white font-medium truncate">{vTrack.title}</p>
+                  <p className="text-[#b3b3b3] text-sm truncate">{vTrack.artist?.name}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                  <a
+                    href={vTrack.musicVideoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded text-sm transition-colors"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Extern öffnen
+                  </a>
+                  <button
+                    onClick={() => setVideoTrackId(null)}
+                    className="flex items-center justify-center h-8 w-8 bg-white/10 hover:bg-white/20 text-white rounded transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Video */}
+              <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ paddingTop: '56.25%' }}>
+                {embedUrl ? (
+                  <iframe
+                    className="absolute inset-0 w-full h-full"
+                    src={embedUrl}
+                    title={vTrack.title ?? 'Musikvideo'}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-[#b3b3b3]">
+                    <Video className="h-8 w-8" />
+                    <p className="text-sm">Kein einbettbares Format erkannt.</p>
+                    <a
+                      href={vTrack.musicVideoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-red-400 hover:text-red-300 underline"
+                    >
+                      Im Browser öffnen
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
