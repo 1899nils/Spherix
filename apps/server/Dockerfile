@@ -1,6 +1,7 @@
 FROM node:20-alpine AS base
-# ffmpeg provides ffprobe — used by the video scanner for codec/resolution/duration extraction
-RUN apk add --no-cache ffmpeg
+# ffmpeg: used by video scanner (ffprobe) and by yt-dlp for merging video+audio streams
+# yt-dlp: used for downloading music videos from YouTube
+RUN apk add --no-cache ffmpeg yt-dlp
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
