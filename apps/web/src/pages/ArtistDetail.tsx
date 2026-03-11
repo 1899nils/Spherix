@@ -95,7 +95,8 @@ function MusicVideoCard({
     <div className="group flex-shrink-0 w-44 flex flex-col">
       {/* Thumbnail */}
       <button
-        onClick={onPlay}
+        onClick={isLocal ? onPlay : onDownload}
+        disabled={isPending && !isLocal}
         className="w-full rounded-md overflow-hidden bg-[#282828] mb-2 relative focus:outline-none"
         style={{ aspectRatio: '16/9' }}
       >
@@ -108,15 +109,13 @@ function MusicVideoCard({
             <Video className="h-8 w-8" />
           </div>
         )}
-        {/* Local badge */}
-        {isLocal && (
-          <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-green-600 text-white px-1.5 py-0.5 rounded">
-            Lokal
-          </span>
-        )}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
           <div className="h-10 w-10 rounded-full bg-black/60 flex items-center justify-center">
-            <Play className="h-5 w-5 text-white fill-white" />
+            {isLocal
+              ? <Play className="h-5 w-5 text-white fill-white" />
+              : isPending
+                ? <Loader2 className="h-5 w-5 text-white animate-spin" />
+                : <Download className="h-5 w-5 text-white" />}
           </div>
         </div>
       </button>
@@ -130,16 +129,18 @@ function MusicVideoCard({
       </div>
       <p className="text-xs text-[#b3b3b3] truncate mt-0.5">{track.album?.title ?? '—'}</p>
 
-      {/* Download button */}
-      {!isLocal && (
+      {/* Status */}
+      {isPending && (
+        <p className="mt-1 flex items-center gap-1 text-xs text-[#b3b3b3]">
+          <Loader2 className="h-3 w-3 animate-spin" /> Wird heruntergeladen...
+        </p>
+      )}
+      {!isLocal && !isPending && (
         <button
           onClick={onDownload}
-          disabled={isPending}
-          className="mt-1.5 flex items-center gap-1 text-xs text-[#b3b3b3] hover:text-white disabled:opacity-50 transition-colors"
+          className="mt-1 flex items-center gap-1 text-xs text-[#b3b3b3] hover:text-white transition-colors"
         >
-          {isPending
-            ? <><Loader2 className="h-3 w-3 animate-spin" /> Wird heruntergeladen...</>
-            : <><Download className="h-3 w-3" /> Herunterladen</>}
+          <Download className="h-3 w-3" /> Herunterladen
         </button>
       )}
     </div>
@@ -442,11 +443,10 @@ export function ArtistDetail() {
         )}
       </div>
 
-      {/* ── Music Video Player Overlay ───────────────────────── */}
-      {videoTrack && (
+      {/* ── Music Video Player Overlay (nur lokale Dateien) ─── */}
+      {videoTrack?.musicVideoSource === 'local' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="relative w-full max-w-3xl mx-4">
-            {/* Header */}
             <div className="flex items-center justify-between mb-3">
               <div className="min-w-0">
                 <p className="text-white font-medium truncate">{videoTrack.title}</p>
@@ -459,53 +459,15 @@ export function ArtistDetail() {
                 ✕
               </button>
             </div>
-
-            {/* Player */}
             <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ paddingTop: '56.25%' }}>
-              {videoTrack.musicVideoSource === 'local' ? (
-                // Local file → native HTML5 video
-                <video
-                  key={videoTrack.id}
-                  className="absolute inset-0 w-full h-full"
-                  src={`/api/tracks/${videoTrack.id}/musicvideo/stream`}
-                  controls
-                  autoPlay
-                />
-              ) : videoTrack.musicVideoUrl && (() => {
-                const m = videoTrack.musicVideoUrl!.match(
-                  /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
-                );
-                return m ? (
-                  <iframe
-                    key={videoTrack.id}
-                    className="absolute inset-0 w-full h-full"
-                    src={`https://www.youtube-nocookie.com/embed/${m[1]}?autoplay=1&rel=0`}
-                    title={videoTrack.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-[#b3b3b3]">
-                    <a href={videoTrack.musicVideoUrl!} target="_blank" rel="noopener noreferrer" className="text-sm underline">
-                      Im Browser öffnen
-                    </a>
-                  </div>
-                );
-              })()}
+              <video
+                key={videoTrack.id}
+                className="absolute inset-0 w-full h-full"
+                src={`/api/tracks/${videoTrack.id}/musicvideo/stream`}
+                controls
+                autoPlay
+              />
             </div>
-
-            {/* Download hint when not local */}
-            {videoTrack.musicVideoSource !== 'local' && (
-              <p className="mt-2 text-xs text-[#b3b3b3] text-center">
-                Video nicht verfügbar?{' '}
-                <button
-                  onClick={() => { downloadVideoMutation.mutate(videoTrack.id); setVideoTrackId(null); }}
-                  className="underline hover:text-white transition-colors"
-                >
-                  Lokal herunterladen
-                </button>
-              </p>
-            )}
           </div>
         </div>
       )}
