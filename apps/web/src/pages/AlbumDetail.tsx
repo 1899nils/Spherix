@@ -732,6 +732,16 @@ export function AlbumDetail() {
                   <div className="h-5 w-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
                   <span>Suche läuft...</span>
                 </div>
+              ) : mvSearchMutation.isError ? (
+                <div className="text-center py-12 space-y-3">
+                  <Video className="h-12 w-12 mx-auto opacity-50 text-red-400" />
+                  <p className="text-sm text-red-400 font-medium">Suche fehlgeschlagen</p>
+                  <p className="text-xs text-[#b3b3b3] max-w-sm mx-auto">
+                    {mvSearchMutation.error instanceof Error
+                      ? mvSearchMutation.error.message
+                      : 'Ein unbekannter Fehler ist aufgetreten.'}
+                  </p>
+                </div>
               ) : mvSearchResults ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-sm">
@@ -779,9 +789,9 @@ export function AlbumDetail() {
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-12 text-[#b3b3b3]">
-                  <Video className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Die Suche wird gestartet...</p>
+                <div className="flex items-center justify-center py-12 gap-3 text-[#b3b3b3]">
+                  <div className="h-5 w-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                  <span>Suche läuft...</span>
                 </div>
               )}
             </div>
