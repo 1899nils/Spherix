@@ -116,7 +116,7 @@ router.get('/:id', async (req, res, next) => {
     const playlists = await prisma.playlist.findMany({
       where: { tracks: { some: { track: { artistId: String(req.params.id) } } } },
       select: { id: true, name: true, coverUrl: true, _count: { select: { tracks: true } } },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { name: 'asc' },
       take: 20,
     });
 
