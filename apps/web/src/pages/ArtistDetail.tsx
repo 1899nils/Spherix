@@ -203,6 +203,7 @@ export function ArtistDetail() {
         if (attempts >= 120) {
           clearInterval(interval);
           setDownloadingTrackIds(prev => { const s = new Set(prev); s.delete(trackId); return s; });
+          queryClient.invalidateQueries({ queryKey: ['artist', id] });
         }
       }, 5000);
     },

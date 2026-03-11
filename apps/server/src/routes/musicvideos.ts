@@ -67,6 +67,14 @@ router.post('/:id/musicvideo/download', async (req, res, next) => {
     let stderr = '';
     ytdlp.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
 
+    ytdlp.on('error', async (err) => {
+      console.error(`[yt-dlp] spawn error for track ${trackId}:`, err.message);
+      await prisma.track.update({
+        where: { id: trackId },
+        data: { musicVideoSource: 'youtube', musicVideoCheckedAt: new Date() },
+      });
+    });
+
     ytdlp.on('close', async (code) => {
       if (code === 0 && fs.existsSync(outputPath)) {
         await prisma.track.update({
