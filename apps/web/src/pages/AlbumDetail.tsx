@@ -9,8 +9,8 @@ import { MusicBrainzLinkModal } from '@/components/MusicBrainzLinkModal';
 import { MusicVideoIndicator } from '@/components/MusicVideoIndicator';
 import type { AlbumDetail as AlbumDetailType, ApiResponse, TrackWithRelations, Playlist } from '@musicserver/shared';
 import { 
-  Play, Pause, Disc3, Pencil, ExternalLink, Heart, Clock, 
-  Shuffle, MoreHorizontal, Plus, X, Video
+  Play, Pause, Disc3, Pencil, ExternalLink, Heart, Clock,
+  Shuffle, MoreHorizontal, Plus, X, Video, Link2
 } from 'lucide-react';
 
 // Extract dominant color — weighted towards saturated, mid-tone pixels for a vibrant result
@@ -213,6 +213,8 @@ export function AlbumDetail() {
       source?: string;
     }>;
   } | null>(null);
+  const [mvManualInputTrackId, setMvManualInputTrackId] = useState<string | null>(null);
+  const [mvManualUrl, setMvManualUrl] = useState('');
 
   const queryClient = useQueryClient();
 
@@ -247,8 +249,29 @@ export function AlbumDetail() {
     },
   });
 
-  const { 
-    playTrack, 
+  const mvManualLinkMutation = useMutation({
+    mutationFn: ({ trackId, url }: { trackId: string; url: string }) =>
+      api.post(`/tracks/${trackId}/musicvideo`, { url, source: 'manual' }),
+    onSuccess: (_data, { trackId, url }) => {
+      // Update local results list so the row shows as found immediately
+      setMvSearchResults(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          found: prev.results.filter(r => r.found || r.trackId === trackId).length,
+          results: prev.results.map(r =>
+            r.trackId === trackId ? { ...r, found: true, url, source: 'manual' } : r
+          ),
+        };
+      });
+      setMvManualInputTrackId(null);
+      setMvManualUrl('');
+      queryClient.invalidateQueries({ queryKey: ['album', id] });
+    },
+  });
+
+  const {
+    playTrack,
     currentTrack, 
     isPlaying, 
     togglePlay, 
@@ -761,28 +784,72 @@ export function AlbumDetail() {
                     {mvSearchResults.results.map((result) => (
                       <div
                         key={result.trackId}
-                        className="flex items-center gap-3 p-3 rounded bg-white/5"
+                        className="flex flex-col gap-2 p-3 rounded bg-white/5"
                       >
-                        <div className={`h-2 w-2 rounded-full ${result.found ? 'bg-green-500' : 'bg-gray-500'}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-white truncate">{result.trackTitle}</p>
-                          {result.found && result.source && (
-                            <p className="text-xs text-[#b3b3b3]">
-                              Gefunden auf {result.source === 'musicbrainz' ? 'MusicBrainz' : 
-                                           result.source === 'youtube' ? 'YouTube' : result.source}
-                            </p>
-                          )}
+                        <div className="flex items-center gap-3">
+                          <div className={`h-2 w-2 flex-shrink-0 rounded-full ${result.found ? 'bg-green-500' : 'bg-gray-500'}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-white truncate">{result.trackTitle}</p>
+                            {result.found && result.source && (
+                              <p className="text-xs text-[#b3b3b3]">
+                                {result.source === 'manual' ? 'Manuell verknüpft' :
+                                 result.source === 'youtube' ? 'YouTube' :
+                                 result.source === 'musicbrainz' ? 'MusicBrainz' : result.source}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {result.found && result.url && (
+                              <a
+                                href={result.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-red-400 hover:text-red-300"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Öffnen
+                              </a>
+                            )}
+                            <button
+                              onClick={() => {
+                                setMvManualInputTrackId(
+                                  mvManualInputTrackId === result.trackId ? null : result.trackId
+                                );
+                                setMvManualUrl('');
+                              }}
+                              className="flex items-center gap-1 text-xs text-[#b3b3b3] hover:text-white"
+                              title="URL manuell eingeben"
+                            >
+                              <Link2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
-                        {result.found && result.url && (
-                          <a
-                            href={result.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-red-400 hover:text-red-300"
-                            onClick={(e) => e.stopPropagation()}
+                        {mvManualInputTrackId === result.trackId && (
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              if (mvManualUrl.trim()) {
+                                mvManualLinkMutation.mutate({ trackId: result.trackId, url: mvManualUrl.trim() });
+                              }
+                            }}
+                            className="flex gap-2"
                           >
-                            Öffnen
-                          </a>
+                            <input
+                              type="url"
+                              value={mvManualUrl}
+                              onChange={(e) => setMvManualUrl(e.target.value)}
+                              placeholder="https://www.youtube.com/watch?v=..."
+                              className="flex-1 bg-white/10 text-white text-xs rounded px-2 py-1.5 outline-none focus:ring-1 focus:ring-red-500 placeholder-[#b3b3b3]"
+                              autoFocus
+                            />
+                            <button
+                              type="submit"
+                              disabled={!mvManualUrl.trim() || mvManualLinkMutation.isPending}
+                              className="text-xs px-2 py-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded"
+                            >
+                              Speichern
+                            </button>
+                          </form>
                         )}
                       </div>
                     ))}
