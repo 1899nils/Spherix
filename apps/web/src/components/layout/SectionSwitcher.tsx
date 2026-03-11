@@ -16,7 +16,7 @@ const SECTIONS: {
 ];
 
 const ROOT_ROUTES: Record<AppSection, string> = {
-  music:     '/music',
+  music:     '/music/browse',
   video:     '/video/recently-added',
   audiobook: '/audiobooks/recent',
 };
