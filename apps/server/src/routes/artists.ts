@@ -113,6 +113,13 @@ router.get('/:id', async (req, res, next) => {
       createdAt: t.createdAt.toISOString(),
     }));
 
+    const playlists = await prisma.playlist.findMany({
+      where: { tracks: { some: { track: { artistId: String(req.params.id) } } } },
+      select: { id: true, name: true, coverUrl: true, _count: { select: { tracks: true } } },
+      orderBy: { updatedAt: 'desc' },
+      take: 20,
+    });
+
     res.json({
       data: {
         id: artist.id,
@@ -126,6 +133,7 @@ router.get('/:id', async (req, res, next) => {
         trackCount: artist._count.tracks,
         albums,
         tracks,
+        playlists,
       },
     });
   } catch (error) {
