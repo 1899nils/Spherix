@@ -12,10 +12,7 @@ router.get('/', async (req, res, next) => {
     const skip = (page - 1) * pageSize;
 
     const where = {
-      OR: [
-        { albums: { some: { tracks: { some: { missing: false } } } } },
-        { tracks: { some: { missing: false } } },
-      ],
+      albums: { some: { tracks: { some: { missing: false } } } },
     };
 
     const [artists, total] = await Promise.all([
@@ -24,7 +21,12 @@ router.get('/', async (req, res, next) => {
         take: pageSize,
         where,
         include: {
-          _count: { select: { albums: true, tracks: true } },
+          _count: {
+            select: {
+              albums: { where: { tracks: { some: { missing: false } } } },
+              tracks: { where: { missing: false } },
+            },
+          },
         },
         orderBy: { sortName: 'asc' },
       }),
