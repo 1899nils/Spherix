@@ -38,7 +38,9 @@ RUN apk add --no-cache \
     postgresql16-client \
     redis \
     tini \
-    openssl
+    openssl \
+    ffmpeg \
+    yt-dlp
 
 WORKDIR /app
 
