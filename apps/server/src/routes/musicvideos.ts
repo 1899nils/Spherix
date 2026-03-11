@@ -35,6 +35,13 @@ router.post('/:id/musicvideo-search', async (req, res, next) => {
       return;
     }
 
+    // Check if YouTube API key is configured
+    const apiKey = await youtube.getYouTubeApiKey(userId);
+    if (!apiKey) {
+      res.status(422).json({ error: 'Kein YouTube API-Key konfiguriert. Bitte in den Einstellungen einen YouTube Data API v3 Key hinterlegen.' });
+      return;
+    }
+
     // Use the new batch search (forceRefresh not used in batch yet)
     const trackData = album.tracks.map(t => ({
       id: t.id,
