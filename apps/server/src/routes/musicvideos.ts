@@ -19,7 +19,7 @@ function localVideoPath(audioFilePath: string): string {
  * Download music video via yt-dlp and store next to the audio file.
  * Requires admin. Returns 202 immediately; download runs in background.
  */
-router.post('/:id/musicvideo/download', requireAdmin, async (req, res, next) => {
+router.post('/:id/musicvideo/download', async (req, res, next) => {
   try {
     const trackId = String(req.params.id);
 
