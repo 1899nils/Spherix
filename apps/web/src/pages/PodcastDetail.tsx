@@ -65,6 +65,7 @@ export function PodcastDetail() {
     imageUrl: ep.imageUrl ?? podcast.imageUrl,
     podcastTitle: podcast.title,
     duration: ep.duration,
+    listenProgress: ep.listenProgress,
     isPodcast: true,
   });
 
@@ -212,10 +213,20 @@ export function PodcastDetail() {
                           {ep.duration && (
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              {formatPodcastDuration(ep.duration)}
+                              {ep.listenProgress && ep.listenProgress > 0
+                                ? `${formatPodcastDuration(ep.listenProgress)} / ${formatPodcastDuration(ep.duration)}`
+                                : formatPodcastDuration(ep.duration)}
                             </span>
                           )}
                         </div>
+                        {ep.listenProgress && ep.listenProgress > 0 && ep.duration && (
+                          <div className="mt-1.5 h-1 w-full rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-primary/70"
+                              style={{ width: `${Math.min(100, (ep.listenProgress / ep.duration) * 100)}%` }}
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* Play button */}

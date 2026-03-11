@@ -23,6 +23,7 @@ export interface PodcastEpisode {
   duration: number | null;
   fileSize: string | null;
   publishedAt: string | null;
+  listenProgress: number | null;
 }
 
 export interface PodcastDetail extends Podcast {

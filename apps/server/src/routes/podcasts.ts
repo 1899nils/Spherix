@@ -238,6 +238,7 @@ router.get('/:id', async (req, res, next) => {
           duration: e.duration,
           fileSize: e.fileSize?.toString() ?? null,
           publishedAt: e.publishedAt?.toISOString() ?? null,
+          listenProgress: e.listenProgress ?? null,
         })),
       },
     });
@@ -365,6 +366,31 @@ router.delete('/:id', async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+/** Save playback progress for a podcast episode */
+router.post('/episodes/:episodeId/progress', async (req, res, next) => {
+  try {
+    const { position } = req.body as { position: number };
+
+    if (typeof position !== 'number' || position < 0) {
+      res.status(400).json({ error: 'position must be a non-negative number (seconds)' });
+      return;
+    }
+
+    const episode = await prisma.podcastEpisode.findUnique({
+      where: { id: req.params.episodeId },
+      select: { id: true },
+    });
+    if (!episode) { res.status(404).json({ error: 'Episode not found' }); return; }
+
+    await prisma.podcastEpisode.update({
+      where: { id: req.params.episodeId },
+      data: { listenProgress: Math.floor(position) },
+    });
+
+    res.json({ ok: true });
+  } catch (error) { next(error); }
 });
 
 export default router;
