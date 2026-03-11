@@ -13,8 +13,8 @@ router.get('/', async (req, res, next) => {
 
     const where = {
       OR: [
-        { albums: { some: {} } },
-        { tracks: { some: {} } },
+        { albums: { some: { tracks: { some: { missing: false } } } } },
+        { tracks: { some: { missing: false } } },
       ],
     };
 
