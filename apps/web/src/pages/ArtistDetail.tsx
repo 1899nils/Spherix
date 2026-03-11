@@ -7,7 +7,7 @@ import { formatDuration } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
 import { MetadataEditModal } from '@/components/MetadataEditModal';
 import type { ArtistDetail as ArtistDetailType, ApiResponse, AlbumWithRelations, TrackWithRelations } from '@musicserver/shared';
-import { Play, Pause, Disc3, Mic2, Pencil, Download, Music, ChevronDown, ChevronUp, Video, ListMusic } from 'lucide-react';
+import { Play, Pause, Disc3, Mic2, Pencil, Download, Music, ChevronDown, ChevronUp, Video, ListMusic, Loader2 } from 'lucide-react';
 
 type DiscographyFilter = 'all' | 'album' | 'single_ep';
 
@@ -76,14 +76,29 @@ function PlaylistCard({ playlist }: { playlist: { id: string; name: string; cove
   );
 }
 
-function MusicVideoCard({ track, onPlay }: { track: TrackWithRelations; onPlay: () => void }) {
+function MusicVideoCard({
+  track,
+  onPlay,
+  onDownload,
+  isDownloading,
+}: {
+  track: TrackWithRelations;
+  onPlay: () => void;
+  onDownload: () => void;
+  isDownloading: boolean;
+}) {
+  const isLocal = track.musicVideoSource === 'local';
+  const isPending = isDownloading || track.musicVideoSource === 'downloading';
   const thumb = track.musicVideoUrl ? getYoutubeThumbnail(track.musicVideoUrl) : null;
+
   return (
-    <button
-      onClick={onPlay}
-      className="group flex-shrink-0 w-40 flex flex-col text-left"
-    >
-      <div className="w-full rounded-md overflow-hidden bg-[#282828] mb-3 relative" style={{ aspectRatio: '16/9' }}>
+    <div className="group flex-shrink-0 w-44 flex flex-col">
+      {/* Thumbnail */}
+      <button
+        onClick={onPlay}
+        className="w-full rounded-md overflow-hidden bg-[#282828] mb-2 relative focus:outline-none"
+        style={{ aspectRatio: '16/9' }}
+      >
         {thumb ? (
           <img src={thumb} alt={track.title} className="h-full w-full object-cover group-hover:brightness-75 transition" />
         ) : track.album?.coverUrl ? (
@@ -93,12 +108,20 @@ function MusicVideoCard({ track, onPlay }: { track: TrackWithRelations; onPlay: 
             <Video className="h-8 w-8" />
           </div>
         )}
+        {/* Local badge */}
+        {isLocal && (
+          <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-green-600 text-white px-1.5 py-0.5 rounded">
+            Lokal
+          </span>
+        )}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
           <div className="h-10 w-10 rounded-full bg-black/60 flex items-center justify-center">
             <Play className="h-5 w-5 text-white fill-white" />
           </div>
         </div>
-      </div>
+      </button>
+
+      {/* Title row */}
       <div className="flex items-center gap-1 min-w-0">
         {track.explicit && (
           <span className="flex-shrink-0 inline-flex items-center justify-center h-3.5 px-1 text-[9px] font-bold bg-[#ffffff1a] text-[#b3b3b3] rounded">E</span>
@@ -106,7 +129,20 @@ function MusicVideoCard({ track, onPlay }: { track: TrackWithRelations; onPlay: 
         <p className="text-sm text-white font-medium truncate">{track.title}</p>
       </div>
       <p className="text-xs text-[#b3b3b3] truncate mt-0.5">{track.album?.title ?? '—'}</p>
-    </button>
+
+      {/* Download button */}
+      {!isLocal && (
+        <button
+          onClick={onDownload}
+          disabled={isPending}
+          className="mt-1.5 flex items-center gap-1 text-xs text-[#b3b3b3] hover:text-white disabled:opacity-50 transition-colors"
+        >
+          {isPending
+            ? <><Loader2 className="h-3 w-3 animate-spin" /> Wird heruntergeladen...</>
+            : <><Download className="h-3 w-3" /> Herunterladen</>}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -130,6 +166,34 @@ export function ArtistDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['artist', id] });
       queryClient.invalidateQueries({ queryKey: ['artists'] });
+    },
+  });
+
+  const [downloadingTrackIds, setDownloadingTrackIds] = useState<Set<string>>(new Set());
+
+  const downloadVideoMutation = useMutation({
+    mutationFn: (trackId: string) => api.post(`/tracks/${trackId}/musicvideo/download`, {}),
+    onMutate: (trackId) => {
+      setDownloadingTrackIds(prev => new Set(prev).add(trackId));
+    },
+    onSettled: (_, __, trackId) => {
+      // Poll for completion every 5s, up to 10 minutes
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts++;
+        try {
+          const res = await api.get<{ data: { source: string } }>(`/tracks/${trackId}/musicvideo/status`);
+          if (res.data.source !== 'downloading') {
+            clearInterval(interval);
+            setDownloadingTrackIds(prev => { const s = new Set(prev); s.delete(trackId); return s; });
+            queryClient.invalidateQueries({ queryKey: ['artist', id] });
+          }
+        } catch { /* ignore */ }
+        if (attempts >= 120) {
+          clearInterval(interval);
+          setDownloadingTrackIds(prev => { const s = new Set(prev); s.delete(trackId); return s; });
+        }
+      }, 5000);
     },
   });
 
@@ -338,6 +402,8 @@ export function ArtistDetail() {
                   key={track.id}
                   track={track}
                   onPlay={() => setVideoTrackId(track.id)}
+                  onDownload={() => downloadVideoMutation.mutate(track.id)}
+                  isDownloading={downloadingTrackIds.has(track.id)}
                 />
               ))}
             </div>
@@ -377,34 +443,43 @@ export function ArtistDetail() {
       </div>
 
       {/* ── Music Video Player Overlay ───────────────────────── */}
-      {videoTrack?.musicVideoUrl && (() => {
-        const ytMatch = videoTrack.musicVideoUrl!.match(
-          /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
-        );
-        const embedUrl = ytMatch
-          ? `https://www.youtube-nocookie.com/embed/${ytMatch[1]}?autoplay=1&rel=0&enablejsapi=1`
-          : null;
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="relative w-full max-w-3xl mx-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="min-w-0">
-                  <p className="text-white font-medium truncate">{videoTrack.title}</p>
-                  <p className="text-[#b3b3b3] text-sm truncate">{videoTrack.artist?.name}</p>
-                </div>
-                <button
-                  onClick={() => setVideoTrackId(null)}
-                  className="ml-4 flex items-center justify-center h-8 w-8 bg-white/10 hover:bg-white/20 text-white rounded transition-colors"
-                >
-                  ✕
-                </button>
+      {videoTrack && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-3xl mx-4">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="min-w-0">
+                <p className="text-white font-medium truncate">{videoTrack.title}</p>
+                <p className="text-[#b3b3b3] text-sm truncate">{videoTrack.artist?.name}</p>
               </div>
-              <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ paddingTop: '56.25%' }}>
-                {embedUrl ? (
+              <button
+                onClick={() => setVideoTrackId(null)}
+                className="ml-4 flex items-center justify-center h-8 w-8 bg-white/10 hover:bg-white/20 text-white rounded transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Player */}
+            <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ paddingTop: '56.25%' }}>
+              {videoTrack.musicVideoSource === 'local' ? (
+                // Local file → native HTML5 video
+                <video
+                  key={videoTrack.id}
+                  className="absolute inset-0 w-full h-full"
+                  src={`/api/tracks/${videoTrack.id}/musicvideo/stream`}
+                  controls
+                  autoPlay
+                />
+              ) : videoTrack.musicVideoUrl && (() => {
+                const m = videoTrack.musicVideoUrl!.match(
+                  /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
+                );
+                return m ? (
                   <iframe
                     key={videoTrack.id}
                     className="absolute inset-0 w-full h-full"
-                    src={embedUrl}
+                    src={`https://www.youtube-nocookie.com/embed/${m[1]}?autoplay=1&rel=0`}
                     title={videoTrack.title}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
@@ -415,12 +490,25 @@ export function ArtistDetail() {
                       Im Browser öffnen
                     </a>
                   </div>
-                )}
-              </div>
+                );
+              })()}
             </div>
+
+            {/* Download hint when not local */}
+            {videoTrack.musicVideoSource !== 'local' && (
+              <p className="mt-2 text-xs text-[#b3b3b3] text-center">
+                Video nicht verfügbar?{' '}
+                <button
+                  onClick={() => { downloadVideoMutation.mutate(videoTrack.id); setVideoTrackId(null); }}
+                  className="underline hover:text-white transition-colors"
+                >
+                  Lokal herunterladen
+                </button>
+              </p>
+            )}
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {editOpen && (
         <MetadataEditModal

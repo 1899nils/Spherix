@@ -2,8 +2,177 @@ import { Router } from 'express';
 import { prisma } from '../config/database.js';
 import { youtube } from '../services/metadata/index.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
+import { spawn } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const router: Router = Router();
+
+/** Derive local video file path from track audio file path (swap extension → .mp4) */
+function localVideoPath(audioFilePath: string): string {
+  const ext = path.extname(audioFilePath);
+  return audioFilePath.slice(0, -ext.length) + '.mp4';
+}
+
+/**
+ * POST /api/tracks/:id/musicvideo/download
+ * Download music video via yt-dlp and store next to the audio file.
+ * Requires admin. Returns 202 immediately; download runs in background.
+ */
+router.post('/:id/musicvideo/download', requireAdmin, async (req, res, next) => {
+  try {
+    const trackId = String(req.params.id);
+
+    const track = await prisma.track.findUnique({
+      where: { id: trackId },
+      select: { filePath: true, musicVideoUrl: true, musicVideoSource: true },
+    });
+
+    if (!track) {
+      res.status(404).json({ error: 'Track not found' });
+      return;
+    }
+
+    if (!track.musicVideoUrl) {
+      res.status(422).json({ error: 'No music video URL set for this track' });
+      return;
+    }
+
+    if (track.musicVideoSource === 'downloading') {
+      res.status(409).json({ error: 'Download already in progress' });
+      return;
+    }
+
+    const outputPath = localVideoPath(track.filePath);
+
+    // Mark as downloading
+    await prisma.track.update({
+      where: { id: trackId },
+      data: { musicVideoSource: 'downloading', musicVideoCheckedAt: new Date() },
+    });
+
+    res.status(202).json({ message: 'Download gestartet', outputPath });
+
+    // Run yt-dlp in background
+    // Format: prefer best mp4+m4a (needs ffmpeg for merge), fallback to best single-file mp4
+    const ytdlp = spawn('yt-dlp', [
+      '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+      '--merge-output-format', 'mp4',
+      '--no-playlist',
+      '--no-warnings',
+      '-o', outputPath,
+      track.musicVideoUrl,
+    ]);
+
+    let stderr = '';
+    ytdlp.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+
+    ytdlp.on('close', async (code) => {
+      if (code === 0 && fs.existsSync(outputPath)) {
+        await prisma.track.update({
+          where: { id: trackId },
+          data: { musicVideoSource: 'local', musicVideoCheckedAt: new Date() },
+        });
+      } else {
+        // Revert to youtube on failure
+        console.error(`[yt-dlp] failed for track ${trackId}:`, stderr);
+        await prisma.track.update({
+          where: { id: trackId },
+          data: { musicVideoSource: 'youtube', musicVideoCheckedAt: new Date() },
+        });
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/tracks/:id/musicvideo/status
+ * Check whether a local video file exists and current download state.
+ */
+router.get('/:id/musicvideo/status', async (req, res, next) => {
+  try {
+    const trackId = String(req.params.id);
+    const track = await prisma.track.findUnique({
+      where: { id: trackId },
+      select: { filePath: true, musicVideoUrl: true, musicVideoSource: true },
+    });
+
+    if (!track) {
+      res.status(404).json({ error: 'Track not found' });
+      return;
+    }
+
+    const videoPath = localVideoPath(track.filePath);
+    const fileExists = fs.existsSync(videoPath);
+
+    res.json({
+      data: {
+        source: track.musicVideoSource,
+        hasLocalFile: fileExists,
+        hasYouTubeUrl: !!track.musicVideoUrl,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/tracks/:id/musicvideo/stream
+ * Stream the locally downloaded music video file with range-request support.
+ */
+router.get('/:id/musicvideo/stream', async (req, res, next) => {
+  try {
+    const trackId = String(req.params.id);
+    const track = await prisma.track.findUnique({
+      where: { id: trackId },
+      select: { filePath: true },
+    });
+
+    if (!track) {
+      res.status(404).json({ error: 'Track not found' });
+      return;
+    }
+
+    const videoPath = localVideoPath(track.filePath);
+
+    if (!fs.existsSync(videoPath)) {
+      res.status(404).json({ error: 'Local video file not found' });
+      return;
+    }
+
+    const stat = fs.statSync(videoPath);
+    const fileSize = stat.size;
+    const contentType = 'video/mp4';
+
+    const range = req.headers.range;
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunkSize = end - start + 1;
+
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': contentType,
+      });
+      fs.createReadStream(videoPath, { start, end }).pipe(res);
+    } else {
+      res.writeHead(200, {
+        'Content-Length': fileSize,
+        'Content-Type': contentType,
+        'Accept-Ranges': 'bytes',
+      });
+      fs.createReadStream(videoPath).pipe(res);
+    }
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * POST /api/albums/:id/musicvideo-search
