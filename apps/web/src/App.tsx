@@ -1,6 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { Login } from '@/pages/Login';
 import { Library } from '@/pages/Library';
 import { Albums } from '@/pages/Albums';
 import { AlbumDetail } from '@/pages/AlbumDetail';
@@ -38,6 +40,7 @@ import { AudiobookDetail } from '@/pages/audiobooks/AudiobookDetail';
 import { AuthorDetail } from '@/pages/audiobooks/AuthorDetail';
 import { MetadataSchema } from '@/pages/MetadataSchema';
 import { Watchlist } from '@/pages/Watchlist';
+import { useAuthStore } from '@/stores/authStore';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,62 +52,87 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Redirects to /login if the user is not authenticated. Shows a spinner while loading. */
+function AuthGuard() {
+  const { user, isLoading, fetchMe } = useAuthStore();
+
+  useEffect(() => {
+    fetchMe();
+  }, [fetchMe]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Outlet />;
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          <Route element={<MainLayout />}>
-            {/* Root redirect */}
-            <Route path="/" element={<Navigate to="/music/browse" replace />} />
+          {/* Public */}
+          <Route path="/login" element={<Login />} />
 
-            {/* ── Music ─────────────────────────────────────────── */}
-            <Route path="/music" element={<Navigate to="/music/browse" replace />} />
-            <Route path="/music/browse" element={<Browse />} />
-            <Route path="/music/radio" element={<Radio />} />
-            <Route path="/music/recently-added" element={<RecentlyAdded />} />
-            <Route path="/music/library" element={<Library />} />
-            <Route path="/music/albums" element={<Albums />} />
-            <Route path="/music/albums/:id" element={<AlbumDetail />} />
-            <Route path="/music/artists" element={<Artists />} />
-            <Route path="/music/artists/:id" element={<ArtistDetail />} />
-            <Route path="/music/songs" element={<Songs />} />
-            <Route path="/music/playlists" element={<Playlists />} />
-            <Route path="/music/playlists/:id" element={<PlaylistDetail />} />
-            <Route path="/music/podcasts" element={<Podcasts />} />
-            <Route path="/music/podcasts/:id" element={<PodcastDetail />} />
-            <Route path="/music/watchlist" element={<Watchlist />} />
+          {/* Protected — all routes require authentication */}
+          <Route element={<AuthGuard />}>
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<Navigate to="/music/browse" replace />} />
 
-            {/* ── Video ─────────────────────────────────────────── */}
-            <Route path="/video" element={<VideoHome />} />
-            <Route path="/video/recently-added" element={<VideoRecentlyAdded />} />
-            <Route path="/video/movies" element={<Movies />} />
-            <Route path="/video/movies/:id" element={<MovieDetail />} />
-            <Route path="/video/series" element={<Series />} />
-            <Route path="/video/series/:id" element={<SeriesDetail />} />
-            <Route path="/video/continue" element={<ContinueWatching />} />
-            <Route path="/video/browse" element={<VideoBrowse />} />
-            <Route path="/video/genres" element={<VideoGenres />} />
-            <Route path="/video/watchlist" element={<VideoWatchlist />} />
-            <Route path="/video/favorites" element={<VideoFavorites />} />
+              {/* ── Music ─────────────────────────────────────────── */}
+              <Route path="/music" element={<Navigate to="/music/browse" replace />} />
+              <Route path="/music/browse" element={<Browse />} />
+              <Route path="/music/radio" element={<Radio />} />
+              <Route path="/music/recently-added" element={<RecentlyAdded />} />
+              <Route path="/music/library" element={<Library />} />
+              <Route path="/music/albums" element={<Albums />} />
+              <Route path="/music/albums/:id" element={<AlbumDetail />} />
+              <Route path="/music/artists" element={<Artists />} />
+              <Route path="/music/artists/:id" element={<ArtistDetail />} />
+              <Route path="/music/songs" element={<Songs />} />
+              <Route path="/music/playlists" element={<Playlists />} />
+              <Route path="/music/playlists/:id" element={<PlaylistDetail />} />
+              <Route path="/music/podcasts" element={<Podcasts />} />
+              <Route path="/music/podcasts/:id" element={<PodcastDetail />} />
+              <Route path="/music/watchlist" element={<Watchlist />} />
 
-            {/* ── Audiobooks ────────────────────────────────────── */}
-            <Route path="/audiobooks" element={<AudiobooksAll />} />
-            <Route path="/audiobooks/recent" element={<AudiobooksHome />} />
-            <Route path="/audiobooks/authors" element={<AudiobooksAuthors />} />
-            <Route path="/audiobooks/authors/:name" element={<AuthorDetail />} />
-            <Route path="/audiobooks/continue" element={<AudiobooksContinue />} />
-            <Route path="/audiobooks/browse" element={<AudiobooksBrowse />} />
-            <Route path="/audiobooks/genres" element={<AudiobooksGenres />} />
-            <Route path="/audiobooks/bookmarks" element={<AudiobooksBookmarks />} />
-            <Route path="/audiobooks/favorites" element={<AudiobooksFavorites />} />
-            <Route path="/audiobooks/:id" element={<AudiobookDetail />} />
+              {/* ── Video ─────────────────────────────────────────── */}
+              <Route path="/video" element={<VideoHome />} />
+              <Route path="/video/recently-added" element={<VideoRecentlyAdded />} />
+              <Route path="/video/movies" element={<Movies />} />
+              <Route path="/video/movies/:id" element={<MovieDetail />} />
+              <Route path="/video/series" element={<Series />} />
+              <Route path="/video/series/:id" element={<SeriesDetail />} />
+              <Route path="/video/continue" element={<ContinueWatching />} />
+              <Route path="/video/browse" element={<VideoBrowse />} />
+              <Route path="/video/genres" element={<VideoGenres />} />
+              <Route path="/video/watchlist" element={<VideoWatchlist />} />
+              <Route path="/video/favorites" element={<VideoFavorites />} />
 
-            {/* Settings (section-independent) */}
-            <Route path="/settings" element={<Settings />} />
+              {/* ── Audiobooks ────────────────────────────────────── */}
+              <Route path="/audiobooks" element={<AudiobooksAll />} />
+              <Route path="/audiobooks/recent" element={<AudiobooksHome />} />
+              <Route path="/audiobooks/authors" element={<AudiobooksAuthors />} />
+              <Route path="/audiobooks/authors/:name" element={<AuthorDetail />} />
+              <Route path="/audiobooks/continue" element={<AudiobooksContinue />} />
+              <Route path="/audiobooks/browse" element={<AudiobooksBrowse />} />
+              <Route path="/audiobooks/genres" element={<AudiobooksGenres />} />
+              <Route path="/audiobooks/bookmarks" element={<AudiobooksBookmarks />} />
+              <Route path="/audiobooks/favorites" element={<AudiobooksFavorites />} />
+              <Route path="/audiobooks/:id" element={<AudiobookDetail />} />
 
-            {/* Metadata schema reference */}
-            <Route path="/metadata-schema" element={<MetadataSchema />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/metadata-schema" element={<MetadataSchema />} />
+            </Route>
           </Route>
         </Routes>
       </BrowserRouter>

@@ -6,6 +6,13 @@ services:
     environment:
       - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
       - PUBLIC_URL=${PUBLIC_URL:-}
+      # ── Admin-Zugangsdaten ──────────────────────────────────────────────────
+      # ADMIN_USERNAME: Benutzername des initialen Admin-Kontos (Standard: admin)
+      # ADMIN_PASSWORD: Wenn gesetzt, wird das Admin-Passwort bei jedem Start
+      #                 auf diesen Wert zurückgesetzt — ideal zur Passwort-
+      #                 Wiederherstellung. Nach dem Login wieder entfernen!
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - LASTFM_API_KEY=${LASTFM_API_KEY:-}
       - LASTFM_API_SECRET=${LASTFM_API_SECRET:-}
       - TMDB_API_KEY=${TMDB_API_KEY:-}

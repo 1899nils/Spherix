@@ -39,6 +39,7 @@ import metadataRouter from './routes/metadata.js';
 import discoverRouter from './routes/discover.js';
 import watchlistRouter from './routes/watchlist.js';
 import subsonicRouter from './subsonic/index.js';
+import authRouter from './routes/auth.js';
 
 const app = express();
 
@@ -65,8 +66,22 @@ app.use('/api/covers', express.static(path.join(env.dataDir, 'covers'), {
   immutable: true,
 }));
 
-// Routes
+// ── Auth routes (no session required) ────────────────────────────────────────
+app.use('/api/auth', authRouter);
 app.use('/api/health', healthRouter);
+
+// ── Global API auth guard ─────────────────────────────────────────────────────
+// All /api/* routes below this point require an active session.
+app.use('/api', (req, res, next) => {
+  const userId = (req.session as unknown as Record<string, unknown>).userId;
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+  next();
+});
+
+// Routes
 app.use('/api/tracks', tracksRouter);
 app.use('/api/albums', albumsRouter);
 app.use('/api/artists', artistsRouter);
@@ -207,23 +222,41 @@ app.use(errorHandler);
 
 /**
  * Creates a default admin user on first startup if no users exist yet.
- * Password is stored as SHA-256 hash (matches the auth implementation).
+ * If ADMIN_PASSWORD env var is set (non-empty), the admin password is reset
+ * on every startup — use this to recover a forgotten password via Docker env.
  */
 async function ensureDefaultUser(): Promise<void> {
+  const { adminUsername, adminPassword } = env;
+
+  // Password-reset mode: ADMIN_PASSWORD is set → always reset the first admin
+  if (adminPassword) {
+    const passwordHash = crypto.createHash('sha256').update(adminPassword).digest('hex');
+    const existingAdmin = await prisma.user.findFirst({ where: { isAdmin: true } });
+    if (existingAdmin) {
+      await prisma.user.update({ where: { id: existingAdmin.id }, data: { passwordHash } });
+      logger.info(`Admin password reset via ADMIN_PASSWORD env var (user: "${existingAdmin.username}")`);
+      logger.warn('Remove ADMIN_PASSWORD from your environment after logging in!');
+      return;
+    }
+  }
+
+  // First-run: create default admin if no users exist
   const count = await prisma.user.count();
   if (count === 0) {
-    const defaultPassword = 'admin';
-    const passwordHash = crypto.createHash('sha256').update(defaultPassword).digest('hex');
+    const password = adminPassword || 'admin';
+    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
     await prisma.user.create({
       data: {
-        email: 'admin@spherix.local',
-        username: 'admin',
+        email: `${adminUsername}@spherix.local`,
+        username: adminUsername,
         passwordHash,
         isAdmin: true,
       },
     });
-    logger.info('Created default admin user — username: admin, password: admin');
-    logger.warn('Please change the default admin password after first login!');
+    logger.info(`Created default admin user — username: ${adminUsername}, password: ${adminPassword ? '(from ADMIN_PASSWORD env)' : 'admin'}`);
+    if (!adminPassword) {
+      logger.warn('Please change the default admin password after first login!');
+    }
   }
 }
 
