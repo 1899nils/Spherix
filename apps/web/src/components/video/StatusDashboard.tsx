@@ -27,6 +27,7 @@ import {
 import { usePlayerStore } from '@/stores/playerStore';
 import { useAudiobookPlayerStore } from '@/stores/audiobookPlayerStore';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
+import { useAuthStore } from '@/stores/authStore';
 import type { TrackWithRelations } from '@musicserver/shared';
 
 interface StreamSession {
@@ -171,8 +172,12 @@ function getStateColor(state: string): string {
 }
 
 export function StatusDashboard() {
+  const currentUser = useAuthStore((s) => s.user);
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('activity');
+
+  // Only admins see the dashboard
+  if (!currentUser?.isAdmin) return null;
 
   const { data: sessionsData } = useQuery({
     queryKey: ['streaming-sessions'],
@@ -227,12 +232,14 @@ export function StatusDashboard() {
     type: 'music' | 'radio' | 'podcast' | 'audiobook' | 'video';
     title: string;
     subtitle: string;
+    userName: string;
     isPlaying: boolean;
     seek: number;
     duration: number;
   }
 
   const localActivities: LocalActivity[] = [];
+  const userName = currentUser?.username ?? 'Unbekannt';
 
   if (currentTrack) {
     if ('isRadio' in currentTrack) {
@@ -243,6 +250,7 @@ export function StatusDashboard() {
         subtitle: currentRadioTrack
           ? `${currentRadioTrack.artist} – ${currentRadioTrack.title}`
           : 'Live-Radio',
+        userName,
         isPlaying: musicPlaying,
         seek: 0,
         duration: 0,
@@ -253,6 +261,7 @@ export function StatusDashboard() {
         type: 'podcast',
         title: currentTrack.title,
         subtitle: currentTrack.podcastTitle,
+        userName,
         isPlaying: musicPlaying,
         seek: musicSeek,
         duration: musicDuration,
@@ -265,6 +274,7 @@ export function StatusDashboard() {
         type: 'music',
         title: track.title,
         subtitle: `${track.artist?.name ?? ''}${track.album?.title ? ` · ${track.album.title}` : ''}`,
+        userName,
         isPlaying: musicPlaying,
         seek: musicSeek,
         duration: musicDuration,
@@ -279,6 +289,7 @@ export function StatusDashboard() {
       type: 'audiobook',
       title: currentBook.title,
       subtitle: `${currentBook.author ?? 'Unbekannt'}${chapter ? ` · ${chapter.title}` : ''}`,
+      userName,
       isPlaying: bookPlaying,
       seek: bookSeek,
       duration: bookDuration,
@@ -293,6 +304,7 @@ export function StatusDashboard() {
       subtitle: activeVideo.type === 'episode' && activeVideo.seriesTitle
         ? activeVideo.seriesTitle
         : activeVideo.type === 'movie' ? 'Film' : 'Video',
+      userName,
       isPlaying: videoStorePlaying,
       seek: videoTime,
       duration: videoDuration,
@@ -454,11 +466,11 @@ export function StatusDashboard() {
                         video: Film,
                       };
                       const colors = {
-                        music: 'text-purple-400',
-                        radio: 'text-blue-400',
+                        music: 'text-red-400',
+                        radio: 'text-pink-400',
                         podcast: 'text-orange-400',
-                        audiobook: 'text-teal-400',
-                        video: 'text-pink-400',
+                        audiobook: 'text-yellow-400',
+                        video: 'text-purple-400',
                       };
                       const labels = {
                         music: 'Musik',
@@ -484,6 +496,7 @@ export function StatusDashboard() {
                                   : <Pause className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
                               </div>
                               <p className="text-xs text-muted-foreground truncate">{activity.subtitle}</p>
+                              <p className="text-xs text-white/40 truncate">{activity.userName}</p>
                               <div className="flex items-center gap-2 mt-1.5">
                                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/50">{labels[activity.type]}</span>
                                 {activity.duration > 0 && (
