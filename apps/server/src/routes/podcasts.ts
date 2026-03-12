@@ -210,12 +210,17 @@ router.get('/search', async (req, res, next) => {
 /** Get podcast detail with episodes */
 router.get('/:id', async (req, res, next) => {
   try {
+    const limit = Math.min(parseInt(String(req.query.limit ?? '10'), 10) || 10, 50);
+    const offset = Math.max(parseInt(String(req.query.offset ?? '0'), 10) || 0, 0);
+
     const podcast = await prisma.podcast.findUnique({
       where: { id: String(req.params.id) },
       include: {
         _count: { select: { episodes: true } },
         episodes: {
           orderBy: { publishedAt: 'desc' },
+          take: limit,
+          skip: offset,
         },
       },
     });

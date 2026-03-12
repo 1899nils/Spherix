@@ -1,19 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { usePlayerStore, type PodcastEpisodePlayerItem } from '@/stores/playerStore';
 import type { PodcastDetail as PodcastDetailType, PodcastEpisode, ApiResponse } from '@musicserver/shared';
-import { Play, Pause, RefreshCw, Trash2, Loader2, CalendarDays, Clock } from 'lucide-react';
+import { Play, Pause, RefreshCw, Trash2, Loader2, CalendarDays, Clock, PlusCircle } from 'lucide-react';
+
+const PAGE_SIZE = 10;
 
 function formatPodcastDuration(seconds: number | null): string {
   if (!seconds) return '';
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  return `${m}:${String(s).padStart(2, '0')}`;
+  if (h > 0) return `${h} Std. ${m > 0 ? `${m} Min.` : ''}`.trim();
+  return `${m} Min.`;
+}
+
+function formatRemaining(progress: number, duration: number): string {
+  const remaining = Math.max(0, duration - progress);
+  const h = Math.floor(remaining / 3600);
+  const m = Math.floor((remaining % 3600) / 60);
+  if (h > 0) return `${h} Std. ${m > 0 ? `${m} Min.` : ''} verbleibend`.trim();
+  if (m > 0) return `${m} Min. verbleibend`;
+  return 'Fast fertig';
 }
 
 function formatDate(iso: string | null): string {
@@ -24,13 +34,26 @@ function formatDate(iso: string | null): string {
 export function PodcastDetail() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const [expandedEp, setExpandedEp] = useState<string | null>(null);
+
+  const [episodes, setEpisodes] = useState<PodcastEpisode[]>([]);
+  const [episodeCount, setEpisodeCount] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['podcast', id],
-    queryFn: () => api.get<ApiResponse<PodcastDetailType>>(`/podcasts/${id}`),
+    queryFn: () => api.get<ApiResponse<PodcastDetailType>>(`/podcasts/${id}?limit=${PAGE_SIZE}&offset=0`),
     enabled: !!id,
   });
+
+  // Sync initial data into local state
+  useEffect(() => {
+    if (data?.data) {
+      setEpisodes(data.data.episodes ?? []);
+      setEpisodeCount(data.data.episodeCount ?? 0);
+      setOffset(data.data.episodes?.length ?? 0);
+    }
+  }, [data]);
 
   const refreshMutation = useMutation({
     mutationFn: () => api.post(`/podcasts/${id}/refresh`, {}),
@@ -49,14 +72,27 @@ export function PodcastDetail() {
 
   const podcast = data?.data;
 
+  const loadMore = async () => {
+    if (!id || isFetchingMore) return;
+    setIsFetchingMore(true);
+    try {
+      const res = await api.get<ApiResponse<PodcastDetailType>>(
+        `/podcasts/${id}?limit=${PAGE_SIZE}&offset=${offset}`,
+      );
+      const newEps = res.data?.episodes ?? [];
+      setEpisodes((prev) => [...prev, ...newEps]);
+      setOffset((prev) => prev + newEps.length);
+    } finally {
+      setIsFetchingMore(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="text-muted-foreground p-8">Lade Podcast...</div>;
   }
   if (!podcast) {
     return <div className="text-muted-foreground p-8">Podcast nicht gefunden</div>;
   }
-
-  const episodes = podcast.episodes ?? [];
 
   const toPlayerItem = (ep: PodcastEpisode): PodcastEpisodePlayerItem => ({
     id: ep.id,
@@ -78,6 +114,8 @@ export function PodcastDetail() {
       playPodcastEpisode(toPlayerItem(ep));
     }
   };
+
+  const remaining = episodeCount - episodes.length;
 
   return (
     <div className="space-y-0 -mx-6 -mt-6">
@@ -162,74 +200,90 @@ export function PodcastDetail() {
         {/* ── Episoden ─────────────────────────────────────────────── */}
         <section>
           <h2 className="text-xl font-semibold mb-4">
-            Episoden
+            Alle Folgen
             <span className="text-sm font-normal text-muted-foreground ml-2">
-              ({episodes.length})
+              ({episodeCount})
             </span>
           </h2>
 
           {episodes.length === 0 ? (
             <p className="text-sm text-muted-foreground">Keine Episoden vorhanden</p>
           ) : (
-            <div className="space-y-1">
+            <div className="divide-y divide-border">
               {episodes.map((ep) => {
                 const isCurrent = currentEpId === ep.id;
-                const isExpanded = expandedEp === ep.id;
+                const hasProgress = ep.listenProgress != null && ep.listenProgress > 0 && ep.duration != null;
+                const progressPct = hasProgress
+                  ? Math.min(100, ((ep.listenProgress ?? 0) / ep.duration!) * 100)
+                  : 0;
+                const thumb = ep.imageUrl ?? podcast.imageUrl;
 
                 return (
                   <div
                     key={ep.id}
-                    className={`rounded-lg border border-transparent transition-colors ${isCurrent ? 'bg-muted/60 border-border' : 'hover:bg-muted/30'}`}
+                    className={`flex items-start gap-4 py-4 transition-colors ${isCurrent ? 'bg-muted/40' : 'hover:bg-muted/20'}`}
                   >
-                    <div className="flex items-center gap-3 px-4 py-3">
-                      {/* Artwork */}
-                      <div className="h-12 w-12 rounded-md overflow-hidden bg-muted shrink-0">
-                        {ep.imageUrl ?? podcast.imageUrl ? (
-                          <img
-                            src={(ep.imageUrl ?? podcast.imageUrl)!}
-                            alt={ep.title}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center text-xl">🎙️</div>
-                        )}
-                      </div>
+                    {/* Thumbnail */}
+                    <div className="h-16 w-24 rounded-md overflow-hidden bg-muted shrink-0">
+                      {thumb ? (
+                        <img src={thumb} alt={ep.title} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center text-2xl">🎙️</div>
+                      )}
+                    </div>
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-sm font-medium truncate cursor-pointer hover:underline ${isCurrent ? 'text-primary' : ''}`}
-                          onClick={() => setExpandedEp(isExpanded ? null : ep.id)}
-                        >
-                          {ep.title}
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <p className={`text-sm font-semibold leading-snug line-clamp-1 ${isCurrent ? 'text-primary' : ''}`}>
+                        {ep.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-medium">{podcast.title}</p>
+                      {ep.description && (
+                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                          {ep.description.replace(/<[^>]+>/g, '').trim()}
                         </p>
-                        <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                          {ep.publishedAt && (
-                            <span className="flex items-center gap-1">
-                              <CalendarDays className="h-3 w-3" />
-                              {formatDate(ep.publishedAt)}
-                            </span>
-                          )}
-                          {ep.duration && (
+                      )}
+                      {/* Meta row */}
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground pt-0.5">
+                        {ep.publishedAt && (
+                          <span className="flex items-center gap-1">
+                            <CalendarDays className="h-3 w-3" />
+                            {formatDate(ep.publishedAt)}
+                          </span>
+                        )}
+                        {ep.duration && (
+                          <>
+                            <span>•</span>
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              {ep.listenProgress && ep.listenProgress > 0
-                                ? `${formatPodcastDuration(ep.listenProgress)} / ${formatPodcastDuration(ep.duration)}`
+                              {hasProgress
+                                ? formatRemaining(ep.listenProgress!, ep.duration)
                                 : formatPodcastDuration(ep.duration)}
                             </span>
-                          )}
-                        </div>
-                        {ep.listenProgress && ep.listenProgress > 0 && ep.duration && (
-                          <div className="mt-1.5 h-1 w-full rounded-full bg-muted overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-primary/70"
-                              style={{ width: `${Math.min(100, (ep.listenProgress / ep.duration) * 100)}%` }}
-                            />
-                          </div>
+                          </>
                         )}
                       </div>
+                      {/* Progress bar */}
+                      {hasProgress && (
+                        <div className="h-0.5 w-full rounded-full bg-muted overflow-hidden mt-1">
+                          <div
+                            className="h-full rounded-full bg-primary/80"
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
 
-                      {/* Play button */}
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        title="Zur Warteliste"
+                      >
+                        <PlusCircle className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant={isCurrent ? 'secondary' : 'ghost'}
                         size="icon"
@@ -243,18 +297,28 @@ export function PodcastDetail() {
                         )}
                       </Button>
                     </div>
-
-                    {/* Expanded description */}
-                    {isExpanded && ep.description && (
-                      <div className="px-4 pb-4 pt-0">
-                        <p className="text-xs text-muted-foreground leading-relaxed border-t border-border pt-3">
-                          {ep.description.replace(/<[^>]+>/g, '').trim()}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Mehr anzeigen */}
+          {remaining > 0 && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                onClick={loadMore}
+                disabled={isFetchingMore}
+                className="min-w-[220px]"
+              >
+                {isFetchingMore ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : null}
+                {isFetchingMore
+                  ? 'Lade...'
+                  : `${remaining} weitere ${remaining === 1 ? 'Folge' : 'Folgen'} anzeigen`}
+              </Button>
             </div>
           )}
         </section>
