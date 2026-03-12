@@ -320,11 +320,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }).catch(() => {});
     };
 
+    const proxyUrl = `/api/podcasts/proxy?url=${encodeURIComponent(episode.audioUrl)}`;
+
     const howl = new Howl({
-      src: [episode.audioUrl],
+      src: [proxyUrl],
       html5: true,
       format: ['mp3', 'm4a', 'ogg', 'aac'],
       volume: state.isMuted ? 0 : state.volume,
+      onloaderror: (_id, err) => {
+        console.error('[podcast] load error:', err);
+        set({ isPlaying: false });
+      },
+      onplayerror: (_id, err) => {
+        console.error('[podcast] play error:', err);
+        set({ isPlaying: false });
+      },
       onplay: () => {
         if (!seekApplied && resumeAt > 0) {
           seekApplied = true;
