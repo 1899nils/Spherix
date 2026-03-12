@@ -21,4 +21,12 @@ export const env = {
   musicPath:     process.env.MUSIC_PATH     || '/music',
   videoPath:     process.env.VIDEO_PATH     || '/videos',
   audiobookPath: process.env.AUDIOBOOK_PATH || '/audiobooks',
+  /**
+   * Admin credentials for initial setup / password recovery.
+   * If ADMIN_PASSWORD is set (non-empty), the admin user's password is reset
+   * on every startup — useful to recover a forgotten password via Docker env.
+   * Remove the env var again once you have logged in successfully.
+   */
+  adminUsername: process.env.ADMIN_USERNAME || 'admin',
+  adminPassword: process.env.ADMIN_PASSWORD || '',
 } as const;
