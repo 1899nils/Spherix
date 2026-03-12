@@ -6,7 +6,7 @@ import { env } from '../../config/env.js';
 import { matchAlbum } from './match.service.js';
 import { getReleaseById, getCoverArtUrl } from './musicbrainz.service.js';
 import { downloadAndSaveCover } from '../metadata/cover-processing.service.js';
-import { writeTags } from '../metadata/tagwriter.service.js';
+import { writeAlbumNfo } from '../metadata/nfowriter.service.js';
 
 /**
  * Returns true if the file referenced by a /api/covers/... URL exists on disk.
@@ -188,6 +188,7 @@ export async function autoMatchAlbum(albumId: string): Promise<AutoMatchResult> 
   });
 
   // Match and update tracks by disc + track position
+  const nfoTracks: Array<{ position: number; discNumber: number | null; title: string; musicbrainzId: string }> = [];
   for (const mbTrack of mbTracks) {
     const localTrack =
       album.tracks.find(
@@ -218,20 +219,33 @@ export async function autoMatchAlbum(albumId: string): Promise<AutoMatchResult> 
       },
     });
 
+    nfoTracks.push({
+      position: mbTrack.trackNumber,
+      discNumber: mbTrack.discNumber,
+      title: mbTrack.title,
+      musicbrainzId: mbTrack.musicbrainzId,
+    });
+  }
+
+  // Write album.nfo into the album folder (no ID3 tags are modified)
+  const firstTrackPath = album.tracks[0]?.filePath;
+  if (firstTrackPath) {
+    const albumFolder = path.dirname(firstTrackPath);
+    const mbArtistId = release['artist-credit']?.[0]?.artist?.id;
     try {
-      await writeTags(localTrack.filePath, {
-        title: mbTrack.title,
-        artist: artistName,
-        album: release.title,
-        trackNumber: mbTrack.trackNumber,
-        discNumber: mbTrack.discNumber,
-        year: releaseYear ?? undefined,
-        genre: genre ?? undefined,
+      await writeAlbumNfo(albumFolder, {
+        title: release.title,
+        artistName,
+        year: releaseYear,
+        genre,
+        label,
+        country,
+        musicbrainzAlbumId: musicbrainzReleaseId,
+        musicbrainzArtistId: mbArtistId,
+        tracks: nfoTracks,
       });
     } catch (err) {
-      logger.warn(`Auto-match: failed to write tags for track ${localTrack.id}`, {
-        error: String(err),
-      });
+      logger.warn(`Auto-match: failed to write album.nfo for album ${album.id}`, { error: String(err) });
     }
   }
 
