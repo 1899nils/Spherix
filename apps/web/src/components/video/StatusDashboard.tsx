@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { 
-  Activity, 
-  Play, 
-  Pause, 
+import {
+  Activity,
+  Play,
+  Pause,
   Monitor,
   Smartphone,
   Tv,
@@ -17,8 +17,17 @@ import {
   History,
   Layers,
   BarChart3,
-  MemoryStick
+  MemoryStick,
+  Music,
+  Radio,
+  Mic,
+  BookOpen,
+  Film,
 } from 'lucide-react';
+import { usePlayerStore } from '@/stores/playerStore';
+import { useAudiobookPlayerStore } from '@/stores/audiobookPlayerStore';
+import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
+import type { TrackWithRelations } from '@musicserver/shared';
 
 interface StreamSession {
   id: string;
@@ -189,8 +198,110 @@ export function StatusDashboard() {
   const queue = sessionsData?.data?.transcodeQueue || [];
   const history = historyData?.data?.history || [];
   const detailedSystem = systemData?.data;
-  
-  const activeCount = sessions.filter(s => s.state === 'playing').length;
+
+  // Local playback state from stores
+  const {
+    currentTrack,
+    isPlaying: musicPlaying,
+    seek: musicSeek,
+    duration: musicDuration,
+    currentRadioTrack,
+  } = usePlayerStore();
+  const {
+    currentBook,
+    isPlaying: bookPlaying,
+    seek: bookSeek,
+    duration: bookDuration,
+    chapterIndex,
+  } = useAudiobookPlayerStore();
+  const {
+    activeVideo,
+    isPlaying: videoStorePlaying,
+    currentTime: videoTime,
+    duration: videoDuration,
+  } = useVideoPlayerStore();
+
+  // Build unified local activity list
+  interface LocalActivity {
+    id: string;
+    type: 'music' | 'radio' | 'podcast' | 'audiobook' | 'video';
+    title: string;
+    subtitle: string;
+    isPlaying: boolean;
+    seek: number;
+    duration: number;
+  }
+
+  const localActivities: LocalActivity[] = [];
+
+  if (currentTrack) {
+    if ('isRadio' in currentTrack) {
+      localActivities.push({
+        id: 'radio',
+        type: 'radio',
+        title: currentTrack.name,
+        subtitle: currentRadioTrack
+          ? `${currentRadioTrack.artist} – ${currentRadioTrack.title}`
+          : 'Live-Radio',
+        isPlaying: musicPlaying,
+        seek: 0,
+        duration: 0,
+      });
+    } else if ('isPodcast' in currentTrack) {
+      localActivities.push({
+        id: 'podcast',
+        type: 'podcast',
+        title: currentTrack.title,
+        subtitle: currentTrack.podcastTitle,
+        isPlaying: musicPlaying,
+        seek: musicSeek,
+        duration: musicDuration,
+      });
+    } else {
+      // Regular music track
+      const track = currentTrack as TrackWithRelations;
+      localActivities.push({
+        id: 'music',
+        type: 'music',
+        title: track.title,
+        subtitle: `${track.artist?.name ?? ''}${track.album?.title ? ` · ${track.album.title}` : ''}`,
+        isPlaying: musicPlaying,
+        seek: musicSeek,
+        duration: musicDuration,
+      });
+    }
+  }
+
+  if (currentBook) {
+    const chapter = currentBook.chapters[chapterIndex];
+    localActivities.push({
+      id: 'audiobook',
+      type: 'audiobook',
+      title: currentBook.title,
+      subtitle: `${currentBook.author ?? 'Unbekannt'}${chapter ? ` · ${chapter.title}` : ''}`,
+      isPlaying: bookPlaying,
+      seek: bookSeek,
+      duration: bookDuration,
+    });
+  }
+
+  if (activeVideo) {
+    localActivities.push({
+      id: 'video-local',
+      type: 'video',
+      title: activeVideo.title,
+      subtitle: activeVideo.type === 'episode' && activeVideo.seriesTitle
+        ? activeVideo.seriesTitle
+        : activeVideo.type === 'movie' ? 'Film' : 'Video',
+      isPlaying: videoStorePlaying,
+      seek: videoTime,
+      duration: videoDuration,
+    });
+  }
+
+  const localPlayingCount = localActivities.filter(a => a.isPlaying).length;
+  const videoPlayingCount = sessions.filter(s => s.state === 'playing').length;
+  const activeCount = localPlayingCount + videoPlayingCount;
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -331,13 +442,74 @@ export function StatusDashboard() {
                   </div>
                 )}
 
-                {/* Active Sessions */}
-                {sessions.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">
-                    <Activity className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p className="text-sm">Keine aktiven Streams</p>
+                {/* Local Playback Activities */}
+                {localActivities.length > 0 && (
+                  <div className="divide-y divide-white/5">
+                    {localActivities.map((activity) => {
+                      const icons = {
+                        music: Music,
+                        radio: Radio,
+                        podcast: Mic,
+                        audiobook: BookOpen,
+                        video: Film,
+                      };
+                      const colors = {
+                        music: 'text-purple-400',
+                        radio: 'text-blue-400',
+                        podcast: 'text-orange-400',
+                        audiobook: 'text-teal-400',
+                        video: 'text-pink-400',
+                      };
+                      const labels = {
+                        music: 'Musik',
+                        radio: 'Radio',
+                        podcast: 'Podcast',
+                        audiobook: 'Hörbuch',
+                        video: 'Video',
+                      };
+                      const Icon = icons[activity.type];
+                      const color = colors[activity.type];
+                      const progress = activity.duration > 0 ? (activity.seek / activity.duration) * 100 : 0;
+                      return (
+                        <div key={activity.id} className="p-4 hover:bg-white/5 transition-colors">
+                          <div className="flex items-start gap-3">
+                            <div className={`w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0`}>
+                              <Icon className={`h-5 w-5 ${color}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-white truncate">{activity.title}</h4>
+                                {activity.isPlaying
+                                  ? <Play className="h-3.5 w-3.5 text-green-400 shrink-0" />
+                                  : <Pause className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
+                              </div>
+                              <p className="text-xs text-muted-foreground truncate">{activity.subtitle}</p>
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/50">{labels[activity.type]}</span>
+                                {activity.duration > 0 && (
+                                  <>
+                                    <span className="text-xs font-mono text-white/50">
+                                      {formatDuration(activity.seek)} / {formatDuration(activity.duration)}
+                                    </span>
+                                    <div className="flex-1 h-1 bg-white/20 rounded-full overflow-hidden">
+                                      <div className="h-full bg-section-accent" style={{ width: `${progress}%` }} />
+                                    </div>
+                                  </>
+                                )}
+                                {activity.type === 'radio' && (
+                                  <span className="text-xs text-blue-400 animate-pulse">● Live</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ) : (
+                )}
+
+                {/* Video Streaming Sessions */}
+                {sessions.length > 0 && (
                   <div className="divide-y divide-white/5">
                     {sessions.map((session) => (
                       <div key={session.id} className="p-4 hover:bg-white/5 transition-colors">
@@ -393,6 +565,13 @@ export function StatusDashboard() {
                         )}
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {localActivities.length === 0 && sessions.length === 0 && (
+                  <div className="p-8 text-center text-muted-foreground">
+                    <Activity className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">Keine aktiven Streams</p>
                   </div>
                 )}
               </>
