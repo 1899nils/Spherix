@@ -4,7 +4,6 @@ import path from 'node:path';
 import { prisma } from '../config/database.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { trackMetadataSchema } from './schemas/metadata.schemas.js';
-import { writeTags } from '../services/metadata/tagwriter.service.js';
 import type { PaginatedResponse, TrackWithRelations } from '@musicserver/shared';
 
 const router: Router = Router();
@@ -205,18 +204,6 @@ router.put('/:id/metadata', requireAdmin, async (req, res, next) => {
         artist: { select: { id: true, name: true } },
         album: { select: { id: true, title: true, coverUrl: true, year: true, label: true } },
       },
-    });
-
-    // Write tags to audio file
-    await writeTags(track.filePath, {
-      title: input.title,
-      artist: input.artistName,
-      album: input.albumName,
-      trackNumber: input.trackNumber,
-      discNumber: input.discNumber,
-      year: input.year,
-      genre: input.genre,
-      lyrics: input.lyrics,
     });
 
     res.json({

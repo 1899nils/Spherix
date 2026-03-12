@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { Router } from 'express';
 import multer from 'multer';
 import { prisma } from '../config/database.js';
@@ -6,7 +7,7 @@ import {
   albumMetadataSchema,
   matchMusicbrainzSchema,
 } from './schemas/metadata.schemas.js';
-import { writeTags } from '../services/metadata/tagwriter.service.js';
+import { writeAlbumNfo } from '../services/metadata/nfowriter.service.js';
 import { processAndSaveCover, downloadAndSaveCover } from '../services/metadata/cover-processing.service.js';
 import {
   getReleaseById,
@@ -255,26 +256,29 @@ router.put('/:id/metadata', requireAdmin, async (req, res, next) => {
       },
     });
 
-    // Update all tracks in album: write artist/album/year/genre tags to files
-    const tagFields = {
-      artist: input.artistName,
-      album: input.title,
-      year: input.year,
-      genre: input.genre,
-    };
-    const tagUpdates = Object.fromEntries(
-      Object.entries(tagFields).filter(([, v]) => v !== undefined),
-    );
-
-    if (Object.keys(tagUpdates).length > 0) {
+    // Update artist on tracks if artist changed
+    if (artistId !== album.artistId) {
       for (const track of album.tracks) {
-        if (artistId !== album.artistId) {
-          await prisma.track.update({
-            where: { id: track.id },
-            data: { artistId },
-          });
-        }
-        await writeTags(track.filePath, tagUpdates);
+        await prisma.track.update({ where: { id: track.id }, data: { artistId } });
+      }
+    }
+
+    // Write album.nfo into the album folder (no ID3 tags are modified)
+    const firstTrackPath = album.tracks[0]?.filePath;
+    if (firstTrackPath) {
+      const albumFolder = path.dirname(firstTrackPath);
+      try {
+        await writeAlbumNfo(albumFolder, {
+          title: input.title ?? album.title,
+          artistName: input.artistName ?? album.artist.name,
+          year: input.year ?? album.year,
+          genre: input.genre ?? album.genre,
+          label: input.label ?? album.label,
+          country: input.country ?? album.country,
+          musicbrainzAlbumId: input.musicbrainzId ?? album.musicbrainzId,
+        });
+      } catch (err) {
+        logger.warn(`Failed to write album.nfo for album ${album.id}`, { error: String(err) });
       }
     }
 
@@ -466,6 +470,7 @@ router.post('/:id/match-musicbrainz', async (req, res, next) => {
     // Match and update tracks by disc + track position
     let tracksUpdated = 0;
     let tracksSkipped = 0;
+    const nfoTracks: Array<{ position: number; discNumber: number | null; title: string; musicbrainzId: string }> = [];
     for (const mbTrack of mbTracks) {
       const localTrack = album.tracks.find(
         (t) =>
@@ -503,23 +508,38 @@ router.post('/:id/match-musicbrainz', async (req, res, next) => {
         },
       });
 
-      try {
-        await writeTags(localTrack.filePath, {
-          title: mbTrack.title,
-          artist: artistName,
-          album: release.title,
-          trackNumber: mbTrack.trackNumber,
-          discNumber: mbTrack.discNumber,
-          year: releaseYear ?? undefined,
-          genre: genre ?? undefined,
-        });
-      } catch (err) {
-        logger.warn(`Failed to write tags for track ${localTrack.id} at ${localTrack.filePath}`, { error: String(err) });
-      }
+      nfoTracks.push({
+        position: mbTrack.trackNumber,
+        discNumber: mbTrack.discNumber,
+        title: mbTrack.title,
+        musicbrainzId: mbTrack.musicbrainzId,
+      });
       tracksUpdated++;
     }
 
     logger.info(`MusicBrainz match applied for album ${album.id}: ${tracksUpdated} tracks updated, ${tracksSkipped} skipped`);
+
+    // Write album.nfo into the album folder (no ID3 tags are modified)
+    const firstTrackPath = album.tracks[0]?.filePath;
+    if (firstTrackPath) {
+      const albumFolder = path.dirname(firstTrackPath);
+      const mbArtistId = release['artist-credit']?.[0]?.artist?.id;
+      try {
+        await writeAlbumNfo(albumFolder, {
+          title: release.title,
+          artistName,
+          year: releaseYear,
+          genre,
+          label,
+          country,
+          musicbrainzAlbumId: musicbrainzReleaseId,
+          musicbrainzArtistId: mbArtistId,
+          tracks: nfoTracks,
+        });
+      } catch (err) {
+        logger.warn(`Failed to write album.nfo for album ${album.id}`, { error: String(err) });
+      }
+    }
 
     // Update changes object with the actual local cover URL for the response
     if (localCoverUrl) {
