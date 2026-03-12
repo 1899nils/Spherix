@@ -1,49 +1,30 @@
 import { Router } from 'express';
+import { XMLParser } from 'fast-xml-parser';
 import { prisma } from '../config/database.js';
 import { logger } from '../config/logger.js';
 
 const router: Router = Router();
 
-// ─── Minimal RSS parser ──────────────────────────────────────────────────────
-
-function unescapeXml(s: string): string {
-  return s
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'");
-}
-
-/** Extract text from a simple XML tag (handles CDATA) */
-function extractTag(xml: string, tag: string): string | null {
-  const re = new RegExp(
-    `<${tag}(?:\\s[^>]*)?>(?:<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>|([^<]*?))<\\/${tag}>`,
-    'i',
-  );
-  const m = xml.match(re);
-  if (!m) return null;
-  // m[1] = CDATA content (already plain text), m[2] = regular text (may contain XML entities)
-  return (m[1] ?? unescapeXml(m[2] ?? '')).trim() || null;
-}
-
-/** Extract an attribute value from a self-closing or open tag */
-function extractAttr(xml: string, tag: string, attr: string): string | null {
-  const re = new RegExp(`<${tag}[^>]*\\s${attr}="([^"]*)"`, 'i');
-  return xml.match(re)?.[1]?.trim() || null;
-}
+// ─── RSS parser (fast-xml-parser) ────────────────────────────────────────────
 
 /** Parse HH:MM:SS or MM:SS or raw seconds → integer seconds */
-function parseDuration(raw: string | null): number | null {
+function parseDuration(raw: unknown): number | null {
   if (!raw) return null;
-  const parts = raw.trim().split(':').map(Number);
+  const s = String(raw).trim();
+  const parts = s.split(':').map(Number);
   if (parts.some(isNaN)) {
-    const s = parseInt(raw, 10);
-    return isNaN(s) ? null : s;
+    const n = parseInt(s, 10);
+    return isNaN(n) ? null : n;
   }
   if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
   if (parts.length === 2) return parts[0] * 60 + parts[1];
   return parts[0] ?? null;
+}
+
+function str(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  return s || null;
 }
 
 interface ParsedChannel {
@@ -65,56 +46,89 @@ interface ParsedEpisode {
   publishedAt: Date | null;
 }
 
+const xmlParser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '@_',
+  allowBooleanAttributes: true,
+  parseTagValue: true,
+  parseAttributeValue: false,
+  trimValues: true,
+  cdataPropName: '__cdata',
+  // Keep array for these tags so single-item feeds still work
+  isArray: (name) => name === 'item',
+});
+
 function parseRssFeed(xml: string): { channel: ParsedChannel; episodes: ParsedEpisode[] } {
-  // Strip XML declaration / namespaces that could confuse simple regex
-  const clean = xml.replace(/\r\n/g, '\n');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let doc: any;
+  try {
+    doc = xmlParser.parse(xml);
+  } catch (e) {
+    logger.warn('RSS XML parse error, falling back to empty result:', e);
+    return { channel: { title: 'Unknown Podcast', author: null, description: null, imageUrl: null, websiteUrl: null }, episodes: [] };
+  }
 
-  // Channel-level info (everything before first <item>)
-  const channelPart = clean.split(/<item[\s>]/i)[0] ?? clean;
+  const channel = doc?.rss?.channel ?? doc?.feed ?? {};
 
-  const title = extractTag(channelPart, 'title') ?? 'Unknown Podcast';
-  const author =
-    extractTag(channelPart, 'itunes:author') ??
-    extractTag(channelPart, 'author') ??
-    null;
-  const description =
-    extractTag(channelPart, 'itunes:summary') ??
-    extractTag(channelPart, 'description') ??
-    null;
-  const websiteUrl = extractTag(channelPart, 'link') ?? null;
+  // Helper: resolve CDATA or plain text nodes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const text = (node: any): string | null => {
+    if (!node) return null;
+    if (typeof node === 'string' || typeof node === 'number') return String(node).trim() || null;
+    if (node.__cdata) return String(node.__cdata).trim() || null;
+    if (typeof node === 'object' && '#text' in node) return String(node['#text']).trim() || null;
+    return null;
+  };
 
-  // Image: <itunes:image href="..."> preferred, then <image><url>...
+  // Channel metadata
+  const title = text(channel.title) ?? 'Unknown Podcast';
+  const author = text(channel['itunes:author']) ?? text(channel.author) ?? text(channel['author']) ?? null;
+  const description = text(channel['itunes:summary']) ?? text(channel.description) ?? null;
+
+  // Link: may be a string, object with #text, or array
+  let websiteUrl: string | null = null;
+  if (Array.isArray(channel.link)) {
+    websiteUrl = str(channel.link.find((l: unknown) => typeof l === 'string')) ?? null;
+  } else {
+    websiteUrl = text(channel.link);
+  }
+
+  // Image URL: prefer <itunes:image href="...">, then <image><url>
+  const itunesImageNode = channel['itunes:image'];
   const imageUrl =
-    extractAttr(channelPart, 'itunes:image', 'href') ??
-    extractTag(channelPart, 'url') ??
+    str(itunesImageNode?.['@_href']) ??
+    text(channel.image?.url) ??
     null;
 
-  // Items
-  const itemMatches = [...clean.matchAll(/<item[\s>]([\s\S]*?)<\/item>/gi)];
+  // Episodes
+  const rawItems: unknown[] = Array.isArray(channel.item) ? channel.item : channel.item ? [channel.item] : [];
   const episodes: ParsedEpisode[] = [];
 
-  for (const match of itemMatches) {
-    const item = match[1];
-    if (!item) continue;
+  for (const raw of rawItems) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const item = raw as any;
 
-    const audioUrl = extractAttr(item, 'enclosure', 'url');
-    if (!audioUrl) continue; // must have audio
+    // Audio URL from <enclosure url="...">
+    const enclosure = item.enclosure;
+    const audioUrl =
+      str(enclosure?.['@_url']) ??
+      str(Array.isArray(enclosure) ? enclosure[0]?.['@_url'] : null);
+    if (!audioUrl) continue;
 
-    const rawGuid = extractTag(item, 'guid') ?? audioUrl;
-    const episodeTitle = extractTag(item, 'title') ?? 'Untitled Episode';
-    const desc =
-      extractTag(item, 'itunes:summary') ??
-      extractTag(item, 'description') ??
-      null;
-    const epImage = extractAttr(item, 'itunes:image', 'href') ?? null;
+    const rawGuid = text(item.guid) ?? audioUrl;
+    const episodeTitle = text(item.title) ?? 'Untitled Episode';
+    const desc = text(item['itunes:summary']) ?? text(item['content:encoded']) ?? text(item.description) ?? null;
 
-    const rawDuration = extractTag(item, 'itunes:duration');
-    const duration = parseDuration(rawDuration);
+    const epImageNode = item['itunes:image'];
+    const epImage = str(epImageNode?.['@_href']) ?? null;
 
-    const rawLength = extractAttr(item, 'enclosure', 'length');
-    const fileSize = rawLength ? BigInt(parseInt(rawLength, 10) || 0) : null;
+    const duration = parseDuration(text(item['itunes:duration']));
 
-    const rawDate = extractTag(item, 'pubDate');
+    const rawLength = str(enclosure?.['@_length'] ?? (Array.isArray(enclosure) ? enclosure[0]?.['@_length'] : null));
+    const fileSizeNum = rawLength ? parseInt(rawLength, 10) : 0;
+    const fileSize = fileSizeNum > 0 ? BigInt(fileSizeNum) : null;
+
+    const rawDate = text(item.pubDate) ?? text(item.published);
     const publishedAt = rawDate ? new Date(rawDate) : null;
 
     episodes.push({
@@ -124,21 +138,18 @@ function parseRssFeed(xml: string): { channel: ParsedChannel; episodes: ParsedEp
       audioUrl,
       imageUrl: epImage,
       duration,
-      fileSize: fileSize && fileSize > 0n ? fileSize : null,
+      fileSize,
       publishedAt: publishedAt && !isNaN(publishedAt.getTime()) ? publishedAt : null,
     });
   }
 
-  return {
-    channel: { title, author, description, imageUrl, websiteUrl },
-    episodes,
-  };
+  return { channel: { title, author, description, imageUrl, websiteUrl }, episodes };
 }
 
 async function fetchAndParseFeed(feedUrl: string): Promise<{ channel: ParsedChannel; episodes: ParsedEpisode[] }> {
   const res = await fetch(feedUrl, {
     headers: { 'User-Agent': 'Spherix/1.0 Podcast Client' },
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(20_000),
     redirect: 'follow',
   });
   if (!res.ok) throw new Error(`Feed fetch failed: ${res.status} ${res.statusText}`);
