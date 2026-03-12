@@ -32,11 +32,13 @@ function VolumeControl({
       <button onClick={onToggleMute} className="text-white/80 hover:text-white p-2">
         <VolumeIcon className="h-5 w-5" />
       </button>
-      <div className="relative w-24 h-1 bg-white/30 rounded overflow-hidden">
-        <div 
-          className="absolute h-full bg-red-600"
-          style={{ width: `${isMuted ? 0 : volume * 100}%` }}
-        />
+      <div className="relative w-24 h-4 flex items-center">
+        <div className="absolute left-0 right-0 h-1 bg-white/30 rounded overflow-hidden pointer-events-none">
+          <div
+            className="h-full bg-red-600"
+            style={{ width: `${isMuted ? 0 : volume * 100}%` }}
+          />
+        </div>
         <input
           type="range"
           min="0"
@@ -44,7 +46,7 @@ function VolumeControl({
           step="0.05"
           value={isMuted ? 0 : volume}
           onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          className="absolute inset-0 w-full opacity-0 cursor-pointer"
         />
       </div>
     </div>
