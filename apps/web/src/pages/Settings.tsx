@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,9 +17,14 @@ import {
   Clapperboard,
   BookOpen,
   FolderOpen,
+  UserPlus,
+  Trash2,
+  Shield,
+  Users,
 } from 'lucide-react';
+import { useAuthStore } from '@/stores/authStore';
 
-type Tab = 'general' | 'musik' | 'video' | 'audiobook';
+type Tab = 'general' | 'musik' | 'video' | 'audiobook' | 'users';
 
 interface ApiData<T> {
   data: T;
@@ -151,8 +156,17 @@ function ScanCard({
   );
 }
 
+interface AuthUser {
+  id: string;
+  username: string;
+  email: string;
+  isAdmin: boolean;
+  createdAt: string;
+}
+
 export function Settings() {
   const [activeTab, setActiveTab] = useState<Tab>('general');
+  const currentUser = useAuthStore((s) => s.user);
 
   // ─── Server Settings ────────────────────────────────────────────────────────
 
@@ -366,11 +380,12 @@ export function Settings() {
 
   // ─── Tab bar ─────────────────────────────────────────────────────────────────
 
-  const tabs: { id: Tab; label: string }[] = [
+  const tabs: { id: Tab; label: string; adminOnly?: boolean }[] = [
     { id: 'general',   label: 'Grundeinstellungen' },
     { id: 'musik',     label: 'Musik' },
     { id: 'video',     label: 'Video' },
     { id: 'audiobook', label: 'Hörbücher' },
+    { id: 'users',     label: 'Benutzer', adminOnly: true },
   ];
 
   return (
@@ -379,7 +394,7 @@ export function Settings() {
       {/* ─── Tab Navigation ──────────────────────────────────────────────────── */}
 
       <div className="flex border-b border-white/10">
-        {tabs.map((tab) => (
+        {tabs.filter((t) => !t.adminOnly || currentUser?.isAdmin).map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -814,6 +829,195 @@ export function Settings() {
           </section>
         </div>
       )}
+
+      {/* ─── Benutzer (Admin only) ────────────────────────────────────────────── */}
+
+      {activeTab === 'users' && currentUser?.isAdmin && (
+        <UsersTab currentUserId={currentUser.id} />
+      )}
+    </div>
+  );
+}
+
+// ─── Users Tab ────────────────────────────────────────────────────────────────
+
+function UsersTab({ currentUserId }: { currentUserId: string }) {
+  const queryClient = useQueryClient();
+
+  const { data: usersData, isLoading } = useQuery({
+    queryKey: ['auth-users'],
+    queryFn: () => api.get<{ data: AuthUser[] }>('/auth/users'),
+  });
+
+  const [showForm, setShowForm] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newIsAdmin, setNewIsAdmin] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  const createUser = useMutation({
+    mutationFn: (data: { username: string; email: string; password: string; isAdmin: boolean }) =>
+      api.post('/auth/users', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['auth-users'] });
+      setShowForm(false);
+      setNewUsername('');
+      setNewEmail('');
+      setNewPassword('');
+      setNewIsAdmin(false);
+      setFormError('');
+    },
+    onError: (err: Error) => setFormError(err.message),
+  });
+
+  const deleteUser = useMutation({
+    mutationFn: (id: string) => api.delete(`/auth/users/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['auth-users'] }),
+  });
+
+  const handleCreate = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    if (!newUsername || !newPassword) { setFormError('Benutzername und Passwort erforderlich'); return; }
+    createUser.mutate({ username: newUsername, email: newEmail, password: newPassword, isAdmin: newIsAdmin });
+  };
+
+  const users = usersData?.data ?? [];
+
+  return (
+    <div className="space-y-6">
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Benutzerverwaltung</h2>
+          <Button size="sm" onClick={() => setShowForm((v) => !v)}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Neuer Benutzer
+          </Button>
+        </div>
+
+        {/* Create user form */}
+        {showForm && (
+          <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-white">Neuen Benutzer anlegen</h3>
+            <form onSubmit={handleCreate} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-zinc-400">Benutzername *</label>
+                  <input
+                    type="text"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    placeholder="nils"
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-zinc-400">E-Mail (optional)</label>
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    placeholder="nils@beispiel.de"
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-zinc-400">Passwort *</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Mindestens 4 Zeichen"
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={newIsAdmin}
+                  onChange={(e) => setNewIsAdmin(e.target.checked)}
+                  className="rounded border-white/20 bg-black/40 text-blue-500"
+                />
+                <span className="text-sm text-zinc-300">Admin-Rechte gewähren</span>
+              </label>
+              {formError && <p className="text-xs text-red-400">{formError}</p>}
+              <div className="flex gap-2 pt-1">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setShowForm(false)}>
+                  Abbrechen
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-500 text-white"
+                  disabled={createUser.isPending}
+                >
+                  {createUser.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <UserPlus className="h-4 w-4 mr-1" />}
+                  Anlegen
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* User list */}
+        <div className="rounded-xl border border-white/5 bg-white/5 overflow-hidden">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-24">
+              <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+            </div>
+          ) : users.length === 0 ? (
+            <div className="flex items-center justify-center h-24 text-sm text-zinc-500">
+              Keine Benutzer gefunden
+            </div>
+          ) : (
+            <div className="divide-y divide-white/5">
+              {users.map((user) => (
+                <div key={user.id} className="flex items-center gap-4 px-5 py-3">
+                  <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                    <Users className="h-4 w-4 text-zinc-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-white truncate">{user.username}</p>
+                      {user.isAdmin && (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-amber-400/80 bg-amber-400/10 rounded px-1.5 py-0.5 shrink-0">
+                          <Shield className="h-2.5 w-2.5" /> Admin
+                        </span>
+                      )}
+                      {user.id === currentUserId && (
+                        <span className="text-[10px] text-blue-400/70 bg-blue-400/10 rounded px-1.5 py-0.5 shrink-0">
+                          Ich
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-500 truncate">{user.email}</p>
+                  </div>
+                  <p className="text-xs text-zinc-600 shrink-0 hidden sm:block">
+                    {new Date(user.createdAt).toLocaleDateString('de-DE')}
+                  </p>
+                  {user.id !== currentUserId && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 shrink-0"
+                      disabled={deleteUser.isPending}
+                      onClick={() => {
+                        if (confirm(`Benutzer "${user.username}" wirklich löschen?`)) {
+                          deleteUser.mutate(user.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
