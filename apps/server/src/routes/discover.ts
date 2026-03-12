@@ -116,10 +116,10 @@ async function getTopArtists(userId: string) {
   });
 
   if (history.length === 0) {
-    // Fallback: artists with most tracks in library
+    // Fallback: artists with most tracks in library (same filter as Artists page)
     const artists = await prisma.artist.findMany({
-      where: { tracks: { some: {} } },
-      include: { _count: { select: { tracks: true } } },
+      where: { albums: { some: { tracks: { some: { missing: false } } } } },
+      include: { _count: { select: { tracks: { where: { missing: false } } } } },
       orderBy: { tracks: { _count: 'desc' } },
       take: 8,
     });

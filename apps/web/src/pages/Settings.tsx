@@ -165,8 +165,8 @@ interface AuthUser {
 }
 
 export function Settings() {
-  const [activeTab, setActiveTab] = useState<Tab>('general');
   const currentUser = useAuthStore((s) => s.user);
+  const [activeTab, setActiveTab] = useState<Tab>(currentUser?.isAdmin ? 'general' : 'musik');
 
   // ─── Server Settings ────────────────────────────────────────────────────────
 
@@ -381,7 +381,7 @@ export function Settings() {
   // ─── Tab bar ─────────────────────────────────────────────────────────────────
 
   const tabs: { id: Tab; label: string; adminOnly?: boolean }[] = [
-    { id: 'general',   label: 'Grundeinstellungen' },
+    { id: 'general',   label: 'Grundeinstellungen', adminOnly: true },
     { id: 'musik',     label: 'Musik' },
     { id: 'video',     label: 'Video' },
     { id: 'audiobook', label: 'Hörbücher' },
@@ -620,7 +620,7 @@ export function Settings() {
             </div>
           </section>
 
-          <section className="space-y-4">
+          {currentUser?.isAdmin && (<section className="space-y-4">
             <h2 className="text-lg font-semibold">YouTube Musikvideos</h2>
             <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
               <div className="flex items-start gap-4">
@@ -705,8 +705,9 @@ export function Settings() {
               </div>
             </div>
           </section>
+          )}
 
-          <section className="space-y-4">
+          {currentUser?.isAdmin && (<section className="space-y-4">
             <h2 className="text-lg font-semibold">Musik-Mediathek</h2>
             <ScanCard
               icon={<Music className="h-4 w-4 text-zinc-400" />}
@@ -718,6 +719,7 @@ export function Settings() {
               onScan={() => scanMusic.mutate()}
             />
           </section>
+          )}
 
         </div>
       )}
@@ -727,7 +729,7 @@ export function Settings() {
       {activeTab === 'video' && (
         <div className="space-y-6">
 
-          <section className="space-y-4">
+          {currentUser?.isAdmin && (<section className="space-y-4">
             <h2 className="text-lg font-semibold">The Movie Database (TMDb)</h2>
             <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
               <div className="flex items-start gap-4">
@@ -795,8 +797,9 @@ export function Settings() {
               </div>
             </div>
           </section>
+          )}
 
-          <section className="space-y-4">
+          {currentUser?.isAdmin && (<section className="space-y-4">
             <h2 className="text-lg font-semibold">Video-Mediathek</h2>
             <ScanCard
               icon={<Clapperboard className="h-4 w-4 text-zinc-400" />}
@@ -808,6 +811,7 @@ export function Settings() {
               onScan={() => scanVideo.mutate()}
             />
           </section>
+          )}
         </div>
       )}
 
@@ -815,7 +819,7 @@ export function Settings() {
 
       {activeTab === 'audiobook' && (
         <div className="space-y-6">
-          <section className="space-y-4">
+          {currentUser?.isAdmin && (<section className="space-y-4">
             <h2 className="text-lg font-semibold">Hörbücher-Mediathek</h2>
             <ScanCard
               icon={<BookOpen className="h-4 w-4 text-zinc-400" />}
@@ -827,6 +831,7 @@ export function Settings() {
               onScan={() => scanAudiobooks.mutate()}
             />
           </section>
+          )}
         </div>
       )}
 
