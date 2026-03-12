@@ -128,7 +128,7 @@ router.delete('/users/:id', requireAdmin, async (req, res, next) => {
       res.status(400).json({ error: 'Das eigene Konto kann nicht gelöscht werden' });
       return;
     }
-    await prisma.user.delete({ where: { id: req.params.id } });
+    await prisma.user.delete({ where: { id: String(req.params.id) } });
     res.status(204).send();
   } catch (error) {
     next(error);
