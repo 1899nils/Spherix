@@ -247,6 +247,87 @@ router.get('/search', async (req, res, next) => {
   }
 });
 
+/** Proxy podcast audio stream to avoid mixed-content and CORS issues */
+router.get('/proxy', async (req, res, next) => {
+  try {
+    const url = req.query.url as string;
+    if (!url || !/^https?:\/\//i.test(url)) {
+      res.status(400).json({ error: 'Valid "url" query parameter is required' });
+      return;
+    }
+
+    const upstream = await fetch(url, {
+      headers: {
+        'User-Agent': 'Spherix/1.0 Podcast Client',
+        ...(req.headers.range ? { Range: req.headers.range as string } : {}),
+      },
+      signal: AbortSignal.timeout(30_000),
+      redirect: 'follow',
+    });
+
+    if (!upstream.ok && upstream.status !== 206) {
+      res.status(upstream.status).json({ error: `Upstream error: ${upstream.status}` });
+      return;
+    }
+
+    const forwardHeaders = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
+    for (const h of forwardHeaders) {
+      const v = upstream.headers.get(h);
+      if (v) res.setHeader(h, v);
+    }
+    res.status(upstream.status);
+
+    if (!upstream.body) {
+      res.end();
+      return;
+    }
+
+    const reader = upstream.body.getReader();
+    const pump = async () => {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) { res.end(); break; }
+        const canContinue = res.write(value);
+        if (!canContinue) {
+          await new Promise<void>((resolve) => res.once('drain', resolve));
+        }
+      }
+    };
+    pump().catch((err) => {
+      logger.error('Podcast proxy stream error:', err);
+      if (!res.headersSent) next(err);
+      else res.end();
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Save playback progress for a podcast episode */
+router.post('/episodes/:episodeId/progress', async (req, res, next) => {
+  try {
+    const { position } = req.body as { position: number };
+
+    if (typeof position !== 'number' || position < 0) {
+      res.status(400).json({ error: 'position must be a non-negative number (seconds)' });
+      return;
+    }
+
+    const episode = await prisma.podcastEpisode.findUnique({
+      where: { id: req.params.episodeId },
+      select: { id: true },
+    });
+    if (!episode) { res.status(404).json({ error: 'Episode not found' }); return; }
+
+    await prisma.podcastEpisode.update({
+      where: { id: req.params.episodeId },
+      data: { listenProgress: Math.floor(position) },
+    });
+
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+});
+
 /** Get podcast detail with episodes */
 router.get('/:id', async (req, res, next) => {
   try {
@@ -422,89 +503,6 @@ router.delete('/:id', async (req, res, next) => {
   } catch (error) {
     next(error);
   }
-});
-
-/** Proxy podcast audio stream to avoid mixed-content and CORS issues */
-router.get('/proxy', async (req, res, next) => {
-  try {
-    const url = req.query.url as string;
-    if (!url || !/^https?:\/\//i.test(url)) {
-      res.status(400).json({ error: 'Valid "url" query parameter is required' });
-      return;
-    }
-
-    const upstream = await fetch(url, {
-      headers: {
-        'User-Agent': 'Spherix/1.0 Podcast Client',
-        ...(req.headers.range ? { Range: req.headers.range as string } : {}),
-      },
-      signal: AbortSignal.timeout(30_000),
-      redirect: 'follow',
-    });
-
-    if (!upstream.ok && upstream.status !== 206) {
-      res.status(upstream.status).json({ error: `Upstream error: ${upstream.status}` });
-      return;
-    }
-
-    // Forward relevant headers
-    const forwardHeaders = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
-    for (const h of forwardHeaders) {
-      const v = upstream.headers.get(h);
-      if (v) res.setHeader(h, v);
-    }
-    res.status(upstream.status);
-
-    if (!upstream.body) {
-      res.end();
-      return;
-    }
-
-    // Stream the body
-    const reader = upstream.body.getReader();
-    const pump = async () => {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) { res.end(); break; }
-        const canContinue = res.write(value);
-        if (!canContinue) {
-          await new Promise<void>((resolve) => res.once('drain', resolve));
-        }
-      }
-    };
-    pump().catch((err) => {
-      logger.error('Podcast proxy stream error:', err);
-      if (!res.headersSent) next(err);
-      else res.end();
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/** Save playback progress for a podcast episode */
-router.post('/episodes/:episodeId/progress', async (req, res, next) => {
-  try {
-    const { position } = req.body as { position: number };
-
-    if (typeof position !== 'number' || position < 0) {
-      res.status(400).json({ error: 'position must be a non-negative number (seconds)' });
-      return;
-    }
-
-    const episode = await prisma.podcastEpisode.findUnique({
-      where: { id: req.params.episodeId },
-      select: { id: true },
-    });
-    if (!episode) { res.status(404).json({ error: 'Episode not found' }); return; }
-
-    await prisma.podcastEpisode.update({
-      where: { id: req.params.episodeId },
-      data: { listenProgress: Math.floor(position) },
-    });
-
-    res.json({ ok: true });
-  } catch (error) { next(error); }
 });
 
 export default router;
