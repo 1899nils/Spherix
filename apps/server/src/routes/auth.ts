@@ -135,6 +135,44 @@ router.delete('/users/:id', requireAdmin, async (req, res, next) => {
   }
 });
 
+// ── PATCH /api/auth/users/:id (admin only) ──────────────────────────────────
+
+router.patch('/users/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const { username, email, isAdmin, password } = req.body as {
+      username?: string;
+      email?: string;
+      isAdmin?: boolean;
+      password?: string;
+    };
+
+    const data: Record<string, unknown> = {};
+    if (username !== undefined) data.username = username.trim();
+    if (email    !== undefined) data.email    = email.trim() || undefined;
+    if (isAdmin  !== undefined) data.isAdmin  = isAdmin;
+    if (password !== undefined) {
+      if (password.length < 4) {
+        res.status(400).json({ error: 'Passwort muss mindestens 4 Zeichen haben' });
+        return;
+      }
+      data.passwordHash = hashPassword(password);
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: req.params.id },
+      data,
+      select: { id: true, username: true, email: true, isAdmin: true, createdAt: true },
+    });
+    res.json({ data: { ...updated, createdAt: updated.createdAt.toISOString() } });
+  } catch (error: unknown) {
+    if ((error as { code?: string })?.code === 'P2002') {
+      res.status(409).json({ error: 'Benutzername oder E-Mail bereits vergeben' });
+      return;
+    }
+    next(error);
+  }
+});
+
 // ── PUT /api/auth/users/:id/password ────────────────────────────────────────
 
 router.put('/users/:id/password', async (req, res, next) => {

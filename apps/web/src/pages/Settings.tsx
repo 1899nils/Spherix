@@ -21,6 +21,7 @@ import {
   Trash2,
   Shield,
   Users,
+  Pencil,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -861,6 +862,13 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
   const [newIsAdmin, setNewIsAdmin] = useState(false);
   const [formError, setFormError] = useState('');
 
+  const [editUser, setEditUser] = useState<AuthUser | null>(null);
+  const [editUsername, setEditUsername] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editIsAdmin, setEditIsAdmin] = useState(false);
+  const [editPassword, setEditPassword] = useState('');
+  const [editError, setEditError] = useState('');
+
   const createUser = useMutation({
     mutationFn: (data: { username: string; email: string; password: string; isAdmin: boolean }) =>
       api.post('/auth/users', data),
@@ -879,6 +887,18 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
   const deleteUser = useMutation({
     mutationFn: (id: string) => api.delete(`/auth/users/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['auth-users'] }),
+  });
+
+  const updateUser = useMutation({
+    mutationFn: (data: { id: string; username: string; email: string; isAdmin: boolean; password?: string }) =>
+      api.patch(`/auth/users/${data.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['auth-users'] });
+      setEditUser(null);
+      setEditPassword('');
+      setEditError('');
+    },
+    onError: (err: Error) => setEditError(err.message),
   });
 
   const handleCreate = (e: React.FormEvent) => {
@@ -1002,6 +1022,21 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
                   <p className="text-xs text-zinc-600 shrink-0 hidden sm:block">
                     {new Date(user.createdAt).toLocaleDateString('de-DE')}
                   </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-zinc-500 hover:text-blue-400 hover:bg-blue-500/10 shrink-0"
+                    onClick={() => {
+                      setEditUser(user);
+                      setEditUsername(user.username);
+                      setEditEmail(user.email ?? '');
+                      setEditIsAdmin(user.isAdmin);
+                      setEditPassword('');
+                      setEditError('');
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
                   {user.id !== currentUserId && (
                     <Button
                       variant="ghost"
@@ -1023,6 +1058,88 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
           )}
         </div>
       </section>
+
+      {/* Edit user modal */}
+      {editUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setEditUser(null)} />
+          <div className="relative bg-zinc-900 border border-white/10 rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
+            <h3 className="text-sm font-semibold text-white">
+              Benutzer bearbeiten: <span className="text-blue-400">{editUser.username}</span>
+            </h3>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setEditError('');
+                if (!editUsername) { setEditError('Benutzername erforderlich'); return; }
+                updateUser.mutate({
+                  id: editUser.id,
+                  username: editUsername,
+                  email: editEmail,
+                  isAdmin: editIsAdmin,
+                  password: editPassword || undefined,
+                });
+              }}
+              className="space-y-3"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-zinc-400">Benutzername *</label>
+                  <input
+                    type="text"
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-zinc-400">E-Mail</label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-zinc-400">Neues Passwort (leer = unverändert)</label>
+                <input
+                  type="password"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Mindestens 4 Zeichen"
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={editIsAdmin}
+                  onChange={(e) => setEditIsAdmin(e.target.checked)}
+                  className="rounded border-white/20 bg-black/40 text-blue-500"
+                />
+                <span className="text-sm text-zinc-300">Admin-Rechte</span>
+              </label>
+              {editError && <p className="text-xs text-red-400">{editError}</p>}
+              <div className="flex gap-2 pt-1">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setEditUser(null)}>
+                  Abbrechen
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-500 text-white"
+                  disabled={updateUser.isPending}
+                >
+                  {updateUser.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Pencil className="h-4 w-4 mr-1" />}
+                  Speichern
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
