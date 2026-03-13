@@ -134,7 +134,7 @@ export function PodcastDetail() {
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
 
         <div className="relative z-10 flex items-end gap-6 px-6 pb-6 w-full">
-          <div className="h-40 w-40 rounded-xl overflow-hidden bg-black/30 shrink-0 shadow-2xl border border-white/10">
+          <div className="h-48 w-48 rounded-xl overflow-hidden bg-black/30 shrink-0 shadow-2xl border border-white/10">
             {podcast.imageUrl ? (
               <img src={podcast.imageUrl} alt={podcast.title} className="h-full w-full object-contain" />
             ) : (
@@ -228,9 +228,9 @@ export function PodcastDetail() {
                     onClick={() => setExpandedEpId(isExpanded ? null : ep.id)}
                   >
                     {/* Thumbnail */}
-                    <div className="h-16 w-24 rounded-md overflow-hidden bg-muted shrink-0">
+                    <div className="h-16 w-16 rounded-md overflow-hidden bg-black/20 shrink-0">
                       {thumb ? (
-                        <img src={thumb} alt={ep.title} className="h-full w-full object-cover" />
+                        <img src={thumb} alt={ep.title} className="h-full w-full object-contain" />
                       ) : (
                         <div className="h-full w-full flex items-center justify-center text-2xl">🎙️</div>
                       )}
@@ -243,7 +243,7 @@ export function PodcastDetail() {
                       </p>
                       <p className="text-xs text-muted-foreground font-medium">{podcast.title}</p>
                       {ep.description && (
-                        <p className={`text-xs text-muted-foreground leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
                           {ep.description.replace(/<[^>]+>/g, '').trim()}
                         </p>
                       )}
