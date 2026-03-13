@@ -30,7 +30,7 @@ export interface PodcastDetail extends Podcast {
   episodes: PodcastEpisode[];
 }
 
-export interface ItunesSearchResult {
+export interface PodcastSearchResult {
   collectionId: number;
   collectionName: string;
   artistName: string;
@@ -40,3 +40,6 @@ export interface ItunesSearchResult {
   trackCount: number;
   country: string;
 }
+
+/** @deprecated use PodcastSearchResult */
+export type ItunesSearchResult = PodcastSearchResult;

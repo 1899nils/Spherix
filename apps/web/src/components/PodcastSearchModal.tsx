@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import type { ItunesSearchResult } from '@musicserver/shared';
+import type { PodcastSearchResult } from '@musicserver/shared';
 import { Search, Loader2, X, Plus, Check } from 'lucide-react';
 
 interface Props {
@@ -12,14 +12,14 @@ interface Props {
 export function PodcastSearchModal({ onClose }: Props) {
   const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<ItunesSearchResult[]>([]);
+  const [results, setResults] = useState<PodcastSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [subscribed, setSubscribed] = useState<Set<string>>(new Set());
 
   const subscribeMutation = useMutation({
-    mutationFn: ({ feedUrl, itunesId }: { feedUrl: string; itunesId: string }) =>
-      api.post('/podcasts/subscribe', { feedUrl, itunesId }),
+    mutationFn: ({ feedUrl, podcastIndexId }: { feedUrl: string; podcastIndexId: string }) =>
+      api.post('/podcasts/subscribe', { feedUrl, itunesId: podcastIndexId }),
     onSuccess: (_data, vars) => {
       setSubscribed((prev) => new Set([...prev, vars.feedUrl]));
       queryClient.invalidateQueries({ queryKey: ['podcasts'] });
@@ -32,7 +32,7 @@ export function PodcastSearchModal({ onClose }: Props) {
     setSearching(true);
     setSearchError(null);
     try {
-      const res = await api.get<{ data: ItunesSearchResult[] }>(
+      const res = await api.get<{ data: PodcastSearchResult[] }>(
         `/podcasts/search?q=${encodeURIComponent(query.trim())}`,
       );
       setResults(res.data ?? []);
@@ -125,7 +125,7 @@ export function PodcastSearchModal({ onClose }: Props) {
                   onClick={() =>
                     subscribeMutation.mutate({
                       feedUrl: item.feedUrl,
-                      itunesId: String(item.collectionId),
+                      podcastIndexId: String(item.collectionId),
                     })
                   }
                   className="shrink-0"
