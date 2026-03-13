@@ -39,6 +39,7 @@ export function PodcastDetail() {
   const [episodeCount, setEpisodeCount] = useState(0);
   const [offset, setOffset] = useState(0);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [expandedEpId, setExpandedEpId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['podcast', id],
@@ -133,9 +134,9 @@ export function PodcastDetail() {
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
 
         <div className="relative z-10 flex items-end gap-6 px-6 pb-6 w-full">
-          <div className="h-40 w-40 rounded-xl overflow-hidden bg-muted shrink-0 shadow-2xl border border-white/10">
+          <div className="h-40 w-40 rounded-xl overflow-hidden bg-black/30 shrink-0 shadow-2xl border border-white/10">
             {podcast.imageUrl ? (
-              <img src={podcast.imageUrl} alt={podcast.title} className="h-full w-full object-cover" />
+              <img src={podcast.imageUrl} alt={podcast.title} className="h-full w-full object-contain" />
             ) : (
               <div className="h-full w-full flex items-center justify-center text-5xl">🎙️</div>
             )}
@@ -218,10 +219,13 @@ export function PodcastDetail() {
                   : 0;
                 const thumb = ep.imageUrl ?? podcast.imageUrl;
 
+                const isExpanded = expandedEpId === ep.id;
+
                 return (
                   <div
                     key={ep.id}
-                    className={`flex items-start gap-4 py-4 transition-colors ${isCurrent ? 'bg-muted/40' : 'hover:bg-muted/20'}`}
+                    className={`flex items-start gap-4 py-4 transition-colors cursor-pointer ${isCurrent ? 'bg-muted/40' : 'hover:bg-muted/20'}`}
+                    onClick={() => setExpandedEpId(isExpanded ? null : ep.id)}
                   >
                     {/* Thumbnail */}
                     <div className="h-16 w-24 rounded-md overflow-hidden bg-muted shrink-0">
@@ -239,7 +243,7 @@ export function PodcastDetail() {
                       </p>
                       <p className="text-xs text-muted-foreground font-medium">{podcast.title}</p>
                       {ep.description && (
-                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                        <p className={`text-xs text-muted-foreground leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
                           {ep.description.replace(/<[^>]+>/g, '').trim()}
                         </p>
                       )}
@@ -275,7 +279,7 @@ export function PodcastDetail() {
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                    <div className="flex items-center gap-1 shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="ghost"
                         size="icon"
