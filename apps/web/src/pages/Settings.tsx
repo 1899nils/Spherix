@@ -369,7 +369,7 @@ export function Settings() {
 
   const { data: piData, refetch: refetchPi } = useQuery({
     queryKey: ['podcastindex-status'],
-    queryFn: () => api.get<ApiData<{ configured: boolean; apiKey: string | null }>>('/podcastindex/status'),
+    queryFn: () => api.get<ApiData<{ configured: boolean; apiKey: string | null; secretConfigured: boolean }>>('/podcastindex/status'),
   });
   const [localPiApiKey, setLocalPiApiKey] = useState('');
   const [localPiApiSecret, setLocalPiApiSecret] = useState('');
@@ -378,7 +378,7 @@ export function Settings() {
   useEffect(() => {
     if (piData?.data) {
       setLocalPiApiKey(piData.data.apiKey || '');
-      setLocalPiApiSecret('');
+      setLocalPiApiSecret(''); // never prefill secret — show placeholder if already saved
     }
   }, [piData]);
 
@@ -391,6 +391,17 @@ export function Settings() {
     },
     onError: (err: Error) => {
       setPiFeedback({ type: 'error', message: `Fehler: ${err.message}` });
+    },
+  });
+
+  const testPiConfig = useMutation({
+    mutationFn: () => api.post('/podcastindex/test', {}),
+    onSuccess: () => {
+      setPiFeedback({ type: 'success', message: 'Verbindung erfolgreich — API-Keys funktionieren!' });
+      setTimeout(() => setPiFeedback(null), 4000);
+    },
+    onError: (err: Error) => {
+      setPiFeedback({ type: 'error', message: `Verbindungstest fehlgeschlagen: ${err.message}` });
     },
   });
 
@@ -773,18 +784,24 @@ export function Settings() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-zinc-400 font-medium">API Secret</label>
+                  <label className="text-xs text-zinc-400 font-medium">
+                    API Secret
+                    {piData?.data?.secretConfigured && !localPiApiSecret && (
+                      <span className="ml-2 text-green-400/70">gespeichert</span>
+                    )}
+                  </label>
                   <input
                     type="password"
                     value={localPiApiSecret}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalPiApiSecret(e.target.value)}
-                    placeholder="API Secret"
+                    placeholder={piData?.data?.secretConfigured ? '••••••••••••••••' : 'API Secret'}
                     className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
                   />
                 </div>
               </div>
               <p className="text-xs text-zinc-500">
                 Kostenlosen Account und API-Keys erstellen unter <a href="https://api.podcastindex.org" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">api.podcastindex.org</a>.
+                {piData?.data?.secretConfigured && ' Das Secret bleibt gespeichert wenn das Feld leer gelassen wird.'}
               </p>
 
               {piFeedback && (
@@ -800,15 +817,28 @@ export function Settings() {
                 </div>
               )}
 
-              <Button
-                size="sm"
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
-                onClick={() => savePiConfig.mutate({ apiKey: localPiApiKey, apiSecret: localPiApiSecret })}
-                disabled={savePiConfig.isPending || !localPiApiKey || !localPiApiSecret}
-              >
-                {savePiConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                Speichern
-              </Button>
+              <div className="flex gap-3">
+                <Button
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
+                  onClick={() => savePiConfig.mutate({ apiKey: localPiApiKey, apiSecret: localPiApiSecret })}
+                  disabled={savePiConfig.isPending || !localPiApiKey || (!localPiApiSecret && !piData?.data?.secretConfigured)}
+                >
+                  {savePiConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  Speichern
+                </Button>
+                {piData?.data?.configured && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => testPiConfig.mutate()}
+                    disabled={testPiConfig.isPending}
+                  >
+                    {testPiConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                    Verbindung testen
+                  </Button>
+                )}
+              </div>
             </div>
           </section>
 

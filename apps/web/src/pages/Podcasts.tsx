@@ -66,7 +66,7 @@ export function Podcasts() {
         <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-4">
           <Headphones className="h-14 w-14 opacity-30" />
           <p className="text-lg font-medium">Noch keine Podcasts abonniert</p>
-          <p className="text-sm opacity-70">Suche über iTunes und abonniere deinen ersten Podcast</p>
+          <p className="text-sm opacity-70">Suche über PodcastIndex und abonniere deinen ersten Podcast</p>
           <Button onClick={() => setSearchOpen(true)} className="mt-2">
             <Plus className="h-4 w-4 mr-2" />
             Podcast suchen

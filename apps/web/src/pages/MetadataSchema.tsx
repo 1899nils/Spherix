@@ -19,7 +19,7 @@ const SCHEMA = {
     music:       ['MusicBrainz', 'LastFM', 'Spotify', 'Deezer', 'Discogs'],
     musicvideos: ['TheMovieDB', 'MusicBrainz', 'Fanart.tv'],
     audiobooks:  ['Audible (Audnexus)', 'Google Books', 'OpenLibrary', 'iTunes', 'Custom Provider API'],
-    podcasts:    ['PodcastIndex', 'iTunes / Apple Podcasts', 'RSS Feed (direkt)'],
+    podcasts:    ['PodcastIndex', 'RSS Feed (direkt)'],
     videos:      ['TheMovieDB', 'Local only'],
   } as Record<string, string[]>,
   imageTypes: {
