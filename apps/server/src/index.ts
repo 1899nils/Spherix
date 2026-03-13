@@ -26,6 +26,7 @@ import tmdbRouter from './routes/tmdb.js';
 import radioRouter from './routes/radio.js';
 import settingsRouter, { getMediaPaths } from './routes/settings.js';
 import podcastsRouter from './routes/podcasts.js';
+import podcastIndexRouter from './routes/podcastindex.js';
 import moviesRouter from './routes/video/movies.js';
 import { seriesRouter, episodesRouter } from './routes/video/series.js';
 import videoScanRouter from './routes/video/scan.js';
@@ -93,6 +94,7 @@ app.use('/api/tmdb', tmdbRouter);
 app.use('/api/radio', radioRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/podcasts', podcastsRouter);
+app.use('/api/podcastindex', podcastIndexRouter);
 
 // ── Video ─────────────────────────────────────────────────────────────────────
 app.use('/api/video/movies',   moviesRouter);

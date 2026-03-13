@@ -365,6 +365,35 @@ export function Settings() {
     },
   });
 
+  // ─── PodcastIndex ────────────────────────────────────────────────────────────
+
+  const { data: piData, refetch: refetchPi } = useQuery({
+    queryKey: ['podcastindex-status'],
+    queryFn: () => api.get<ApiData<{ configured: boolean; apiKey: string | null }>>('/podcastindex/status'),
+  });
+  const [localPiApiKey, setLocalPiApiKey] = useState('');
+  const [localPiApiSecret, setLocalPiApiSecret] = useState('');
+  const [piFeedback, setPiFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  useEffect(() => {
+    if (piData?.data) {
+      setLocalPiApiKey(piData.data.apiKey || '');
+      setLocalPiApiSecret('');
+    }
+  }, [piData]);
+
+  const savePiConfig = useMutation({
+    mutationFn: (data: { apiKey: string; apiSecret: string }) => api.post('/podcastindex/config', data),
+    onSuccess: () => {
+      refetchPi();
+      setPiFeedback({ type: 'success', message: 'PodcastIndex API-Keys gespeichert!' });
+      setTimeout(() => setPiFeedback(null), 3000);
+    },
+    onError: (err: Error) => {
+      setPiFeedback({ type: 'error', message: `Fehler: ${err.message}` });
+    },
+  });
+
   // ─── Scanner ─────────────────────────────────────────────────────────────────
 
   const scanMusic = useMutation({
@@ -707,6 +736,81 @@ export function Settings() {
             </div>
           </section>
           )}
+
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold">Podcast-Suche (PodcastIndex.org)</h2>
+            <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 bg-blue-600/10 rounded-xl flex items-center justify-center shrink-0">
+                  <svg className="h-6 w-6 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-white">PodcastIndex API</p>
+                  <p className="text-sm text-zinc-400">
+                    {piData?.data?.configured
+                      ? 'API-Keys konfiguriert — Podcast-Suche ist aktiv.'
+                      : 'Hinterlege deinen PodcastIndex API-Key und Secret für die Podcast-Suche.'}
+                  </p>
+                </div>
+                {piData?.data?.configured && (
+                  <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-3 py-1 shrink-0">
+                    Konfiguriert ✓
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-zinc-400 font-medium">API Key</label>
+                  <input
+                    type="text"
+                    value={localPiApiKey}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalPiApiKey(e.target.value)}
+                    placeholder="API Key"
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-zinc-400 font-medium">API Secret</label>
+                  <input
+                    type="password"
+                    value={localPiApiSecret}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalPiApiSecret(e.target.value)}
+                    placeholder="API Secret"
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-zinc-500">
+                Kostenlosen Account und API-Keys erstellen unter <a href="https://api.podcastindex.org" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">api.podcastindex.org</a>.
+              </p>
+
+              {piFeedback && (
+                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                  piFeedback.type === 'success'
+                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                }`}>
+                  {piFeedback.type === 'success'
+                    ? <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    : <AlertCircle className="h-4 w-4 shrink-0" />}
+                  {piFeedback.message}
+                </div>
+              )}
+
+              <Button
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
+                onClick={() => savePiConfig.mutate({ apiKey: localPiApiKey, apiSecret: localPiApiSecret })}
+                disabled={savePiConfig.isPending || !localPiApiKey || !localPiApiSecret}
+              >
+                {savePiConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                Speichern
+              </Button>
+            </div>
+          </section>
 
           {currentUser?.isAdmin && (<section className="space-y-4">
             <h2 className="text-lg font-semibold">Musik-Mediathek</h2>
