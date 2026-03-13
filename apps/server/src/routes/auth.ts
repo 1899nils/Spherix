@@ -159,7 +159,7 @@ router.patch('/users/:id', requireAdmin, async (req, res, next) => {
     }
 
     const updated = await prisma.user.update({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       data,
       select: { id: true, username: true, email: true, isAdmin: true, createdAt: true },
     });
