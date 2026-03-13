@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'node:crypto';
 import { XMLParser } from 'fast-xml-parser';
 import { prisma } from '../config/database.js';
 import { logger } from '../config/logger.js';
@@ -187,7 +188,7 @@ router.get('/', async (_req, res, next) => {
   }
 });
 
-/** Search iTunes Podcast directory */
+/** Search PodcastIndex.org Podcast directory */
 router.get('/search', async (req, res, next) => {
   try {
     const q = req.query.q as string;
@@ -196,12 +197,51 @@ router.get('/search', async (req, res, next) => {
       return;
     }
 
-    const url = `https://itunes.apple.com/search?media=podcast&term=${encodeURIComponent(q)}&limit=20&entity=podcast`;
-    const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-    if (!r.ok) throw new Error(`iTunes API error: ${r.status}`);
+    const userId = (req.session as unknown as Record<string, unknown>).userId as string | undefined;
+    const settings = userId
+      ? await prisma.userSettings.findUnique({
+          where: { userId },
+          select: { podcastIndexApiKey: true, podcastIndexApiSecret: true },
+        })
+      : null;
 
-    const json = await r.json() as { results: Record<string, unknown>[] };
-    res.json({ data: json.results ?? [] });
+    const apiKey    = settings?.podcastIndexApiKey    ?? process.env.PODCASTINDEX_API_KEY ?? '';
+    const apiSecret = settings?.podcastIndexApiSecret ?? process.env.PODCASTINDEX_API_SECRET ?? '';
+
+    if (!apiKey || !apiSecret) {
+      res.status(503).json({ error: 'PodcastIndex API-Key nicht konfiguriert. Bitte in den Einstellungen eintragen.' });
+      return;
+    }
+
+    const ts = Math.floor(Date.now() / 1000);
+    const hash = crypto.createHash('sha1').update(apiKey + apiSecret + ts).digest('hex');
+
+    const url = `https://api.podcastindex.org/api/1.0/search/byterm?q=${encodeURIComponent(q)}&max=20`;
+    const r = await fetch(url, {
+      headers: {
+        'User-Agent':    'Spherix/1.0',
+        'X-Auth-Key':    apiKey,
+        'X-Auth-Date':   String(ts),
+        'Authorization': hash,
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!r.ok) throw new Error(`PodcastIndex API error: ${r.status}`);
+
+    const json = await r.json() as { feeds?: Record<string, unknown>[] };
+
+    const results = (json.feeds ?? []).map((f) => ({
+      collectionId:   f.id,
+      collectionName: f.title,
+      artistName:     f.author ?? '',
+      feedUrl:        f.url,
+      artworkUrl600:  f.artwork ?? f.image ?? '',
+      genres:         Object.values((f.categories as Record<string, string>) ?? {}),
+      trackCount:     f.episodeCount ?? 0,
+      country:        '',
+    }));
+
+    res.json({ data: results });
   } catch (error) {
     next(error);
   }
