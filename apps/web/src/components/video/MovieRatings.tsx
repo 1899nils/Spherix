@@ -4,11 +4,6 @@ interface Props {
   movie: Movie;
 }
 
-/** Round a 0–10 TMDb score to one decimal, e.g. 7.6 */
-function fmtTmdb(v: number): string {
-  return v.toFixed(1);
-}
-
 /** Round a 0–10 IMDb score to one decimal */
 function fmtImdb(v: number): string {
   return v.toFixed(1);
