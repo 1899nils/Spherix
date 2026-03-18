@@ -6,12 +6,26 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
+const sessionSecret = process.env.SESSION_SECRET || 'change-me';
+
+if (
+  (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === undefined) &&
+  (sessionSecret === 'change-me' || sessionSecret.length < 32)
+) {
+  // eslint-disable-next-line no-console
+  console.error(
+    '[Spherix] FATAL: SESSION_SECRET is insecure. ' +
+      'Set a random secret of at least 32 characters in your .env file before starting in production.',
+  );
+  process.exit(1);
+}
+
 export const env = {
   port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   databaseUrl: process.env.DATABASE_URL || 'postgresql://musicserver:musicserver@localhost:5432/musicserver',
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
-  sessionSecret: process.env.SESSION_SECRET || 'change-me',
+  sessionSecret,
   lastfmApiKey: process.env.LASTFM_API_KEY || '',
   lastfmApiSecret: process.env.LASTFM_API_SECRET || '',
   publicUrl: process.env.PUBLIC_URL || '',

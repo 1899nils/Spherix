@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
-import crypto from 'node:crypto';
+import rateLimit from 'express-rate-limit';
 import path from 'node:path';
 import { RedisStore } from 'connect-redis';
 import { env } from './config/env.js';
@@ -39,8 +39,10 @@ import lyricsRouter from './routes/lyrics.js';
 import metadataRouter from './routes/metadata.js';
 import discoverRouter from './routes/discover.js';
 import watchlistRouter from './routes/watchlist.js';
+import statsRouter from './routes/stats.js';
 import subsonicRouter from './subsonic/index.js';
-import authRouter from './routes/auth.js';
+import authRouter, { hashPassword } from './routes/auth.js';
+import { generateCsrfToken, doubleCsrfProtection } from './middleware/csrf.js';
 
 const app = express();
 
@@ -67,7 +69,26 @@ app.use('/api/covers', express.static(path.join(env.dataDir, 'covers'), {
   immutable: true,
 }));
 
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+const loginRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Zu viele Anmeldeversuche. Bitte in 15 Minuten erneut versuchen.' },
+});
+
+// ── CSRF protection ───────────────────────────────────────────────────────────
+// Subsonic API uses its own auth mechanism and is excluded.
+app.use('/api', doubleCsrfProtection);
+
+// ── CSRF token endpoint (public — called before login) ───────────────────────
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ csrfToken: generateCsrfToken(req, res) });
+});
+
 // ── Auth routes (no session required) ────────────────────────────────────────
+app.use('/api/auth/login', loginRateLimit);
 app.use('/api/auth', authRouter);
 app.use('/api/health', healthRouter);
 
@@ -199,6 +220,9 @@ app.use('/api/watchlist', watchlistRouter);
 // ── Audiobooks ────────────────────────────────────────────────────────────────
 app.use('/api/audiobooks', audiobooksRouter);
 
+// ── Statistics ────────────────────────────────────────────────────────────────
+app.use('/api/stats', statsRouter);
+
 // ── Scan trigger routes (admin) ───────────────────────────────────────────────
 app.post('/api/video/scan', async (_req, res, next) => {
   try {
@@ -232,10 +256,12 @@ async function ensureDefaultUser(): Promise<void> {
 
   // Password-reset mode: ADMIN_PASSWORD is set → always reset the first admin
   if (adminPassword) {
-    const passwordHash = crypto.createHash('sha256').update(adminPassword).digest('hex');
     const existingAdmin = await prisma.user.findFirst({ where: { isAdmin: true } });
     if (existingAdmin) {
-      await prisma.user.update({ where: { id: existingAdmin.id }, data: { passwordHash } });
+      await prisma.user.update({
+        where: { id: existingAdmin.id },
+        data: { passwordHash: await hashPassword(adminPassword) },
+      });
       logger.info(`Admin password reset via ADMIN_PASSWORD env var (user: "${existingAdmin.username}")`);
       logger.warn('Remove ADMIN_PASSWORD from your environment after logging in!');
       return;
@@ -246,12 +272,11 @@ async function ensureDefaultUser(): Promise<void> {
   const count = await prisma.user.count();
   if (count === 0) {
     const password = adminPassword || 'admin';
-    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
     await prisma.user.create({
       data: {
         email: `${adminUsername}@spherix.local`,
         username: adminUsername,
-        passwordHash,
+        passwordHash: await hashPassword(password),
         isAdmin: true,
       },
     });

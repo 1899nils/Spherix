@@ -1,13 +1,82 @@
 import { Router } from 'express';
-import crypto from 'node:crypto';
+import bcrypt from 'bcryptjs';
+import { z } from 'zod';
 import { prisma } from '../config/database.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 
 const router: Router = Router();
 
-function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
+const BCRYPT_ROUNDS = 12;
+
+const MIN_PASSWORD_LENGTH = 8;
+
+/** Hash a plain-text password with bcrypt. */
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, BCRYPT_ROUNDS);
 }
+
+/**
+ * Verify a plain-text password against a stored hash.
+ * Supports legacy SHA-256 hashes (hex, 64 chars) for seamless migration:
+ * on a successful legacy match the hash is automatically upgraded to bcrypt.
+ */
+export async function verifyPassword(
+  plain: string,
+  stored: string,
+  userId?: string,
+): Promise<boolean> {
+  // Bcrypt hash
+  if (stored.startsWith('$2')) {
+    return bcrypt.compare(plain, stored);
+  }
+
+  // Legacy SHA-256 hash (64-char hex) — migrate on successful login
+  const { createHash } = await import('node:crypto');
+  const legacyHash = createHash('sha256').update(plain).digest('hex');
+  if (legacyHash !== stored) return false;
+
+  // Auto-upgrade: replace legacy hash with bcrypt in background
+  if (userId) {
+    const newHash = await hashPassword(plain);
+    prisma.user
+      .update({ where: { id: userId }, data: { passwordHash: newHash } })
+      .catch(() => {});
+  }
+
+  return true;
+}
+
+// ── Validation schemas ────────────────────────────────────────────────────────
+
+const loginSchema = z.object({
+  username: z.string().min(1, 'Benutzername erforderlich'),
+  password: z.string().min(1, 'Passwort erforderlich'),
+});
+
+const createUserSchema = z.object({
+  username: z.string().min(1, 'Benutzername erforderlich').max(64),
+  email: z.string().email('Ungültige E-Mail-Adresse').optional(),
+  password: z
+    .string()
+    .min(MIN_PASSWORD_LENGTH, `Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen haben`),
+  isAdmin: z.boolean().optional(),
+});
+
+const patchUserSchema = z.object({
+  username: z.string().min(1).max(64).optional(),
+  email: z.string().email('Ungültige E-Mail-Adresse').optional(),
+  isAdmin: z.boolean().optional(),
+  password: z
+    .string()
+    .min(MIN_PASSWORD_LENGTH, `Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen haben`)
+    .optional(),
+});
+
+const changePasswordSchema = z.object({
+  password: z
+    .string()
+    .min(MIN_PASSWORD_LENGTH, `Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen haben`),
+});
 
 // ── GET /api/auth/me ─────────────────────────────────────────────────────────
 
@@ -37,25 +106,26 @@ router.get('/me', async (req, res, next) => {
 
 router.post('/login', async (req, res, next) => {
   try {
-    const { username, password } = req.body as { username?: string; password?: string };
-    if (!username || !password) {
-      res.status(400).json({ error: 'Benutzername und Passwort erforderlich' });
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Ungültige Eingabe' });
       return;
     }
-    const passwordHash = hashPassword(password);
+    const { username, password } = parsed.data;
+
     const user = await prisma.user.findFirst({
-      where: {
-        OR: [{ username }, { email: username }],
-        passwordHash,
-      },
-      select: { id: true, username: true, email: true, isAdmin: true },
+      where: { OR: [{ username }, { email: username }] },
+      select: { id: true, username: true, email: true, isAdmin: true, passwordHash: true },
     });
-    if (!user) {
+
+    if (!user || !(await verifyPassword(password, user.passwordHash, user.id))) {
       res.status(401).json({ error: 'Ungültige Anmeldedaten' });
       return;
     }
+
     (req.session as unknown as Record<string, unknown>).userId = user.id;
-    res.json({ data: user });
+    const { passwordHash: _ignored, ...safeUser } = user;
+    res.json({ data: safeUser });
   } catch (error) {
     next(error);
   }
@@ -86,25 +156,18 @@ router.get('/users', requireAdmin, async (_req, res, next) => {
 
 router.post('/users', requireAdmin, async (req, res, next) => {
   try {
-    const { username, email, password, isAdmin } = req.body as {
-      username?: string;
-      email?: string;
-      password?: string;
-      isAdmin?: boolean;
-    };
-    if (!username || !password) {
-      res.status(400).json({ error: 'Benutzername und Passwort erforderlich' });
+    const parsed = createUserSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Ungültige Eingabe' });
       return;
     }
-    if (password.length < 4) {
-      res.status(400).json({ error: 'Passwort muss mindestens 4 Zeichen haben' });
-      return;
-    }
+    const { username, email, password, isAdmin } = parsed.data;
+
     const user = await prisma.user.create({
       data: {
         username,
         email: email?.trim() || `${username}@spherix.local`,
-        passwordHash: hashPassword(password),
+        passwordHash: await hashPassword(password),
         isAdmin: isAdmin ?? false,
       },
       select: { id: true, username: true, email: true, isAdmin: true, createdAt: true },
@@ -139,24 +202,18 @@ router.delete('/users/:id', requireAdmin, async (req, res, next) => {
 
 router.patch('/users/:id', requireAdmin, async (req, res, next) => {
   try {
-    const { username, email, isAdmin, password } = req.body as {
-      username?: string;
-      email?: string;
-      isAdmin?: boolean;
-      password?: string;
-    };
+    const parsed = patchUserSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Ungültige Eingabe' });
+      return;
+    }
+    const { username, email, isAdmin, password } = parsed.data;
 
     const data: Record<string, unknown> = {};
     if (username !== undefined) data.username = username.trim();
-    if (email    !== undefined) data.email    = email.trim() || undefined;
-    if (isAdmin  !== undefined) data.isAdmin  = isAdmin;
-    if (password !== undefined) {
-      if (password.length < 4) {
-        res.status(400).json({ error: 'Passwort muss mindestens 4 Zeichen haben' });
-        return;
-      }
-      data.passwordHash = hashPassword(password);
-    }
+    if (email !== undefined) data.email = email.trim() || undefined;
+    if (isAdmin !== undefined) data.isAdmin = isAdmin;
+    if (password !== undefined) data.passwordHash = await hashPassword(password);
 
     const updated = await prisma.user.update({
       where: { id: String(req.params.id) },
@@ -177,7 +234,9 @@ router.patch('/users/:id', requireAdmin, async (req, res, next) => {
 
 router.put('/users/:id/password', async (req, res, next) => {
   try {
-    const currentUserId = (req.session as unknown as Record<string, unknown>).userId as string | undefined;
+    const currentUserId = (req.session as unknown as Record<string, unknown>).userId as
+      | string
+      | undefined;
     if (!currentUserId) {
       res.status(401).json({ error: 'Nicht angemeldet' });
       return;
@@ -190,14 +249,16 @@ router.put('/users/:id/password', async (req, res, next) => {
       res.status(403).json({ error: 'Keine Berechtigung' });
       return;
     }
-    const { password } = req.body as { password?: string };
-    if (!password || password.length < 4) {
-      res.status(400).json({ error: 'Passwort muss mindestens 4 Zeichen haben' });
+
+    const parsed = changePasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Ungültige Eingabe' });
       return;
     }
+
     await prisma.user.update({
       where: { id: req.params.id },
-      data: { passwordHash: hashPassword(password) },
+      data: { passwordHash: await hashPassword(parsed.data.password) },
     });
     res.json({ ok: true });
   } catch (error) {

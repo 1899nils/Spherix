@@ -40,6 +40,7 @@ import { AudiobookDetail } from '@/pages/audiobooks/AudiobookDetail';
 import { AuthorDetail } from '@/pages/audiobooks/AuthorDetail';
 import { MetadataSchema } from '@/pages/MetadataSchema';
 import { Watchlist } from '@/pages/Watchlist';
+import { Stats } from '@/pages/Stats';
 import { useAuthStore } from '@/stores/authStore';
 
 const queryClient = new QueryClient({
@@ -130,6 +131,7 @@ export function App() {
               <Route path="/audiobooks/favorites" element={<AudiobooksFavorites />} />
               <Route path="/audiobooks/:id" element={<AudiobookDetail />} />
 
+              <Route path="/stats" element={<Stats />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/metadata-schema" element={<MetadataSchema />} />
             </Route>
