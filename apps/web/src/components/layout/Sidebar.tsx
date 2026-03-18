@@ -32,6 +32,7 @@ import {
   Library,
   MonitorPlay,
   Play,
+  BarChart2,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -268,6 +269,23 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           )}
         </div>
       </ScrollArea>
+
+      {/* Stats & Settings links */}
+      <div className="px-3 pb-2 flex flex-col gap-0.5">
+        <NavLink
+          to="/stats"
+          className={({ isActive }) =>
+            cn(
+              'group flex items-center gap-3 rounded-md px-3 py-1.5 text-[13px] font-medium transition-all duration-200',
+              isActive ? 'nav-active' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200',
+              collapsed && 'justify-center px-0 h-10 w-10 mx-auto',
+            )
+          }
+        >
+          <BarChart2 className={cn('h-[18px] w-[18px] shrink-0', collapsed && 'h-5 w-5')} />
+          {!collapsed && <span className="flex-1 truncate">Statistiken</span>}
+        </NavLink>
+      </div>
 
       {/* Collapse Toggle */}
       <div className="p-3 mt-auto border-t border-white/5 bg-[#121212]/50 backdrop-blur-sm">

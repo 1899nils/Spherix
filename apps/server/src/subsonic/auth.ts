@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import crypto from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../config/database.js';
 import { sendError, SubsonicError } from './response.js';
 
@@ -22,39 +23,18 @@ declare global {
 }
 
 /**
- * Compare password using a timing-safe approach.
- * Subsonic sends the password in cleartext (or hex-encoded).
- * We compare against the stored passwordHash using bcrypt-style comparison,
- * but since we don't have bcrypt as a dependency, we do a simple hash comparison.
- *
- * NOTE: The existing DB stores bcrypt hashes. For a real deployment, you'd use
- * bcrypt.compare(). Here we use a pragmatic approach: if the passwordHash is
- * a bcrypt hash, we dynamically import bcrypt or fallback to plain comparison.
+ * Verify a plain-text password against the stored hash.
+ * Supports bcrypt (current) and legacy SHA-256 hashes.
  */
 async function verifyPassword(plainPassword: string, storedHash: string): Promise<boolean> {
-  // If the stored hash looks like bcrypt ($2a$, $2b$, $2y$)
+  // Bcrypt hash — proper comparison
   if (storedHash.startsWith('$2')) {
-    // Use crypto to do a simple comparison — in production you'd use bcrypt
-    // For now, hash the password and compare
-    // Actually, we can't verify bcrypt without bcrypt library.
-    // Fallback: compare SHA-256 or treat storedHash as plain for dev.
-    // Let's try dynamic import of bcrypt-like comparison using Node's crypto
-    // scrypt or just do a simple comparison for development setups.
-
-    // Try to use the built-in node:crypto scrypt if the hash format is recognized
-    // For bcrypt hashes, we need to verify differently. Let's check if the
-    // password, when hashed the same way, matches.
-    // Without bcrypt library, we'll do a SHA-256 comparison fallback.
-    const sha256 = crypto.createHash('sha256').update(plainPassword).digest('hex');
-    return storedHash === sha256;
+    return bcrypt.compare(plainPassword, storedHash);
   }
 
-  // Plain SHA-256 or plain text comparison
+  // Legacy SHA-256 hash (64-char hex)
   const sha256 = crypto.createHash('sha256').update(plainPassword).digest('hex');
-  if (storedHash === sha256) return true;
-
-  // Direct comparison (for dev setups where password is stored as-is)
-  return storedHash === plainPassword;
+  return sha256 === storedHash;
 }
 
 /**
@@ -64,6 +44,10 @@ async function verifyPassword(plainPassword: string, storedHash: string): Promis
  * - Plain password: u=user&p=password
  * - Hex-encoded password: u=user&p=enc:hexstring
  * - Token+salt auth: u=user&t=token&s=salt (token = md5(password + salt))
+ *
+ * Note: Token+salt auth (MD5) is only supported for legacy SHA-256 stored passwords
+ * because bcrypt is not reversible and cannot be used to recompute md5(password+salt).
+ * Clients using token auth need to re-authenticate after a password rehash.
  */
 export async function subsonicAuth(
   req: Request,
@@ -105,17 +89,14 @@ export async function subsonicAuth(
     authenticated = await verifyPassword(plainPassword, user.passwordHash);
   } else if (token && salt) {
     // Token-based auth: token = md5(password + salt)
-    // We need the cleartext password to verify. Try computing md5(storedHash + salt)
-    // as a fallback (some implementations store cleartext or reversible passwords).
-    // For now, compute md5(passwordHash + salt) and compare — this works if the
-    // client uses the hash as the "password" (common in some setups).
-    const expectedFromHash = crypto
-      .createHash('md5')
-      .update(user.passwordHash + salt)
-      .digest('hex');
-
-    if (expectedFromHash === token) {
-      authenticated = true;
+    // Only supported for legacy SHA-256 stored hashes.
+    // For bcrypt-stored passwords this auth method cannot be used — clients must use plain password.
+    if (!user.passwordHash.startsWith('$2')) {
+      const expectedToken = crypto
+        .createHash('md5')
+        .update(user.passwordHash + salt)
+        .digest('hex');
+      authenticated = expectedToken === token;
     }
   } else {
     sendError(
