@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { api, invalidateCsrfToken } from '@/lib/api';
 
 export interface AuthUser {
   id: string;
@@ -34,6 +35,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   login: async (username, password) => {
+    // Login uses raw fetch — no CSRF token needed for pre-auth endpoints.
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       credentials: 'include',
@@ -44,11 +46,15 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (!res.ok) {
       throw new Error(data.error || 'Login fehlgeschlagen');
     }
+    // Seed the CSRF token now that a session exists.
+    invalidateCsrfToken();
     set({ user: data.data });
   },
 
   logout: async () => {
+    // Logout is also pre-auth (just destroys the session) — raw fetch is fine.
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    invalidateCsrfToken();
     set({ user: null });
   },
 }));
