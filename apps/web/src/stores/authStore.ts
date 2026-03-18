@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, invalidateCsrfToken } from '@/lib/api';
+import { invalidateCsrfToken } from '@/lib/api';
 
 export interface AuthUser {
   id: string;
