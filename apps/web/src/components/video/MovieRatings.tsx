@@ -1,4 +1,4 @@
-import type { Movie, Series } from '@musicserver/shared';
+import type { Movie } from '@musicserver/shared';
 
 type RatableMedia = Pick<
   Movie,
