@@ -180,9 +180,9 @@ export function MovieDetail() {
                     {movie.year && (
                       <span className="text-white/70 font-medium">{movie.year}</span>
                     )}
-                    {movie.contentRating && (
+                    {(movie.fskRating ?? movie.contentRating) && (
                       <span className="px-1.5 py-0.5 rounded border border-white/30 text-white/70 text-xs font-bold">
-                        {movie.contentRating}
+                        {movie.fskRating ?? movie.contentRating}
                       </span>
                     )}
                     {movie.runtime && (

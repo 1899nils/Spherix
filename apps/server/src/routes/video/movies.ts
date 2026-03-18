@@ -231,8 +231,9 @@ async function enrichMovieRatings(
     if (!enriched) return;
 
     const ratingData: Record<string, unknown> = {
-      tagline: enriched.tagline,
+      tagline:       enriched.tagline,
       contentRating: enriched.contentRating,
+      fskRating:     enriched.fskRating,
     };
 
     if (enriched.imdbId) {
@@ -240,12 +241,13 @@ async function enrichMovieRatings(
 
       const { mdblistApiKey, traktClientId } = await getAdminRatingKeys();
 
-      // Fetch IMDb / RT / Metacritic from MDBList
+      // Fetch IMDb / RT Tomatometer + Audience / Metacritic from MDBList
       if (mdblistApiKey) {
         const mdblist = await fetchMdblistRatings(enriched.imdbId, mdblistApiKey);
-        if (mdblist.imdbRating          !== null) ratingData.imdbRating          = mdblist.imdbRating;
-        if (mdblist.rottenTomatoesScore !== null) ratingData.rottenTomatoesScore = mdblist.rottenTomatoesScore;
-        if (mdblist.metacriticScore     !== null) ratingData.metacriticScore     = mdblist.metacriticScore;
+        if (mdblist.imdbRating                  !== null) ratingData.imdbRating                  = mdblist.imdbRating;
+        if (mdblist.rottenTomatoesScore         !== null) ratingData.rottenTomatoesScore         = mdblist.rottenTomatoesScore;
+        if (mdblist.rottenTomatoesAudienceScore !== null) ratingData.rottenTomatoesAudienceScore = mdblist.rottenTomatoesAudienceScore;
+        if (mdblist.metacriticScore             !== null) ratingData.metacriticScore             = mdblist.metacriticScore;
         ratingData.ratingsUpdatedAt = new Date();
       }
 

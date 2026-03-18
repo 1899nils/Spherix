@@ -106,9 +106,10 @@ async function runRatingsRefresh(): Promise<void> {
         ratingsUpdatedAt: now,
         ratingsNextRetry: null,
       };
-      if (mdblist.imdbRating          !== null) data.imdbRating          = mdblist.imdbRating;
-      if (mdblist.rottenTomatoesScore !== null) data.rottenTomatoesScore = mdblist.rottenTomatoesScore;
-      if (mdblist.metacriticScore     !== null) data.metacriticScore     = mdblist.metacriticScore;
+      if (mdblist.imdbRating                  !== null) data.imdbRating                  = mdblist.imdbRating;
+      if (mdblist.rottenTomatoesScore         !== null) data.rottenTomatoesScore         = mdblist.rottenTomatoesScore;
+      if (mdblist.rottenTomatoesAudienceScore !== null) data.rottenTomatoesAudienceScore = mdblist.rottenTomatoesAudienceScore;
+      if (mdblist.metacriticScore             !== null) data.metacriticScore             = mdblist.metacriticScore;
 
       if (traktClientId) {
         const trakt = await fetchTraktRatings(movie.imdbId!, traktClientId);

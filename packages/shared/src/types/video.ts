@@ -19,8 +19,10 @@ export interface Movie {
   rating: number | null;
   /** IMDb score (0–10) */
   imdbRating: number | null;
-  /** Rotten Tomatoes critic score (0–100) */
+  /** Rotten Tomatoes Tomatometer / critic score (0–100) */
   rottenTomatoesScore: number | null;
+  /** Rotten Tomatoes Audience / Popcornmeter score (0–100) */
+  rottenTomatoesAudienceScore: number | null;
   /** Metacritic score (0–100) */
   metacriticScore: number | null;
   /** Trakt.tv community score (0–10) */
@@ -29,6 +31,8 @@ export interface Movie {
   traktVotes: number | null;
   /** US content rating: "G", "PG", "PG-13", "R", "NC-17" */
   contentRating: string | null;
+  /** German FSK rating: "FSK 0", "FSK 6", "FSK 12", "FSK 16", "FSK 18" */
+  fskRating: string | null;
   filePath: string;
   fileSize: bigint | null;
   codec: string | null;
@@ -77,8 +81,10 @@ export interface Series {
   rating: number | null;
   /** IMDb score (0–10) */
   imdbRating: number | null;
-  /** Rotten Tomatoes critic score (0–100) */
+  /** Rotten Tomatoes Tomatometer / critic score (0–100) */
   rottenTomatoesScore: number | null;
+  /** Rotten Tomatoes Audience / Popcornmeter score (0–100) */
+  rottenTomatoesAudienceScore: number | null;
   /** Metacritic score (0–100) */
   metacriticScore: number | null;
   /** Trakt.tv community score (0–10) */
@@ -87,6 +93,8 @@ export interface Series {
   traktVotes: number | null;
   /** US content rating */
   contentRating: string | null;
+  /** German FSK rating: "FSK 0", "FSK 6", "FSK 12", "FSK 16", "FSK 18" */
+  fskRating: string | null;
   addedAt: Date;
   updatedAt: Date;
   genres: Genre[];

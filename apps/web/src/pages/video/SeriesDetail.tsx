@@ -10,6 +10,7 @@ import { Play, ArrowLeft, Tv, ChevronDown, ChevronRight, Pencil, Link2, AlertCir
 import type { SeriesDetail as SeriesDetailType } from '@musicserver/shared';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import { TmdbSearchModal } from '@/components/video/TmdbSearchModal';
+import { MovieRatings } from '@/components/video/MovieRatings';
 
 interface SeriesDetailResponse {
   data: SeriesDetailType;
@@ -168,8 +169,13 @@ export function SeriesDetail() {
                   <Link2 className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 {series.year && <span>{series.year}</span>}
+                {(series.fskRating ?? series.contentRating) && (
+                  <span className="px-1.5 py-0.5 rounded border border-white/30 text-white/70 text-xs font-bold">
+                    {series.fskRating ?? series.contentRating}
+                  </span>
+                )}
                 {series.seasons && (
                   <>
                     <span className="text-white/20">·</span>
@@ -177,6 +183,8 @@ export function SeriesDetail() {
                   </>
                 )}
               </div>
+              {/* Ratings row */}
+              <MovieRatings movie={series} />
               {series.genres && series.genres.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {series.genres.map((g) => (

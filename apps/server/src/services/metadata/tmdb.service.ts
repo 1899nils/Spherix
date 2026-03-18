@@ -1,6 +1,20 @@
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
 
+/** Normalize a German FSK certification string to "FSK X" format or null. */
+function normalizeFsk(cert: string | null | undefined): string | null {
+  if (!cert) return null;
+  const c = cert.trim();
+  if (!c) return null;
+  if (c.toLowerCase().startsWith('fsk')) {
+    const n = parseInt(c.replace(/\D/g, ''));
+    return isNaN(n) ? null : `FSK ${n}`;
+  }
+  const n = parseInt(c);
+  if (!isNaN(n) && [0, 6, 12, 16, 18].includes(n)) return `FSK ${n}`;
+  return null;
+}
+
 export interface TmdbResult {
   tmdbId: number;
   overview: string;
@@ -258,6 +272,7 @@ export interface TmdbMovieEnriched extends TmdbResult {
   imdbId: string | null;
   tagline: string | null;
   contentRating: string | null;   // US certification: "PG-13", "R", "G", etc.
+  fskRating: string | null;       // German FSK certification: "FSK 12", "FSK 16", etc.
   productionCompanies: string[];
   cast: TmdbCastMember[];
   crew: TmdbCrewMember[];
@@ -318,8 +333,16 @@ export async function getMovieEnrichedDetails(
   const certification =
     usRelease?.release_dates
       ?.filter((rd) => rd.certification)
-      ?.sort((a, b) => a.type - b.type)   // prefer type 3 (theatrical) but take any
+      ?.sort((a, b) => a.type - b.type)
       ?.[0]?.certification ?? null;
+
+  // Extract German FSK rating
+  const deRelease = data.release_dates?.results?.find((r) => r.iso_3166_1 === 'DE');
+  const deRawCert = deRelease?.release_dates
+    ?.filter((rd) => rd.certification)
+    ?.sort((a, b) => a.type - b.type)
+    ?.[0]?.certification ?? null;
+  const fskRating = normalizeFsk(deRawCert);
 
   const cast: TmdbCastMember[] = (data.credits?.cast ?? [])
     .slice(0, 20)
@@ -352,6 +375,7 @@ export async function getMovieEnrichedDetails(
     genreIds: (data.genres ?? []).map((g) => g.id),
     year: extractYear(data.release_date),
     contentRating: certification,
+    fskRating,
     productionCompanies: (data.production_companies ?? []).map((c) => c.name),
     cast,
     crew,
@@ -431,8 +455,26 @@ export async function getSeriesDetails(
   };
 }
 
-/** Fetch the IMDb ID for a TV series via TMDB external IDs endpoint. */
+/** Fetch external IDs and German FSK rating for a TV series. */
+export async function getSeriesExternalData(
+  tmdbId: number,
+  apiKey: string,
+): Promise<{ imdbId: string | null; fskRating: string | null }> {
+  const [externalIds, contentRatings] = await Promise.all([
+    tmdbFetch<{ imdb_id?: string | null }>(`/tv/${tmdbId}/external_ids`, apiKey),
+    tmdbFetch<{ results: { iso_3166_1: string; rating: string }[] }>(`/tv/${tmdbId}/content_ratings`, apiKey),
+  ]);
+
+  const deRating = contentRatings?.results?.find((r) => r.iso_3166_1 === 'DE')?.rating ?? null;
+
+  return {
+    imdbId: externalIds?.imdb_id ?? null,
+    fskRating: normalizeFsk(deRating),
+  };
+}
+
+/** @deprecated Use getSeriesExternalData instead */
 export async function getSeriesImdbId(tmdbId: number, apiKey: string): Promise<string | null> {
-  const data = await tmdbFetch<{ imdb_id?: string | null }>(`/tv/${tmdbId}/external_ids`, apiKey);
-  return data?.imdb_id ?? null;
+  const { imdbId } = await getSeriesExternalData(tmdbId, apiKey);
+  return imdbId;
 }
