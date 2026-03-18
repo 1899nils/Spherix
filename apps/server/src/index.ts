@@ -44,7 +44,9 @@ import watchlistRouter from './routes/watchlist.js';
 import statsRouter from './routes/stats.js';
 import subsonicRouter from './subsonic/index.js';
 import authRouter, { hashPassword } from './routes/auth.js';
+import mdblistRouter from './routes/mdblist.js';
 import { generateCsrfToken, doubleCsrfProtection } from './middleware/csrf.js';
+import { startRatingsScheduler, stopRatingsScheduler } from './services/ratings/ratingsScheduler.js';
 
 const app = express();
 
@@ -119,6 +121,7 @@ app.use('/api/playlists', playlistsRouter);
 app.use('/api/lastfm', lastfmRouter);
 app.use('/api/tmdb', tmdbRouter);
 app.use('/api/trakt', traktRouter);
+app.use('/api/mdblist', mdblistRouter);
 app.use('/api/radio', radioRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/podcasts', podcastsRouter);
@@ -305,6 +308,7 @@ async function main() {
   startScanWorker();
   startVideoScanWorker();
   startAudiobookScanWorker();
+  startRatingsScheduler();
 
   const server = app.listen(env.port, () => {
     logger.info(`Server running on port ${env.port} [${env.nodeEnv}]`);
@@ -313,6 +317,7 @@ async function main() {
   // Graceful shutdown
   const shutdown = async () => {
     logger.info('Shutting down...');
+    stopRatingsScheduler();
     await Promise.all([stopScanWorker(), stopVideoScanWorker(), stopAudiobookScanWorker()]);
     server.close();
     process.exit(0);

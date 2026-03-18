@@ -430,3 +430,9 @@ export async function getSeriesDetails(
     year: extractYear(data.first_air_date),
   };
 }
+
+/** Fetch the IMDb ID for a TV series via TMDB external IDs endpoint. */
+export async function getSeriesImdbId(tmdbId: number, apiKey: string): Promise<string | null> {
+  const data = await tmdbFetch<{ imdb_id?: string | null }>(`/tv/${tmdbId}/external_ids`, apiKey);
+  return data?.imdb_id ?? null;
+}

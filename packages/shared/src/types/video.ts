@@ -72,6 +72,21 @@ export interface Series {
   posterPath: string | null;
   backdropPath: string | null;
   tmdbId: number | null;
+  imdbId: string | null;
+  /** TMDB vote_average (0–10) */
+  rating: number | null;
+  /** IMDb score (0–10) */
+  imdbRating: number | null;
+  /** Rotten Tomatoes critic score (0–100) */
+  rottenTomatoesScore: number | null;
+  /** Metacritic score (0–100) */
+  metacriticScore: number | null;
+  /** Trakt.tv community score (0–10) */
+  traktRating: number | null;
+  /** Trakt.tv vote count */
+  traktVotes: number | null;
+  /** US content rating */
+  contentRating: string | null;
   addedAt: Date;
   updatedAt: Date;
   genres: Genre[];

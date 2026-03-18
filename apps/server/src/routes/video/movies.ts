@@ -8,9 +8,8 @@ import {
   getMovieCredits,
   fetchGenreMap,
 } from '../../services/metadata/tmdb.service.js';
-import { fetchOmdbRatings } from '../../services/metadata/omdb.service.js';
+import { fetchMdblistRatings } from '../../services/metadata/mdblist.service.js';
 import { fetchTraktRatings } from '../../services/metadata/trakt.service.js';
-import { env } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
 
 const router: Router = Router();
@@ -183,11 +182,15 @@ async function getTmdbApiKeyForRequest(req: any): Promise<string | null> {
   return settings?.tmdbApiKey ?? null;
 }
 
-async function getTraktClientId(): Promise<string | null> {
+async function getAdminRatingKeys(): Promise<{ mdblistApiKey: string | null; traktClientId: string | null }> {
   const settings = await prisma.userSettings.findFirst({
-    select: { traktClientId: true },
+    where: { user: { isAdmin: true } },
+    select: { mdblistApiKey: true, traktClientId: true },
   });
-  return settings?.traktClientId ?? null;
+  return {
+    mdblistApiKey: settings?.mdblistApiKey ?? null,
+    traktClientId: settings?.traktClientId ?? null,
+  };
 }
 
 async function syncMovieGenres(
@@ -235,16 +238,18 @@ async function enrichMovieRatings(
     if (enriched.imdbId) {
       ratingData.imdbId = enriched.imdbId;
 
-      // Fetch IMDb / RT / Metacritic from OMDb if key is configured
-      if (env.omdbApiKey) {
-        const omdb = await fetchOmdbRatings(enriched.imdbId, env.omdbApiKey);
-        if (omdb.imdbRating !== null) ratingData.imdbRating = omdb.imdbRating;
-        if (omdb.rottenTomatoesScore !== null) ratingData.rottenTomatoesScore = omdb.rottenTomatoesScore;
-        if (omdb.metacriticScore !== null) ratingData.metacriticScore = omdb.metacriticScore;
+      const { mdblistApiKey, traktClientId } = await getAdminRatingKeys();
+
+      // Fetch IMDb / RT / Metacritic from MDBList
+      if (mdblistApiKey) {
+        const mdblist = await fetchMdblistRatings(enriched.imdbId, mdblistApiKey);
+        if (mdblist.imdbRating          !== null) ratingData.imdbRating          = mdblist.imdbRating;
+        if (mdblist.rottenTomatoesScore !== null) ratingData.rottenTomatoesScore = mdblist.rottenTomatoesScore;
+        if (mdblist.metacriticScore     !== null) ratingData.metacriticScore     = mdblist.metacriticScore;
+        ratingData.ratingsUpdatedAt = new Date();
       }
 
-      // Fetch Trakt community rating if Client ID is configured
-      const traktClientId = await getTraktClientId();
+      // Fetch Trakt community rating
       if (traktClientId) {
         const trakt = await fetchTraktRatings(enriched.imdbId, traktClientId);
         if (trakt.rating !== null) ratingData.traktRating = trakt.rating;

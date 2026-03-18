@@ -4,8 +4,11 @@ import { streamFile, VIDEO_MIME } from './stream.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import {
   getSeriesDetails,
+  getSeriesImdbId,
   fetchGenreMap,
 } from '../../services/metadata/tmdb.service.js';
+import { fetchMdblistRatings } from '../../services/metadata/mdblist.service.js';
+import { fetchTraktRatings } from '../../services/metadata/trakt.service.js';
 import { logger } from '../../config/logger.js';
 
 // Two routers exported:
@@ -241,6 +244,51 @@ async function syncSeriesGenres(
   }
 }
 
+async function getAdminRatingKeys(): Promise<{ mdblistApiKey: string | null; traktClientId: string | null }> {
+  const settings = await prisma.userSettings.findFirst({
+    where: { user: { isAdmin: true } },
+    select: { mdblistApiKey: true, traktClientId: true },
+  });
+  return {
+    mdblistApiKey: settings?.mdblistApiKey ?? null,
+    traktClientId: settings?.traktClientId ?? null,
+  };
+}
+
+/**
+ * Fetch and store MDBList + Trakt ratings for a series.
+ * Requires the series to already have an imdbId stored.
+ */
+async function enrichSeriesRatings(seriesId: string, imdbId: string): Promise<void> {
+  try {
+    const { mdblistApiKey, traktClientId } = await getAdminRatingKeys();
+    const data: Record<string, unknown> = {};
+
+    if (mdblistApiKey) {
+      const mdblist = await fetchMdblistRatings(imdbId, mdblistApiKey);
+      if (mdblist.imdbRating          !== null) data.imdbRating          = mdblist.imdbRating;
+      if (mdblist.rottenTomatoesScore !== null) data.rottenTomatoesScore = mdblist.rottenTomatoesScore;
+      if (mdblist.metacriticScore     !== null) data.metacriticScore     = mdblist.metacriticScore;
+      data.ratingsUpdatedAt = new Date();
+    }
+
+    if (traktClientId) {
+      const trakt = await fetchTraktRatings(imdbId, traktClientId);
+      if (trakt.rating !== null) data.traktRating = trakt.rating;
+      if (trakt.votes  !== null) data.traktVotes  = trakt.votes;
+    }
+
+    if (Object.keys(data).length > 0) {
+      await prisma.series.update({
+        where: { id: seriesId },
+        data: data as Parameters<typeof prisma.series.update>[0]['data'],
+      });
+    }
+  } catch (e) {
+    logger.warn(`Failed to enrich ratings for series ${seriesId}`, { error: String(e) });
+  }
+}
+
 /** POST /api/video/series/:id/link-tmdb — manually link series to TMDb */
 seriesRouter.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
   try {
@@ -313,6 +361,14 @@ seriesRouter.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
     // Sync genres
     await syncSeriesGenres(series.id, details.genreIds, apiKey);
 
+    // Fetch external IDs and enrich ratings in the background
+    getSeriesImdbId(tmdbId, apiKey).then(async (imdbId) => {
+      if (imdbId) {
+        await prisma.series.update({ where: { id: series.id }, data: { imdbId } });
+        void enrichSeriesRatings(series.id, imdbId);
+      }
+    }).catch((e) => logger.warn(`Failed to fetch imdbId for series ${series.id}`, { error: String(e) }));
+
     logger.info(`Manually linked series "${series.title}" to TMDb ID ${tmdbId}`);
     res.json({ data: updated });
   } catch (error) {
@@ -335,9 +391,17 @@ seriesRouter.post('/:id/unlink-tmdb', requireAuth, async (req, res, next) => {
       where: { id: series.id },
       data: {
         tmdbId: null,
+        imdbId: null,
         overview: null,
         backdropPath: null,
         rating: null,
+        imdbRating: null,
+        rottenTomatoesScore: null,
+        metacriticScore: null,
+        traktRating: null,
+        traktVotes: null,
+        ratingsUpdatedAt: null,
+        ratingsNextRetry: null,
       },
       include: genreInclude,
     });
