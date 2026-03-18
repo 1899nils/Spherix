@@ -23,6 +23,10 @@ export interface Movie {
   rottenTomatoesScore: number | null;
   /** Metacritic score (0–100) */
   metacriticScore: number | null;
+  /** Trakt.tv community score (0–10) */
+  traktRating: number | null;
+  /** Trakt.tv vote count */
+  traktVotes: number | null;
   /** US content rating: "G", "PG", "PG-13", "R", "NC-17" */
   contentRating: string | null;
   filePath: string;

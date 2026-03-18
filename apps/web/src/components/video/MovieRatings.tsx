@@ -15,12 +15,13 @@ function rtIcon(score: number): string {
 }
 
 export function MovieRatings({ movie }: Props) {
-  const hasTmdb = movie.rating != null && movie.rating > 0;
-  const hasImdb = movie.imdbRating != null && movie.imdbRating > 0;
-  const hasRt   = movie.rottenTomatoesScore != null;
-  const hasMeta = movie.metacriticScore != null;
+  const hasTmdb   = movie.rating != null && movie.rating > 0;
+  const hasImdb   = movie.imdbRating != null && movie.imdbRating > 0;
+  const hasRt     = movie.rottenTomatoesScore != null;
+  const hasMeta   = movie.metacriticScore != null;
+  const hasTrakt  = movie.traktRating != null && movie.traktRating > 0;
 
-  if (!hasTmdb && !hasImdb && !hasRt && !hasMeta) return null;
+  if (!hasTmdb && !hasImdb && !hasRt && !hasMeta && !hasTrakt) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -75,6 +76,20 @@ export function MovieRatings({ movie }: Props) {
         >
           <MetacriticBadge score={movie.metacriticScore!} />
         </div>
+      )}
+
+      {/* Trakt */}
+      {hasTrakt && (
+        <a
+          href={movie.imdbId ? `https://trakt.tv/search/imdb/${movie.imdbId}` : 'https://trakt.tv'}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#ed1c24]/10 border border-[#ed1c24]/30 hover:bg-[#ed1c24]/20 transition-colors no-underline"
+          title={movie.traktVotes != null ? `Trakt · ${movie.traktVotes.toLocaleString()} Stimmen` : 'Trakt Rating'}
+        >
+          <span className="text-[#ed1c24] font-black text-xs leading-none">TRAKT</span>
+          <span className="text-white font-semibold text-sm">{movie.traktRating!.toFixed(1)}</span>
+        </a>
       )}
     </div>
   );
