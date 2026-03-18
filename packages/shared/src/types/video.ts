@@ -10,9 +10,21 @@ export interface Movie {
   year: number | null;
   runtime: number | null;
   overview: string | null;
+  tagline: string | null;
   posterPath: string | null;
   backdropPath: string | null;
   tmdbId: number | null;
+  imdbId: string | null;
+  /** TMDB vote_average (0–10) */
+  rating: number | null;
+  /** IMDb score (0–10) */
+  imdbRating: number | null;
+  /** Rotten Tomatoes critic score (0–100) */
+  rottenTomatoesScore: number | null;
+  /** Metacritic score (0–100) */
+  metacriticScore: number | null;
+  /** US content rating: "G", "PG", "PG-13", "R", "NC-17" */
+  contentRating: string | null;
   filePath: string;
   fileSize: bigint | null;
   codec: string | null;
@@ -22,6 +34,29 @@ export interface Movie {
   addedAt: Date;
   updatedAt: Date;
   genres: Genre[];
+}
+
+// ─── Credits ──────────────────────────────────────────────────────────────────
+
+export interface CastMember {
+  id: number;
+  name: string;
+  character: string;
+  profilePath: string | null;
+  order: number;
+}
+
+export interface CrewMember {
+  id: number;
+  name: string;
+  job: string;
+  department: string;
+  profilePath: string | null;
+}
+
+export interface MovieCredits {
+  cast: CastMember[];
+  crew: CrewMember[];
 }
 
 export interface Series {

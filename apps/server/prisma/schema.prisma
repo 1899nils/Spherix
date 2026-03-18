@@ -284,24 +284,30 @@ model Genre {
 // ─── Movies ──────────────────────────────────────────────────────────────────
 
 model Movie {
-  id            String   @id @default(uuid())
-  title         String
-  sortTitle     String?  @map("sort_title")
-  year          Int?
-  runtime       Int?
-  overview      String?
-  posterPath    String?  @map("poster_path")
-  backdropPath  String?  @map("backdrop_path")
-  tmdbId        Int?     @map("tmdb_id")
-  rating        Float?
-  filePath      String   @unique @map("file_path")
-  fileSize      BigInt?  @map("file_size")
-  codec         String?
-  resolution    String?
-  watched       Boolean  @default(false)
-  watchProgress Int?     @map("watch_progress")
-  addedAt       DateTime @default(now()) @map("added_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id                  String   @id @default(uuid())
+  title               String
+  sortTitle           String?  @map("sort_title")
+  year                Int?
+  runtime             Int?
+  overview            String?
+  tagline             String?
+  posterPath          String?  @map("poster_path")
+  backdropPath        String?  @map("backdrop_path")
+  tmdbId              Int?     @map("tmdb_id")
+  imdbId              String?  @map("imdb_id")
+  rating              Float?
+  imdbRating          Float?   @map("imdb_rating")
+  rottenTomatoesScore Int?     @map("rotten_tomatoes_score")
+  metacriticScore     Int?     @map("metacritic_score")
+  contentRating       String?  @map("content_rating")
+  filePath            String   @unique @map("file_path")
+  fileSize            BigInt?  @map("file_size")
+  codec               String?
+  resolution          String?
+  watched             Boolean  @default(false)
+  watchProgress       Int?     @map("watch_progress")
+  addedAt             DateTime @default(now()) @map("added_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   genres Genre[] @relation("MovieGenres")
 

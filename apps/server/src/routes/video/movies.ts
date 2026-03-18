@@ -4,8 +4,12 @@ import { streamFile, VIDEO_MIME } from './stream.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import {
   getMovieDetails,
+  getMovieEnrichedDetails,
+  getMovieCredits,
   fetchGenreMap,
 } from '../../services/metadata/tmdb.service.js';
+import { fetchOmdbRatings } from '../../services/metadata/omdb.service.js';
+import { env } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
 
 const router: Router = Router();
@@ -78,6 +82,26 @@ router.get('/:id', async (req, res, next) => {
     });
     if (!movie) { res.status(404).json({ error: 'Movie not found' }); return; }
     res.json({ data: serializeMovie(movie as unknown as Record<string, unknown>) });
+  } catch (error) { next(error); }
+});
+
+// ─── GET /api/video/movies/:id/credits ───────────────────────────────────────
+// Returns TMDB cast & crew on-demand (not stored in DB).
+
+router.get('/:id/credits', async (req, res, next) => {
+  try {
+    const movie = await prisma.movie.findUnique({
+      where:  { id: req.params.id },
+      select: { tmdbId: true },
+    });
+    if (!movie) { res.status(404).json({ error: 'Movie not found' }); return; }
+    if (!movie.tmdbId) { res.json({ data: { cast: [], crew: [] } }); return; }
+
+    const apiKey = await getTmdbApiKeyForRequest(req);
+    if (!apiKey) { res.json({ data: { cast: [], crew: [] } }); return; }
+
+    const credits = await getMovieCredits(movie.tmdbId, apiKey);
+    res.json({ data: credits });
   } catch (error) { next(error); }
 });
 
@@ -165,7 +189,7 @@ async function syncMovieGenres(
 ): Promise<void> {
   if (genreIds.length === 0) return;
   const genreMap = await fetchGenreMap('movie', apiKey);
-  
+
   for (const gid of genreIds) {
     const name = genreMap.get(gid);
     if (!name) continue;
@@ -179,6 +203,45 @@ async function syncMovieGenres(
       where: { id: movieId },
       data: { genres: { connect: { id: genre.id } } },
     });
+  }
+}
+
+/**
+ * Fetch and store enriched ratings for a movie from TMDB + OMDb.
+ * This is called after linking a movie to TMDB and can also be triggered manually.
+ */
+async function enrichMovieRatings(
+  movieId: string,
+  tmdbId: number,
+  apiKey: string,
+): Promise<void> {
+  try {
+    const enriched = await getMovieEnrichedDetails(tmdbId, apiKey);
+    if (!enriched) return;
+
+    const ratingData: Record<string, unknown> = {
+      tagline: enriched.tagline,
+      contentRating: enriched.contentRating,
+    };
+
+    if (enriched.imdbId) {
+      ratingData.imdbId = enriched.imdbId;
+
+      // Fetch IMDb / RT / Metacritic from OMDb if key is configured
+      if (env.omdbApiKey) {
+        const omdb = await fetchOmdbRatings(enriched.imdbId, env.omdbApiKey);
+        if (omdb.imdbRating !== null) ratingData.imdbRating = omdb.imdbRating;
+        if (omdb.rottenTomatoesScore !== null) ratingData.rottenTomatoesScore = omdb.rottenTomatoesScore;
+        if (omdb.metacriticScore !== null) ratingData.metacriticScore = omdb.metacriticScore;
+      }
+    }
+
+    await prisma.movie.update({
+      where: { id: movieId },
+      data: ratingData as Parameters<typeof prisma.movie.update>[0]['data'],
+    });
+  } catch (e) {
+    logger.warn(`Failed to enrich ratings for movie ${movieId}`, { error: String(e) });
   }
 }
 
@@ -218,7 +281,7 @@ router.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
       return;
     }
 
-    // Fetch details from TMDb
+    // Fetch details from TMDb (base details for poster/backdrop/genres)
     const details = await getMovieDetails(tmdbId, apiKey);
     if (!details) {
       res.status(404).json({ error: 'Movie not found on TMDb' });
@@ -254,6 +317,9 @@ router.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
     // Sync genres
     await syncMovieGenres(movie.id, details.genreIds, apiKey);
 
+    // Enrich ratings in the background (non-blocking)
+    enrichMovieRatings(movie.id, tmdbId, apiKey).catch(() => {});
+
     logger.info(`Manually linked movie "${movie.title}" to TMDb ID ${tmdbId}`);
     res.json({ data: serializeMovie(updated as unknown as Record<string, unknown>) });
   } catch (error) {
@@ -275,10 +341,16 @@ router.post('/:id/unlink-tmdb', requireAuth, async (req, res, next) => {
     const updated = await prisma.movie.update({
       where: { id: movie.id },
       data: {
-        tmdbId: null,
-        overview: null,
-        backdropPath: null,
-        rating: null,
+        tmdbId:              null,
+        imdbId:              null,
+        overview:            null,
+        tagline:             null,
+        backdropPath:        null,
+        rating:              null,
+        imdbRating:          null,
+        rottenTomatoesScore: null,
+        metacriticScore:     null,
+        contentRating:       null,
       },
       include: genreInclude,
     });
@@ -294,6 +366,35 @@ router.post('/:id/unlink-tmdb', requireAuth, async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+/** POST /api/video/movies/:id/refresh-ratings — re-fetch ratings from TMDB + OMDb */
+router.post('/:id/refresh-ratings', requireAuth, async (req, res, next) => {
+  try {
+    const movie = await prisma.movie.findUnique({
+      where:  { id: req.params.id as string },
+      select: { id: true, title: true, tmdbId: true },
+    });
+    if (!movie) { res.status(404).json({ error: 'Movie not found' }); return; }
+    if (!movie.tmdbId) {
+      res.status(400).json({ error: 'Movie is not linked to TMDb' });
+      return;
+    }
+
+    const apiKey = await getTmdbApiKeyForRequest(req);
+    if (!apiKey) {
+      res.status(400).json({ error: 'TMDb API key not configured' });
+      return;
+    }
+
+    await enrichMovieRatings(movie.id, movie.tmdbId, apiKey);
+
+    const updated = await prisma.movie.findUnique({
+      where:   { id: movie.id },
+      include: genreInclude,
+    });
+    res.json({ data: serializeMovie(updated as unknown as Record<string, unknown>) });
+  } catch (error) { next(error); }
 });
 
 export default router;
