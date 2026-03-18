@@ -68,7 +68,7 @@ export async function fetchTraktRatings(
   }
 }
 
-function buildHeaders(clientId: string): HeadersInit {
+function buildHeaders(clientId: string): Record<string, string> {
   return {
     'Content-Type': 'application/json',
     'trakt-api-version': '2',
