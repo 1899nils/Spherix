@@ -3,7 +3,8 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "customConditions": ["node"]
+    "customConditions": ["node"],
+    "types": ["node", "bcryptjs", "cors", "express", "express-session", "multer", "uuid"]
   },
   "include": ["src"],
   "references": [
