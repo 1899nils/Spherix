@@ -4,7 +4,7 @@ import { streamFile, VIDEO_MIME } from './stream.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import {
   getSeriesDetails,
-  getSeriesImdbId,
+  getSeriesExternalData,
   fetchGenreMap,
 } from '../../services/metadata/tmdb.service.js';
 import { fetchMdblistRatings } from '../../services/metadata/mdblist.service.js';
@@ -266,9 +266,10 @@ async function enrichSeriesRatings(seriesId: string, imdbId: string): Promise<vo
 
     if (mdblistApiKey) {
       const mdblist = await fetchMdblistRatings(imdbId, mdblistApiKey);
-      if (mdblist.imdbRating          !== null) data.imdbRating          = mdblist.imdbRating;
-      if (mdblist.rottenTomatoesScore !== null) data.rottenTomatoesScore = mdblist.rottenTomatoesScore;
-      if (mdblist.metacriticScore     !== null) data.metacriticScore     = mdblist.metacriticScore;
+      if (mdblist.imdbRating                  !== null) data.imdbRating                  = mdblist.imdbRating;
+      if (mdblist.rottenTomatoesScore         !== null) data.rottenTomatoesScore         = mdblist.rottenTomatoesScore;
+      if (mdblist.rottenTomatoesAudienceScore !== null) data.rottenTomatoesAudienceScore = mdblist.rottenTomatoesAudienceScore;
+      if (mdblist.metacriticScore             !== null) data.metacriticScore             = mdblist.metacriticScore;
       data.ratingsUpdatedAt = new Date();
     }
 
@@ -361,13 +362,16 @@ seriesRouter.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
     // Sync genres
     await syncSeriesGenres(series.id, details.genreIds, apiKey);
 
-    // Fetch external IDs and enrich ratings in the background
-    getSeriesImdbId(tmdbId, apiKey).then(async (imdbId) => {
-      if (imdbId) {
-        await prisma.series.update({ where: { id: series.id }, data: { imdbId } });
-        void enrichSeriesRatings(series.id, imdbId);
+    // Fetch external IDs (imdbId + FSK) and enrich ratings in the background
+    getSeriesExternalData(tmdbId, apiKey).then(async ({ imdbId, fskRating }) => {
+      const extData: Record<string, unknown> = {};
+      if (imdbId)    extData.imdbId    = imdbId;
+      if (fskRating) extData.fskRating = fskRating;
+      if (Object.keys(extData).length > 0) {
+        await prisma.series.update({ where: { id: series.id }, data: extData as any });
       }
-    }).catch((e) => logger.warn(`Failed to fetch imdbId for series ${series.id}`, { error: String(e) }));
+      if (imdbId) void enrichSeriesRatings(series.id, imdbId);
+    }).catch((e) => logger.warn(`Failed to fetch external data for series ${series.id}`, { error: String(e) }));
 
     logger.info(`Manually linked series "${series.title}" to TMDb ID ${tmdbId}`);
     res.json({ data: updated });

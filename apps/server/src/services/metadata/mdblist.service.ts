@@ -12,8 +12,10 @@ const MDBLIST_BASE = 'https://mdblist.com/api';
 export interface MdblistRatings {
   /** IMDb score (0–10) */
   imdbRating: number | null;
-  /** Rotten Tomatoes critic score (0–100) */
+  /** Rotten Tomatoes Tomatometer / critic score (0–100) */
   rottenTomatoesScore: number | null;
+  /** Rotten Tomatoes Audience / Popcornmeter score (0–100) */
+  rottenTomatoesAudienceScore: number | null;
   /** Metacritic score (0–100) */
   metacriticScore: number | null;
 }
@@ -46,6 +48,7 @@ export async function fetchMdblistRatings(
   const empty: MdblistRatings = {
     imdbRating: null,
     rottenTomatoesScore: null,
+    rottenTomatoesAudienceScore: null,
     metacriticScore: null,
   };
 
@@ -62,15 +65,17 @@ export async function fetchMdblistRatings(
     const find = (source: string) =>
       data.ratings!.find((r) => r.source === source) ?? null;
 
-    const imdbEntry       = find('imdb');
-    const rtEntry         = find('tomatoes');
-    const metacriticEntry = find('metacritic');
+    const imdbEntry            = find('imdb');
+    const rtEntry              = find('tomatoes');
+    const rtAudienceEntry      = find('tomatoesaudience');
+    const metacriticEntry      = find('metacritic');
 
-    const imdbRating          = imdbEntry?.value ?? null;
-    const rottenTomatoesScore = rtEntry?.value != null ? Math.round(rtEntry.value) : null;
-    const metacriticScore     = metacriticEntry?.value != null ? Math.round(metacriticEntry.value) : null;
+    const imdbRating                    = imdbEntry?.value ?? null;
+    const rottenTomatoesScore           = rtEntry?.value != null ? Math.round(rtEntry.value) : null;
+    const rottenTomatoesAudienceScore   = rtAudienceEntry?.value != null ? Math.round(rtAudienceEntry.value) : null;
+    const metacriticScore               = metacriticEntry?.value != null ? Math.round(metacriticEntry.value) : null;
 
-    return { imdbRating, rottenTomatoesScore, metacriticScore };
+    return { imdbRating, rottenTomatoesScore, rottenTomatoesAudienceScore, metacriticScore };
   } catch {
     return empty;
   }
