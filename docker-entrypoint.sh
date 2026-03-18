@@ -33,6 +33,24 @@ fi
 echo "[2/6] Verzeichnisstruktur..."
 mkdir -p /data/postgres /data/redis /data/covers /data/logs
 
+# SESSION_SECRET: auto-generate a secure secret if none is set by the user.
+# The generated secret is stored in /data/session-secret so it survives
+# container restarts (but IS lost when the volume is deleted — that's fine,
+# it only invalidates existing sessions and forces a new login).
+if [ -z "$SESSION_SECRET" ] || [ "$SESSION_SECRET" = "change-me-in-production" ] || [ ${#SESSION_SECRET} -lt 32 ]; then
+  if [ -f /data/session-secret ]; then
+    SESSION_SECRET=$(cat /data/session-secret)
+    echo "  ✓ SESSION_SECRET aus /data/session-secret geladen"
+  else
+    SESSION_SECRET=$(openssl rand -hex 32)
+    echo "$SESSION_SECRET" > /data/session-secret
+    chmod 600 /data/session-secret
+    echo "  ✓ SESSION_SECRET generiert und in /data/session-secret gespeichert"
+    echo "    (Wird bei Container-Neustarts wiederverwendet)"
+  fi
+fi
+export SESSION_SECRET
+
 # Berechtigungen für PostgreSQL
 chown -R postgres:postgres /data/postgres /data/logs
 
