@@ -236,6 +236,173 @@ export async function getMovieDetails(
   };
 }
 
+// ─── Enriched movie details (ratings, cast, content rating) ──────────────────
+
+export interface TmdbCastMember {
+  id: number;
+  name: string;
+  character: string;
+  profilePath: string | null;
+  order: number;
+}
+
+export interface TmdbCrewMember {
+  id: number;
+  name: string;
+  job: string;
+  department: string;
+  profilePath: string | null;
+}
+
+export interface TmdbMovieEnriched extends TmdbResult {
+  imdbId: string | null;
+  tagline: string | null;
+  contentRating: string | null;   // US certification: "PG-13", "R", "G", etc.
+  productionCompanies: string[];
+  cast: TmdbCastMember[];
+  crew: TmdbCrewMember[];
+}
+
+/**
+ * Fetch enriched movie details in a single TMDB request using append_to_response.
+ * Returns cast, crew, content rating (US certification), tagline, imdbId, and
+ * production companies – everything needed for the movie detail page.
+ */
+export async function getMovieEnrichedDetails(
+  tmdbId: number,
+  apiKey: string,
+): Promise<TmdbMovieEnriched | null> {
+  const data = await tmdbFetch<{
+    id: number;
+    imdb_id: string | null;
+    title: string;
+    overview: string;
+    tagline: string | null;
+    poster_path: string | null;
+    backdrop_path: string | null;
+    vote_average: number;
+    genres: { id: number; name: string }[];
+    release_date: string | null;
+    production_companies: { id: number; name: string }[];
+    release_dates: {
+      results: {
+        iso_3166_1: string;
+        release_dates: { certification: string; type: number }[];
+      }[];
+    };
+    credits: {
+      cast: {
+        id: number;
+        name: string;
+        character: string;
+        profile_path: string | null;
+        order: number;
+      }[];
+      crew: {
+        id: number;
+        name: string;
+        job: string;
+        department: string;
+        profile_path: string | null;
+      }[];
+    };
+  }>(
+    `/movie/${tmdbId}?append_to_response=release_dates,credits&language=de-DE`,
+    apiKey,
+  );
+
+  if (!data) return null;
+
+  // Extract US content rating (theatrical release = type 3)
+  const usRelease = data.release_dates?.results?.find((r) => r.iso_3166_1 === 'US');
+  const certification =
+    usRelease?.release_dates
+      ?.filter((rd) => rd.certification)
+      ?.sort((a, b) => a.type - b.type)   // prefer type 3 (theatrical) but take any
+      ?.[0]?.certification ?? null;
+
+  const cast: TmdbCastMember[] = (data.credits?.cast ?? [])
+    .slice(0, 20)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      character: c.character,
+      profilePath: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null,
+      order: c.order,
+    }));
+
+  const crew: TmdbCrewMember[] = (data.credits?.crew ?? [])
+    .filter((c) => ['Director', 'Screenplay', 'Writer', 'Story', 'Producer'].includes(c.job))
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      job: c.job,
+      department: c.department,
+      profilePath: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null,
+    }));
+
+  return {
+    tmdbId: data.id,
+    imdbId: data.imdb_id ?? null,
+    overview: data.overview ?? '',
+    tagline: data.tagline ?? null,
+    posterPath: toImageUrl(data.poster_path),
+    backdropPath: toImageUrl(data.backdrop_path),
+    rating: data.vote_average ?? 0,
+    genreIds: (data.genres ?? []).map((g) => g.id),
+    year: extractYear(data.release_date),
+    contentRating: certification,
+    productionCompanies: (data.production_companies ?? []).map((c) => c.name),
+    cast,
+    crew,
+  };
+}
+
+/**
+ * Fetch only cast & crew for a movie (lighter call than enriched details).
+ * Used when the movie is already in the DB and we just need credits for the UI.
+ */
+export async function getMovieCredits(
+  tmdbId: number,
+  apiKey: string,
+): Promise<{ cast: TmdbCastMember[]; crew: TmdbCrewMember[] }> {
+  const data = await tmdbFetch<{
+    cast: {
+      id: number;
+      name: string;
+      character: string;
+      profile_path: string | null;
+      order: number;
+    }[];
+    crew: {
+      id: number;
+      name: string;
+      job: string;
+      department: string;
+      profile_path: string | null;
+    }[];
+  }>(`/movie/${tmdbId}/credits?language=de-DE`, apiKey);
+
+  return {
+    cast: (data.cast ?? []).slice(0, 20).map((c) => ({
+      id: c.id,
+      name: c.name,
+      character: c.character,
+      profilePath: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null,
+      order: c.order,
+    })),
+    crew: (data.crew ?? [])
+      .filter((c) => ['Director', 'Screenplay', 'Writer', 'Story', 'Producer'].includes(c.job))
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        job: c.job,
+        department: c.department,
+        profilePath: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null,
+      })),
+  };
+}
+
 /** Fetch detailed info for a specific series by TMDB ID */
 export async function getSeriesDetails(
   tmdbId: number,

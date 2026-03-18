@@ -28,6 +28,7 @@ export const env = {
   sessionSecret,
   lastfmApiKey: process.env.LASTFM_API_KEY || '',
   lastfmApiSecret: process.env.LASTFM_API_SECRET || '',
+  omdbApiKey: process.env.OMDB_API_KEY || '',
   publicUrl: process.env.PUBLIC_URL || '',
   /** Root for persisted data. Override with DATA_DIR in .env for local dev (e.g. DATA_DIR=./data). */
   dataDir: process.env.DATA_DIR || '/data',
