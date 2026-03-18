@@ -78,15 +78,6 @@ const loginRateLimit = rateLimit({
   message: { error: 'Zu viele Anmeldeversuche. Bitte in 15 Minuten erneut versuchen.' },
 });
 
-// ── CSRF protection ───────────────────────────────────────────────────────────
-// Subsonic API uses its own auth mechanism and is excluded.
-app.use('/api', doubleCsrfProtection);
-
-// ── CSRF token endpoint (public — called before login) ───────────────────────
-app.get('/api/csrf-token', (req, res) => {
-  res.json({ csrfToken: generateCsrfToken(req, res) });
-});
-
 // ── Auth routes (no session required) ────────────────────────────────────────
 app.use('/api/auth/login', loginRateLimit);
 app.use('/api/auth', authRouter);
@@ -101,6 +92,18 @@ app.use('/api', (req, res, next) => {
     return;
   }
   next();
+});
+
+// ── CSRF protection (authenticated routes only) ───────────────────────────────
+// Applied after the auth guard so pre-auth endpoints (login, logout, health)
+// are never blocked. The /rest Subsonic API uses its own auth and is excluded
+// because it is mounted outside /api.
+app.use('/api', doubleCsrfProtection);
+
+// ── CSRF token endpoint ───────────────────────────────────────────────────────
+// Requires an active session — call this once after login to seed the token.
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ csrfToken: generateCsrfToken(req, res) });
 });
 
 // Routes
