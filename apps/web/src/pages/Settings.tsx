@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Save,
   Clapperboard,
+  Star,
   BookOpen,
   FolderOpen,
   UserPlus,
@@ -310,6 +311,40 @@ export function Settings() {
     },
     onError: (err: Error) => {
       setTmdbFeedback({ type: 'error', message: `Test fehlgeschlagen: ${err.message}` });
+    },
+  });
+
+  // ─── MDBList ─────────────────────────────────────────────────────────────────
+
+  const { data: mdblistData, refetch: refetchMdblist } = useQuery({
+    queryKey: ['mdblist-status'],
+    queryFn: () => api.get<ApiData<{ configured: boolean }>>('/mdblist/status'),
+  });
+
+  const [localMdblistApiKey, setLocalMdblistApiKey] = useState('');
+  const [mdblistFeedback, setMdblistFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const saveMdblistConfig = useMutation({
+    mutationFn: (data: { apiKey: string }) => api.post('/mdblist/config', data),
+    onSuccess: () => {
+      setMdblistFeedback({ type: 'success', message: 'MDBList API-Key gespeichert!' });
+      refetchMdblist();
+      setLocalMdblistApiKey('');
+      setTimeout(() => setMdblistFeedback(null), 3000);
+    },
+    onError: (err: Error) => {
+      setMdblistFeedback({ type: 'error', message: `Fehler: ${err.message}` });
+    },
+  });
+
+  const testMdblistConfig = useMutation({
+    mutationFn: (data: { apiKey: string }) => api.post('/mdblist/test-config', data),
+    onSuccess: () => {
+      setMdblistFeedback({ type: 'success', message: 'API-Key ist gültig!' });
+      setTimeout(() => setMdblistFeedback(null), 3000);
+    },
+    onError: (err: Error) => {
+      setMdblistFeedback({ type: 'error', message: `Test fehlgeschlagen: ${err.message}` });
     },
   });
 
@@ -966,6 +1001,76 @@ export function Settings() {
                   disabled={testTmdbConfig.isPending || !localTmdbApiKey}
                 >
                   {testTmdbConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  Verbindung testen
+                </Button>
+              </div>
+            </div>
+          </section>
+          )}
+
+          {currentUser?.isAdmin && (<section className="space-y-4">
+            <h2 className="text-lg font-semibold">MDBList</h2>
+            <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 bg-yellow-500/10 rounded-xl flex items-center justify-center shrink-0">
+                  <Star className="h-6 w-6 text-yellow-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-white">Bewertungen via MDBList</p>
+                  <p className="text-sm text-zinc-400">
+                    {mdblistData?.data?.configured
+                      ? 'API-Key konfiguriert — IMDB, Rotten Tomatoes & Metacritic werden täglich aktualisiert (max. 950 Anfragen/Tag).'
+                      : 'Hinterlege deinen MDBList API-Key für IMDB-, Rotten-Tomatoes- und Metacritic-Bewertungen. Kostenlos unter mdblist.com/api.'}
+                  </p>
+                </div>
+                {mdblistData?.data?.configured && (
+                  <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-3 py-1 shrink-0">
+                    Konfiguriert ✓
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs text-zinc-400 font-medium">API-Key</label>
+                <input
+                  type="password"
+                  value={localMdblistApiKey}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalMdblistApiKey(e.target.value)}
+                  placeholder={mdblistData?.data?.configured ? '••••••••••••••••••••' : 'MDBList API-Key'}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 transition-all"
+                />
+              </div>
+
+              {mdblistFeedback && (
+                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                  mdblistFeedback.type === 'success'
+                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                }`}>
+                  {mdblistFeedback.type === 'success'
+                    ? <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    : <AlertCircle className="h-4 w-4 shrink-0" />}
+                  {mdblistFeedback.message}
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  size="sm"
+                  className="bg-yellow-600 hover:bg-yellow-500 text-white font-bold"
+                  onClick={() => saveMdblistConfig.mutate({ apiKey: localMdblistApiKey })}
+                  disabled={saveMdblistConfig.isPending || !localMdblistApiKey}
+                >
+                  {saveMdblistConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  Speichern
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => testMdblistConfig.mutate({ apiKey: localMdblistApiKey })}
+                  disabled={testMdblistConfig.isPending || !localMdblistApiKey}
+                >
+                  {testMdblistConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
                   Verbindung testen
                 </Button>
               </div>
