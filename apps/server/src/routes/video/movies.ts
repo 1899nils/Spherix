@@ -9,6 +9,7 @@ import {
   fetchGenreMap,
 } from '../../services/metadata/tmdb.service.js';
 import { fetchOmdbRatings } from '../../services/metadata/omdb.service.js';
+import { fetchTraktRatings } from '../../services/metadata/trakt.service.js';
 import { env } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
 
@@ -182,6 +183,13 @@ async function getTmdbApiKeyForRequest(req: any): Promise<string | null> {
   return settings?.tmdbApiKey ?? null;
 }
 
+async function getTraktClientId(): Promise<string | null> {
+  const settings = await prisma.userSettings.findFirst({
+    select: { traktClientId: true },
+  });
+  return settings?.traktClientId ?? null;
+}
+
 async function syncMovieGenres(
   movieId: string,
   genreIds: number[],
@@ -233,6 +241,14 @@ async function enrichMovieRatings(
         if (omdb.imdbRating !== null) ratingData.imdbRating = omdb.imdbRating;
         if (omdb.rottenTomatoesScore !== null) ratingData.rottenTomatoesScore = omdb.rottenTomatoesScore;
         if (omdb.metacriticScore !== null) ratingData.metacriticScore = omdb.metacriticScore;
+      }
+
+      // Fetch Trakt community rating if Client ID is configured
+      const traktClientId = await getTraktClientId();
+      if (traktClientId) {
+        const trakt = await fetchTraktRatings(enriched.imdbId, traktClientId);
+        if (trakt.rating !== null) ratingData.traktRating = trakt.rating;
+        if (trakt.votes  !== null) ratingData.traktVotes  = trakt.votes;
       }
     }
 
@@ -350,6 +366,8 @@ router.post('/:id/unlink-tmdb', requireAuth, async (req, res, next) => {
         imdbRating:          null,
         rottenTomatoesScore: null,
         metacriticScore:     null,
+        traktRating:         null,
+        traktVotes:          null,
         contentRating:       null,
       },
       include: genreInclude,

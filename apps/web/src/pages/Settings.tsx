@@ -313,6 +313,45 @@ export function Settings() {
     },
   });
 
+  // ─── Trakt ───────────────────────────────────────────────────────────────────
+
+  const { data: traktData, refetch: refetchTrakt } = useQuery({
+    queryKey: ['trakt-status'],
+    queryFn: () => api.get<ApiData<{ configured: boolean; clientId: string | null }>>('/trakt/status'),
+  });
+
+  const [localTraktClientId, setLocalTraktClientId] = useState('');
+  const [traktFeedback, setTraktFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  useEffect(() => {
+    if (traktData?.data) {
+      setLocalTraktClientId(traktData.data.clientId || '');
+    }
+  }, [traktData]);
+
+  const saveTraktConfig = useMutation({
+    mutationFn: (data: { clientId: string }) => api.post('/trakt/config', data),
+    onSuccess: () => {
+      setTraktFeedback({ type: 'success', message: 'Trakt Client ID gespeichert!' });
+      refetchTrakt();
+      setTimeout(() => setTraktFeedback(null), 3000);
+    },
+    onError: (err: Error) => {
+      setTraktFeedback({ type: 'error', message: `Fehler: ${err.message}` });
+    },
+  });
+
+  const testTraktConfig = useMutation({
+    mutationFn: (data: { clientId: string }) => api.post('/trakt/test-config', data),
+    onSuccess: () => {
+      setTraktFeedback({ type: 'success', message: 'Client ID ist gültig!' });
+      setTimeout(() => setTraktFeedback(null), 3000);
+    },
+    onError: (err: Error) => {
+      setTraktFeedback({ type: 'error', message: `Test fehlgeschlagen: ${err.message}` });
+    },
+  });
+
   // ─── YouTube ─────────────────────────────────────────────────────────────────
 
   const { data: youtubeData, refetch: refetchYoutube } = useQuery({
@@ -927,6 +966,76 @@ export function Settings() {
                   disabled={testTmdbConfig.isPending || !localTmdbApiKey}
                 >
                   {testTmdbConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  Verbindung testen
+                </Button>
+              </div>
+            </div>
+          </section>
+          )}
+
+          {currentUser?.isAdmin && (<section className="space-y-4">
+            <h2 className="text-lg font-semibold">Trakt.tv</h2>
+            <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 bg-red-500/10 rounded-xl flex items-center justify-center shrink-0">
+                  <Clapperboard className="h-6 w-6 text-red-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-white">Community-Bewertungen via Trakt</p>
+                  <p className="text-sm text-zinc-400">
+                    {traktData?.data?.configured
+                      ? 'Client ID konfiguriert — Trakt-Bewertungen werden beim nächsten Refresh abgerufen.'
+                      : 'Hinterlege deine Trakt Client ID, um Community-Bewertungen für Filme zu laden. Kostenlos unter trakt.tv/oauth/applications.'}
+                  </p>
+                </div>
+                {traktData?.data?.configured && (
+                  <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-3 py-1 shrink-0">
+                    Konfiguriert ✓
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs text-zinc-400 font-medium">Client ID</label>
+                <input
+                  type="password"
+                  value={localTraktClientId}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalTraktClientId(e.target.value)}
+                  placeholder="Trakt Client ID"
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-red-500 transition-all"
+                />
+              </div>
+
+              {traktFeedback && (
+                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                  traktFeedback.type === 'success'
+                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                }`}>
+                  {traktFeedback.type === 'success'
+                    ? <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    : <AlertCircle className="h-4 w-4 shrink-0" />}
+                  {traktFeedback.message}
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-500 text-white font-bold"
+                  onClick={() => saveTraktConfig.mutate({ clientId: localTraktClientId })}
+                  disabled={saveTraktConfig.isPending || !localTraktClientId}
+                >
+                  {saveTraktConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  Speichern
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => testTraktConfig.mutate({ clientId: localTraktClientId })}
+                  disabled={testTraktConfig.isPending || !localTraktClientId}
+                >
+                  {testTraktConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
                   Verbindung testen
                 </Button>
               </div>
