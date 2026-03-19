@@ -6,7 +6,7 @@ import { VideoPlayer } from '@/components/video/VideoPlayer';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { Button } from '@/components/ui/button';
 import { formatRuntime } from '@/lib/utils';
-import { Play, ArrowLeft, Tv, ChevronDown, ChevronRight, Pencil, Link2, AlertCircle } from 'lucide-react';
+import { Play, ArrowLeft, Tv, ChevronDown, ChevronRight, Pencil, Link2, AlertCircle, RotateCcw } from 'lucide-react';
 import type { SeriesDetail as SeriesDetailType } from '@musicserver/shared';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import { TmdbSearchModal } from '@/components/video/TmdbSearchModal';
@@ -40,6 +40,11 @@ export function SeriesDetail() {
   const progressMutation = useMutation({
     mutationFn: ({ epId, position }: { epId: string; position: number }) =>
       api.post(`/video/episodes/${epId}/progress`, { position }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['series', id] }),
+  });
+
+  const refreshMetadataMutation = useMutation({
+    mutationFn: () => api.post(`/video/series/${id}/refresh-metadata`, {}),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['series', id] }),
   });
 
@@ -198,12 +203,28 @@ export function SeriesDetail() {
               )}
               {series.overview ? (
                 <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">{series.overview}</p>
-              ) : !series.tmdbId && (
+              ) : (
                 <div className="flex items-start gap-2 text-amber-400/80 text-sm bg-amber-500/10 rounded-lg p-3">
                   <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-amber-400">Keine Metadaten verfügbar</p>
-                    <p className="text-xs mt-0.5">Diese Serie ist nicht mit TMDb verknüpft.</p>
+                    {series.tmdbId ? (
+                      <>
+                        <p className="font-medium text-amber-400">Keine Beschreibung</p>
+                        <button
+                          onClick={() => refreshMetadataMutation.mutate()}
+                          disabled={refreshMetadataMutation.isPending}
+                          className="text-xs mt-0.5 text-amber-400/60 hover:text-amber-400 underline transition-colors flex items-center gap-1"
+                        >
+                          <RotateCcw className={`h-3 w-3 ${refreshMetadataMutation.isPending ? 'animate-spin' : ''}`} />
+                          {refreshMetadataMutation.isPending ? 'Wird geladen…' : 'Metadaten von TMDb neu laden'}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-medium text-amber-400">Keine Metadaten verfügbar</p>
+                        <p className="text-xs mt-0.5">Diese Serie ist nicht mit TMDb verknüpft.</p>
+                      </>
+                    )}
                   </div>
                 </div>
               )}

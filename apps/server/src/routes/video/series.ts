@@ -391,6 +391,60 @@ seriesRouter.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
   }
 });
 
+/** POST /api/video/series/:id/refresh-metadata — re-fetch all TMDb metadata (overview, studio, network, etc.) */
+seriesRouter.post('/:id/refresh-metadata', requireAuth, async (req, res, next) => {
+  try {
+    const series = await prisma.series.findUnique({
+      where:   { id: req.params.id as string },
+      include: genreInclude,
+    });
+    if (!series) { res.status(404).json({ error: 'Series not found' }); return; }
+    if (!series.tmdbId) {
+      res.status(400).json({ error: 'Series is not linked to TMDb' });
+      return;
+    }
+
+    const apiKey = await getTmdbApiKeyForRequest(req);
+    if (!apiKey) {
+      res.status(400).json({ error: 'TMDb API key not configured' });
+      return;
+    }
+
+    const details = await getSeriesEnrichedDetails(series.tmdbId, apiKey);
+    if (!details) {
+      res.status(404).json({ error: 'Series not found on TMDb' });
+      return;
+    }
+
+    const updated = await prisma.series.update({
+      where: { id: series.id },
+      data: {
+        originalTitle: details.originalTitle ?? series.originalTitle,
+        releaseDate:   details.releaseDate   ?? series.releaseDate,
+        overview:      details.overview      || series.overview,
+        posterPath:    details.posterPath    || series.posterPath,
+        backdropPath:  details.backdropPath  || series.backdropPath,
+        logoPath:      details.logoPath      ?? series.logoPath,
+        rating:        details.rating        || series.rating,
+        year:          details.year          || series.year,
+        contentRating: details.contentRating ?? series.contentRating,
+        fskRating:     details.fskRating     ?? series.fskRating,
+        studio:        details.studio        ?? series.studio,
+        network:       details.network       ?? series.network,
+      },
+      include: genreInclude,
+    });
+
+    await syncSeriesGenres(series.id, details.genreIds, apiKey);
+    if (details.imdbId) {
+      enrichSeriesRatings(series.id, details.imdbId).catch(() => {});
+    }
+
+    logger.info(`Refreshed metadata for series "${series.title}"`);
+    res.json({ data: updated });
+  } catch (error) { next(error); }
+});
+
 /** POST /api/video/series/:id/unlink-tmdb — remove TMDb link */
 seriesRouter.post('/:id/unlink-tmdb', requireAuth, async (req, res, next) => {
   try {
