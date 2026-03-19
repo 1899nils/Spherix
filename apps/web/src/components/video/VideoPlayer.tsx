@@ -50,7 +50,7 @@ function trackLabel(t: AudioTrackInfo | SubtitleTrackInfo, idx: number): string 
   const extra = 'channels' in t
     ? `${(t as AudioTrackInfo).channels}ch · ${t.codec.toUpperCase()}`
     : (t as SubtitleTrackInfo).forced ? 'Erzwungen' : t.codec.toUpperCase();
-  const name = t.title ? ` · ${t.title}` : '';
+  const name = 'title' in t && t.title ? ` · ${t.title}` : '';
   return `${lang}${name} (${extra})`;
 }
 
