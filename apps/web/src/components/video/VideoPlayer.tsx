@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import Hls from 'hls.js';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { formatDuration } from '@/lib/utils';
@@ -124,6 +125,15 @@ export function VideoPlayer({
   const [showAudioMenu, setShowAudioMenu] = useState(false);
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
 
+  // HLS instance (used when direct play is not possible)
+  const hlsRef = useRef<Hls | null>(null);
+
+  // Refs so init effect can check without adding deps
+  const mediaTypeRef = useRef(mediaType);
+  mediaTypeRef.current = mediaType;
+  const mediaIdRef = useRef(mediaId);
+  mediaIdRef.current = mediaId;
+
   // Audio stream offset tracking (for ffmpeg-piped audio streams)
   const streamOffsetRef = useRef(0);
   const isSwitchingAudio = useRef(false);
@@ -150,27 +160,71 @@ export function VideoPlayer({
   const nextEpisodeRef = useRef(nextEpisode);
   nextEpisodeRef.current = nextEpisode;
 
-  // Fetch track info when mediaType/mediaId are available
+  // Fetch track info and determine correct stream URL (direct play vs. HLS transcode)
   useEffect(() => {
     if (!mediaType || !mediaId) return;
     audioTrackInitialized.current = false;
+
     fetch(`/api/video/stream/info/${mediaType}/${mediaId}`)
       .then(r => r.json())
       .then(json => {
-        const info = json?.data?.mediaInfo;
+        const data = json?.data;
+        const info = data?.mediaInfo;
         if (!info) return;
+
         const audio: AudioTrackInfo[] = info.audio ?? [];
         const subs: SubtitleTrackInfo[] = info.subtitles ?? [];
         setAudioTracks(audio);
         setSubtitleTracks(subs);
-        const defAudioIdx = audio.findIndex(a => a.default);
+        const defAudioIdx = audio.findIndex((a: AudioTrackInfo) => a.default);
         const resolvedIdx = defAudioIdx >= 0 ? defAudioIdx : audio.length > 0 ? 0 : null;
         audioTrackInitialized.current = true;
         setSelectedAudio(resolvedIdx);
         setSelectedSubtitle(null);
+
+        // Use the stream URL recommended by the server.
+        // For incompatible codecs (AC3/DTS/HEVC …), this will be an HLS URL.
+        const streamUrl: string = data?.streamUrl ?? src;
+        const video = videoRef.current;
+        if (!video) return;
+
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+
+        const startPlay = () => {
+          video.play().catch(() => {
+            video.muted = true;
+            setIsMuted(true);
+            video.play().catch(() => {});
+          });
+        };
+
+        if (streamUrl.includes('.m3u8')) {
+          // Transcode path — Chrome/Firefox need hls.js for HLS
+          if (Hls.isSupported()) {
+            const hls = new Hls();
+            hlsRef.current = hls;
+            hls.loadSource(streamUrl);
+            hls.attachMedia(video);
+            hls.once(Hls.Events.MANIFEST_PARSED, startPlay);
+          } else {
+            // Safari: native HLS
+            video.src = streamUrl;
+            startPlay();
+          }
+        } else {
+          // Direct play — src already set via JSX prop, just start playback
+          startPlay();
+        }
       })
-      .catch(() => {});
-  }, [mediaType, mediaId]);
+      .catch(() => {
+        // Info fetch failed — fall back to direct play
+        videoRef.current?.play().catch(() => {});
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mediaType, mediaId, src]);
 
   // Clear overlay when subtitle is turned off
   useEffect(() => {
@@ -202,15 +256,17 @@ export function VideoPlayer({
     video.muted = false;
     video.volume = volume;
 
-    // Call play() NOW while the user-gesture activation is still valid.
-    // Calling it inside loadedmetadata fires too late (~seconds later) and
-    // Chrome's transient activation has already expired → muted/blocked autoplay.
-    video.play().catch(() => {
-      // Autoplay blocked — fall back to muted so video at least starts
-      video.muted = true;
-      setIsMuted(true);
-      video.play().catch(() => {});
-    });
+    // If there is no media info to fetch (no mediaType/mediaId), start playing the
+    // raw src immediately while the user-gesture activation is still valid.
+    // When mediaType/mediaId exist, the info-fetch effect handles play() after
+    // determining the correct stream URL (~100 ms — well within the 5 s gesture window).
+    if (!mediaTypeRef.current || !mediaIdRef.current) {
+      video.play().catch(() => {
+        video.muted = true;
+        setIsMuted(true);
+        video.play().catch(() => {});
+      });
+    }
 
     const onLoaded = () => {
       if (isSwitchingAudio.current) {
@@ -338,12 +394,17 @@ export function VideoPlayer({
     }
   };
 
+  // Destroy HLS instance when VideoPlayer unmounts
+  useEffect(() => () => { hlsRef.current?.destroy(); }, []);
+
   const handleStop = useCallback(() => {
     const video = videoRef.current;
     if (video) {
       video.pause();
       video.currentTime = 0;
     }
+    hlsRef.current?.destroy();
+    hlsRef.current = null;
     stop();
     onClose();
   }, [onClose, stop]);
@@ -363,7 +424,12 @@ export function VideoPlayer({
     const video = videoRef.current;
     if (!video) return;
 
-    // Calculate real current position (accounting for any existing offset)
+    // Destroy HLS before switching to the ffmpeg audio-transcode stream
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
     const realPos = Math.floor(video.currentTime + streamOffsetRef.current);
     streamOffsetRef.current = realPos;
     isSwitchingAudio.current = true;
