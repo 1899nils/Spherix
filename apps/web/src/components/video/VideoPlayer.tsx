@@ -7,6 +7,30 @@ import {
   Languages, Captions,
 } from 'lucide-react';
 
+interface SubtitleCue {
+  start: number;
+  end: number;
+  text: string;
+}
+
+function parseVtt(vttText: string): SubtitleCue[] {
+  const cues: SubtitleCue[] = [];
+  const blocks = vttText.split(/\n\n+/);
+  for (const block of blocks) {
+    const lines = block.trim().split('\n');
+    const timeLine = lines.find(l => l.includes('-->'));
+    if (!timeLine) continue;
+    const [startStr, endStr] = timeLine.split('-->').map(s => s.trim());
+    const parseTime = (t: string) => {
+      const parts = t.replace(',', '.').split(':').map(parseFloat);
+      return parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
+    };
+    const text = lines.slice(lines.indexOf(timeLine) + 1).join('\n').trim();
+    if (text) cues.push({ start: parseTime(startStr), end: parseTime(endStr), text });
+  }
+  return cues;
+}
+
 interface AudioTrackInfo {
   index: number;
   codec: string;
@@ -101,6 +125,27 @@ export function VideoPlayer({
   const isSwitchingAudio = useRef(false);
   const audioTrackInitialized = useRef(false);
 
+  // Subtitle overlay state
+  const subtitleCuesRef = useRef<SubtitleCue[]>([]);
+  const currentCueRef = useRef<string | null>(null);
+  const [currentCueText, setCurrentCueText] = useState<string | null>(null);
+
+  // Stable refs so timeupdate effect never needs to re-register
+  const durationRef = useRef(duration);
+  durationRef.current = duration;
+  const updateProgressRef = useRef(updateProgress);
+  updateProgressRef.current = updateProgress;
+  const onProgressRef = useRef(onProgress);
+  onProgressRef.current = onProgress;
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+  const introStartRef = useRef(introStart);
+  introStartRef.current = introStart;
+  const introEndRef = useRef(introEnd);
+  introEndRef.current = introEnd;
+  const nextEpisodeRef = useRef(nextEpisode);
+  nextEpisodeRef.current = nextEpisode;
+
   // Fetch track info when mediaType/mediaId are available
   useEffect(() => {
     if (!mediaType || !mediaId) return;
@@ -122,22 +167,14 @@ export function VideoPlayer({
       .catch(() => {});
   }, [mediaType, mediaId]);
 
-  // Apply subtitle track selection — use addtrack listener to handle async track registration
+  // Clear overlay when subtitle is turned off
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const applyModes = () => {
-      const tracks = video.textTracks;
-      for (let i = 0; i < tracks.length; i++) {
-        tracks[i].mode = i === selectedSubtitle ? 'showing' : 'hidden';
-      }
-    };
-
-    applyModes();
-    video.textTracks.addEventListener('addtrack', applyModes);
-    return () => video.textTracks.removeEventListener('addtrack', applyModes);
-  }, [selectedSubtitle, subtitleTracks]);
+    if (selectedSubtitle === null) {
+      subtitleCuesRef.current = [];
+      currentCueRef.current = null;
+      setCurrentCueText(null);
+    }
+  }, [selectedSubtitle]);
 
   // Auto-hide controls
   const resetHideTimer = useCallback(() => {
@@ -160,12 +197,20 @@ export function VideoPlayer({
     video.muted = false;
     video.volume = volume;
 
+    // Call play() NOW while the user-gesture activation is still valid.
+    // Calling it inside loadedmetadata fires too late (~seconds later) and
+    // Chrome's transient activation has already expired → muted/blocked autoplay.
+    video.play().catch(() => {
+      // Autoplay blocked — fall back to muted so video at least starts
+      video.muted = true;
+      setIsMuted(true);
+      video.play().catch(() => {});
+    });
+
     const onLoaded = () => {
       if (isSwitchingAudio.current) {
-        // Audio track switch — keep existing duration, stream starts at streamOffsetRef.current
         isSwitchingAudio.current = false;
         setIsLoading(false);
-        video.play().catch(() => {});
         return;
       }
       const dur = isFinite(video.duration) && video.duration > 0 ? video.duration : (propDuration || 0);
@@ -174,7 +219,6 @@ export function VideoPlayer({
       if (savedPosition > 0 && savedPosition < dur - 5) {
         video.currentTime = savedPosition;
       }
-      video.play().catch(() => {});
     };
 
     video.addEventListener('loadedmetadata', onLoaded);
@@ -185,7 +229,7 @@ export function VideoPlayer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedPosition, pause, propDuration]);
 
-  // Sync playback
+  // Sync playback — deps kept minimal via refs so listeners never re-register needlessly
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -193,37 +237,46 @@ export function VideoPlayer({
     const onTime = () => {
       const realTime = video.currentTime + streamOffsetRef.current;
       setSeek(realTime);
-      onProgress?.(Math.floor(realTime));
-      updateProgress(realTime, duration);
+      onProgressRef.current?.(Math.floor(realTime));
+      updateProgressRef.current(realTime, durationRef.current);
 
-      if (introStart != null && introEnd != null) {
-        const inIntro = realTime >= introStart && realTime < introEnd - 5;
-        setShowSkipIntro(inIntro);
+      const iStart = introStartRef.current;
+      const iEnd   = introEndRef.current;
+      if (iStart != null && iEnd != null) {
+        setShowSkipIntro(realTime >= iStart && realTime < iEnd - 5);
       }
 
-      if (nextEpisode && realTime > duration - 30) {
-        setShowNextEpisode(true);
-      } else {
-        setShowNextEpisode(false);
+      const dur = durationRef.current;
+      setShowNextEpisode(!!(nextEpisodeRef.current && dur > 0 && realTime > dur - 30));
+
+      // Subtitle overlay
+      const cues = subtitleCuesRef.current;
+      if (cues.length > 0) {
+        const active = cues.find(c => realTime >= c.start && realTime <= c.end);
+        const text = active?.text ?? null;
+        if (text !== currentCueRef.current) {
+          currentCueRef.current = text;
+          setCurrentCueText(text);
+        }
       }
     };
 
-    const onPlay = () => { setIsPlaying(true); resetHideTimer(); };
+    const onPlay  = () => { setIsPlaying(true);  resetHideTimer(); };
     const onPause = () => { setIsPlaying(false); setShowControls(true); };
-    const onEnded = () => { setIsPlaying(false); setShowControls(true); onComplete?.(); };
+    const onEnded = () => { setIsPlaying(false); setShowControls(true); onCompleteRef.current?.(); };
 
     video.addEventListener('timeupdate', onTime);
-    video.addEventListener('play', onPlay);
-    video.addEventListener('pause', onPause);
-    video.addEventListener('ended', onEnded);
+    video.addEventListener('play',       onPlay);
+    video.addEventListener('pause',      onPause);
+    video.addEventListener('ended',      onEnded);
 
     return () => {
       video.removeEventListener('timeupdate', onTime);
-      video.removeEventListener('play', onPlay);
-      video.removeEventListener('pause', onPause);
-      video.removeEventListener('ended', onEnded);
+      video.removeEventListener('play',       onPlay);
+      video.removeEventListener('pause',      onPause);
+      video.removeEventListener('ended',      onEnded);
     };
-  }, [onProgress, onComplete, introStart, introEnd, nextEpisode, resetHideTimer, duration, updateProgress]);
+  }, [resetHideTimer]); // stable — all other values read through refs
 
   const togglePlay = () => {
     const video = videoRef.current;
@@ -316,6 +369,18 @@ export function VideoPlayer({
   const selectSubtitleTrack = (idx: number | null) => {
     setSelectedSubtitle(idx);
     setShowSubtitleMenu(false);
+    subtitleCuesRef.current = [];
+    currentCueRef.current = null;
+    setCurrentCueText(null);
+
+    if (idx === null || !mediaType || !mediaId) return;
+    const track = subtitleTracks[idx];
+    if (!track) return;
+
+    fetch(`/api/video/stream/subtitle/${mediaType}/${mediaId}/${track.index}`)
+      .then(r => r.text())
+      .then(vttText => { subtitleCuesRef.current = parseVtt(vttText); })
+      .catch(() => {});
   };
 
   // Keyboard
@@ -360,10 +425,6 @@ export function VideoPlayer({
   const progressPercent = duration ? (seek / duration) * 100 : 0;
   const VolumeIcon = isMuted || volume === 0 ? VolumeX : Volume2;
 
-  const subtitleBaseUrl = mediaType && mediaId
-    ? `/api/video/stream/subtitle/${mediaType}/${mediaId}`
-    : null;
-
   return (
     <div
       ref={containerRef}
@@ -377,24 +438,24 @@ export function VideoPlayer({
           src={src}
           poster={posterUrl ?? undefined}
           className="w-full h-full object-contain"
-          autoPlay
           playsInline
-        >
-          {subtitleBaseUrl && subtitleTracks.map((s, i) => (
-            <track
-              key={s.index}
-              kind="subtitles"
-              src={`${subtitleBaseUrl}/${s.index}`}
-              srcLang={s.language ?? 'und'}
-              label={s.title ?? s.language?.toUpperCase() ?? `Spur ${i + 1}`}
-            />
-          ))}
-        </video>
+        />
 
         {/* Loading */}
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="h-12 w-12 rounded-full border-4 border-white/20 border-t-red-600 animate-spin" />
+          </div>
+        )}
+
+        {/* Subtitle overlay */}
+        {currentCueText && (
+          <div className="absolute bottom-20 left-0 right-0 flex justify-center pointer-events-none px-6">
+            <div className="bg-black/80 text-white text-sm px-4 py-1.5 rounded text-center max-w-2xl leading-relaxed">
+              {currentCueText.split('\n').map((line, i) => (
+                <div key={i}>{line}</div>
+              ))}
+            </div>
           </div>
         )}
 
