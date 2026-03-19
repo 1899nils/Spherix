@@ -22,10 +22,14 @@ function parseVtt(vttText: string): SubtitleCue[] {
     if (!timeLine) continue;
     const [startStr, endStr] = timeLine.split('-->').map(s => s.trim());
     const parseTime = (t: string) => {
-      const parts = t.replace(',', '.').split(':').map(parseFloat);
+      // Only take the time portion before any positioning cues (e.g. "align:start")
+      const timeOnly = t.split(' ')[0].replace(',', '.');
+      const parts = timeOnly.split(':').map(parseFloat);
       return parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
     };
-    const text = lines.slice(lines.indexOf(timeLine) + 1).join('\n').trim();
+    // Strip VTT/HTML tags (e.g. <i>, <b>, <c.yellow>, <00:00:00.000>)
+    const text = lines.slice(lines.indexOf(timeLine) + 1).join('\n').trim()
+      .replace(/<[^>]+>/g, '');
     if (text) cues.push({ start: parseTime(startStr), end: parseTime(endStr), text });
   }
   return cues;
@@ -159,12 +163,36 @@ export function VideoPlayer({
         const subs: SubtitleTrackInfo[] = info.subtitles ?? [];
         setAudioTracks(audio);
         setSubtitleTracks(subs);
-        const defAudio = audio.findIndex(a => a.default);
+        const defAudioIdx = audio.findIndex(a => a.default);
+        const resolvedIdx = defAudioIdx >= 0 ? defAudioIdx : audio.length > 0 ? 0 : null;
         audioTrackInitialized.current = true;
-        setSelectedAudio(defAudio >= 0 ? defAudio : audio.length > 0 ? 0 : null);
+        setSelectedAudio(resolvedIdx);
         setSelectedSubtitle(null);
+
+        // Auto-transcode if the default audio codec is not browser-compatible.
+        // Chrome/Firefox cannot decode AC3, EAC3, DTS, TrueHD natively.
+        const browserSafeAudio = ['aac', 'mp3', 'opus', 'vorbis'];
+        const defaultTrack = resolvedIdx !== null ? audio[resolvedIdx] : null;
+        const needsTranscode = defaultTrack &&
+          !browserSafeAudio.includes(defaultTrack.codec.toLowerCase());
+
+        if (needsTranscode && resolvedIdx !== null) {
+          const video = videoRef.current;
+          if (video) {
+            // Use savedPosition as stream start so playback resumes at the right spot
+            const startPos = Math.max(0, Math.floor(video.currentTime > 1
+              ? video.currentTime
+              : savedPosition || 0));
+            streamOffsetRef.current = startPos;
+            isSwitchingAudio.current = true;
+            setIsLoading(true);
+            video.src = `/api/video/stream/audio/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${startPos}`;
+            video.load();
+          }
+        }
       })
       .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaType, mediaId]);
 
   // Clear overlay when subtitle is turned off
@@ -211,6 +239,7 @@ export function VideoPlayer({
       if (isSwitchingAudio.current) {
         isSwitchingAudio.current = false;
         setIsLoading(false);
+        video.play().catch(() => {});
         return;
       }
       const dur = isFinite(video.duration) && video.duration > 0 ? video.duration : (propDuration || 0);
