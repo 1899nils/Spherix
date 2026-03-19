@@ -418,12 +418,25 @@ export function MovieDetail() {
           type="movie"
           id={movie.id}
           initialData={{
-            title:      movie.title,
-            year:       movie.year,
-            overview:   movie.overview,
-            runtime:    movie.runtime,
-            codec:      movie.codec,
-            resolution: movie.resolution,
+            title:         movie.title,
+            sortTitle:     movie.sortTitle,
+            originalTitle: movie.originalTitle,
+            year:          movie.year,
+            releaseDate:   movie.releaseDate,
+            runtime:       movie.runtime,
+            overview:      movie.overview,
+            tagline:       movie.tagline,
+            studio:        movie.studio,
+            network:       movie.network,
+            fskRating:     movie.fskRating,
+            contentRating: movie.contentRating,
+            posterPath:    movie.posterPath,
+            backdropPath:  movie.backdropPath,
+            logoPath:      movie.logoPath,
+            tmdbId:        movie.tmdbId,
+            imdbId:        movie.imdbId,
+            codec:         movie.codec,
+            resolution:    movie.resolution,
           }}
         />
       )}

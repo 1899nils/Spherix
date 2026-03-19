@@ -291,9 +291,21 @@ export function SeriesDetail() {
           type="series"
           id={series.id}
           initialData={{
-            title:    series.title,
-            year:     series.year,
-            overview: series.overview,
+            title:         series.title,
+            sortTitle:     series.sortTitle,
+            originalTitle: series.originalTitle,
+            year:          series.year,
+            releaseDate:   series.releaseDate,
+            overview:      series.overview,
+            studio:        series.studio,
+            network:       series.network,
+            fskRating:     series.fskRating,
+            contentRating: series.contentRating,
+            posterPath:    series.posterPath,
+            backdropPath:  series.backdropPath,
+            logoPath:      series.logoPath,
+            tmdbId:        series.tmdbId,
+            imdbId:        series.imdbId,
           }}
         />
       )}
