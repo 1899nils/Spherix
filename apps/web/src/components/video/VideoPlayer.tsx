@@ -168,31 +168,8 @@ export function VideoPlayer({
         audioTrackInitialized.current = true;
         setSelectedAudio(resolvedIdx);
         setSelectedSubtitle(null);
-
-        // Auto-transcode if the default audio codec is not browser-compatible.
-        // Chrome/Firefox cannot decode AC3, EAC3, DTS, TrueHD natively.
-        const browserSafeAudio = ['aac', 'mp3', 'opus', 'vorbis'];
-        const defaultTrack = resolvedIdx !== null ? audio[resolvedIdx] : null;
-        const needsTranscode = defaultTrack &&
-          !browserSafeAudio.includes(defaultTrack.codec.toLowerCase());
-
-        if (needsTranscode && resolvedIdx !== null) {
-          const video = videoRef.current;
-          if (video) {
-            // Use savedPosition as stream start so playback resumes at the right spot
-            const startPos = Math.max(0, Math.floor(video.currentTime > 1
-              ? video.currentTime
-              : savedPosition || 0));
-            streamOffsetRef.current = startPos;
-            isSwitchingAudio.current = true;
-            setIsLoading(true);
-            video.src = `/api/video/stream/audio/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${startPos}`;
-            video.load();
-          }
-        }
       })
       .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaType, mediaId]);
 
   // Clear overlay when subtitle is turned off
