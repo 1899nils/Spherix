@@ -305,7 +305,7 @@ export function MovieDetail() {
                   )}
 
                   {/* Action buttons */}
-                  <div className="flex items-end gap-4 mt-1">
+                  <div className="flex items-end gap-4 mt-5">
                     {/* Play — primary */}
                     <button
                       onClick={handlePlay}
