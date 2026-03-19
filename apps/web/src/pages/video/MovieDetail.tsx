@@ -64,6 +64,7 @@ export function MovieDetail() {
   const showDetailView = !showPlayer || isMinimized;
   const [showEditor, setShowEditor] = useState(false);
   const [showTmdbModal, setShowTmdbModal] = useState(false);
+  const [overviewExpanded, setOverviewExpanded] = useState(false);
   const castScrollRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery({
@@ -267,9 +268,17 @@ export function MovieDetail() {
 
                   {/* Overview */}
                   {movie.overview ? (
-                    <p className="text-white/65 text-sm leading-relaxed max-w-2xl line-clamp-3">
-                      {movie.overview}
-                    </p>
+                    <div className="max-w-2xl">
+                      <p className={`text-white/65 text-sm leading-relaxed${overviewExpanded ? '' : ' line-clamp-3'}`}>
+                        {movie.overview}
+                      </p>
+                      <button
+                        onClick={() => setOverviewExpanded(e => !e)}
+                        className="mt-1 text-xs text-white/40 hover:text-white/70 transition-colors"
+                      >
+                        {overviewExpanded ? 'Weniger' : 'Mehr'}
+                      </button>
+                    </div>
                   ) : (
                     <div className="flex items-start gap-2 text-amber-400/80 text-sm bg-amber-500/10 rounded-lg p-3 max-w-md border border-amber-500/20">
                       <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -461,13 +470,7 @@ export function MovieDetail() {
               </section>
             )}
 
-            {/* Full overview (below hero) */}
-            {movie.overview && (
-              <section>
-                <h2 className="text-xl font-bold text-white mb-3">Handlung</h2>
-                <p className="text-white/65 text-sm leading-relaxed max-w-3xl">{movie.overview}</p>
-              </section>
-            )}
+
           </div>
         </>
       )}
