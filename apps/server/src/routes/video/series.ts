@@ -3,9 +3,7 @@ import { prisma } from '../../config/database.js';
 import { streamFile, VIDEO_MIME } from './stream.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import {
-  getSeriesDetails,
   getSeriesEnrichedDetails,
-  getSeriesExternalData,
   fetchGenreMap,
 } from '../../services/metadata/tmdb.service.js';
 import { fetchMdblistRatings } from '../../services/metadata/mdblist.service.js';

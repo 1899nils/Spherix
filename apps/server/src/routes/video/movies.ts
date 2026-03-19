@@ -3,7 +3,6 @@ import { prisma } from '../../config/database.js';
 import { streamFile, VIDEO_MIME } from './stream.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import {
-  getMovieDetails,
   getMovieEnrichedDetails,
   getMovieCredits,
   fetchGenreMap,
