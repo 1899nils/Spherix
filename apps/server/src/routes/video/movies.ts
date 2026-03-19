@@ -437,6 +437,58 @@ router.post('/:id/unlink-tmdb', requireAuth, async (req, res, next) => {
   }
 });
 
+/** POST /api/video/movies/:id/refresh-metadata — re-fetch all TMDb metadata (overview, studio, poster, etc.) */
+router.post('/:id/refresh-metadata', requireAuth, async (req, res, next) => {
+  try {
+    const movie = await prisma.movie.findUnique({
+      where:   { id: req.params.id as string },
+      include: genreInclude,
+    });
+    if (!movie) { res.status(404).json({ error: 'Movie not found' }); return; }
+    if (!movie.tmdbId) {
+      res.status(400).json({ error: 'Movie is not linked to TMDb' });
+      return;
+    }
+
+    const apiKey = await getTmdbApiKeyForRequest(req);
+    if (!apiKey) {
+      res.status(400).json({ error: 'TMDb API key not configured' });
+      return;
+    }
+
+    const details = await getMovieEnrichedDetails(movie.tmdbId, apiKey);
+    if (!details) {
+      res.status(404).json({ error: 'Movie not found on TMDb' });
+      return;
+    }
+
+    const updated = await prisma.movie.update({
+      where: { id: movie.id },
+      data: {
+        originalTitle: details.originalTitle ?? movie.originalTitle,
+        releaseDate:   details.releaseDate   ?? movie.releaseDate,
+        overview:      details.overview      || movie.overview,
+        tagline:       details.tagline       ?? movie.tagline,
+        posterPath:    details.posterPath    || movie.posterPath,
+        backdropPath:  details.backdropPath  || movie.backdropPath,
+        logoPath:      details.logoPath      ?? movie.logoPath,
+        rating:        details.rating        || movie.rating,
+        year:          details.year          || movie.year,
+        contentRating: details.contentRating ?? movie.contentRating,
+        fskRating:     details.fskRating     ?? movie.fskRating,
+        studio:        details.studio        ?? movie.studio,
+      },
+      include: genreInclude,
+    });
+
+    await syncMovieGenres(movie.id, details.genreIds, apiKey);
+    enrichMovieRatings(movie.id, movie.tmdbId, apiKey).catch(() => {});
+
+    logger.info(`Refreshed metadata for movie "${movie.title}"`);
+    res.json({ data: serializeMovie(updated as unknown as Record<string, unknown>) });
+  } catch (error) { next(error); }
+});
+
 /** POST /api/video/movies/:id/refresh-ratings — re-fetch ratings from TMDB + OMDb */
 router.post('/:id/refresh-ratings', requireAuth, async (req, res, next) => {
   try {

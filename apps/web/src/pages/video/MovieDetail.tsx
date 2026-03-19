@@ -89,6 +89,11 @@ export function MovieDetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['movie', id] }),
   });
 
+  const refreshMetadataMutation = useMutation({
+    mutationFn: () => api.post(`/video/movies/${id}/refresh-metadata`, {}),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['movie', id] }),
+  });
+
   const movie = data?.data;
   const credits = creditsData?.data;
 
@@ -269,12 +274,27 @@ export function MovieDetail() {
                     <p className="text-white/65 text-sm leading-relaxed max-w-2xl line-clamp-3">
                       {movie.overview}
                     </p>
-                  ) : !movie.tmdbId && (
+                  ) : (
                     <div className="flex items-start gap-2 text-amber-400/80 text-sm bg-amber-500/10 rounded-lg p-3 max-w-md border border-amber-500/20">
                       <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-medium text-amber-400">Keine Metadaten</p>
-                        <p className="text-xs mt-0.5 text-amber-400/60">Nicht mit TMDb verknüpft.</p>
+                        {movie.tmdbId ? (
+                          <>
+                            <p className="font-medium text-amber-400">Keine Beschreibung</p>
+                            <button
+                              onClick={() => refreshMetadataMutation.mutate()}
+                              disabled={refreshMetadataMutation.isPending}
+                              className="text-xs mt-0.5 text-amber-400/60 hover:text-amber-400 underline transition-colors"
+                            >
+                              {refreshMetadataMutation.isPending ? 'Wird geladen…' : 'Metadaten von TMDb neu laden'}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-medium text-amber-400">Keine Metadaten</p>
+                            <p className="text-xs mt-0.5 text-amber-400/60">Nicht mit TMDb verknüpft.</p>
+                          </>
+                        )}
                       </div>
                     </div>
                   )}
@@ -324,10 +344,10 @@ export function MovieDetail() {
 
                     {movie.tmdbId && (
                       <ActionButton
-                        icon={<RotateCcw className={`h-5 w-5 ${refreshRatingsMutation.isPending ? 'animate-spin' : ''}`} />}
-                        label="Ratings"
-                        onClick={() => refreshRatingsMutation.mutate()}
-                        disabled={refreshRatingsMutation.isPending}
+                        icon={<RotateCcw className={`h-5 w-5 ${refreshMetadataMutation.isPending ? 'animate-spin' : ''}`} />}
+                        label="Metadaten"
+                        onClick={() => refreshMetadataMutation.mutate()}
+                        disabled={refreshMetadataMutation.isPending}
                       />
                     )}
                   </div>
@@ -335,7 +355,7 @@ export function MovieDetail() {
               </div>
 
               {/* Right: Poster */}
-              <div className="hidden md:flex items-end shrink-0 w-48 lg:w-56 pb-2">
+              <div className="hidden md:flex items-start shrink-0 w-44 lg:w-52 mt-8 mr-4">
                 <div className="w-full aspect-[2/3] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/15">
                   {movie.posterPath ? (
                     <img
