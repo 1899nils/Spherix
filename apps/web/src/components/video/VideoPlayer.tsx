@@ -96,9 +96,15 @@ export function VideoPlayer({
   const [showAudioMenu, setShowAudioMenu] = useState(false);
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
 
+  // Audio stream offset tracking (for ffmpeg-piped audio streams)
+  const streamOffsetRef = useRef(0);
+  const isSwitchingAudio = useRef(false);
+  const audioTrackInitialized = useRef(false);
+
   // Fetch track info when mediaType/mediaId are available
   useEffect(() => {
     if (!mediaType || !mediaId) return;
+    audioTrackInitialized.current = false;
     fetch(`/api/video/stream/info/${mediaType}/${mediaId}`)
       .then(r => r.json())
       .then(json => {
@@ -109,33 +115,29 @@ export function VideoPlayer({
         setAudioTracks(audio);
         setSubtitleTracks(subs);
         const defAudio = audio.findIndex(a => a.default);
+        audioTrackInitialized.current = true;
         setSelectedAudio(defAudio >= 0 ? defAudio : audio.length > 0 ? 0 : null);
         setSelectedSubtitle(null);
       })
       .catch(() => {});
   }, [mediaType, mediaId]);
 
-  // Apply audio track selection via HTMLVideoElement.audioTracks API
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || selectedAudio === null) return;
-    const nativeTracks = (video as unknown as { audioTracks?: { length: number; [i: number]: { enabled: boolean } } }).audioTracks;
-    if (nativeTracks && nativeTracks.length > 1) {
-      for (let i = 0; i < nativeTracks.length; i++) {
-        nativeTracks[i].enabled = i === selectedAudio;
-      }
-    }
-  }, [selectedAudio]);
-
-  // Apply subtitle track selection via TextTracks API
+  // Apply subtitle track selection — use addtrack listener to handle async track registration
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    const tracks = video.textTracks;
-    for (let i = 0; i < tracks.length; i++) {
-      tracks[i].mode = i === selectedSubtitle ? 'showing' : 'hidden';
-    }
-  }, [selectedSubtitle]);
+
+    const applyModes = () => {
+      const tracks = video.textTracks;
+      for (let i = 0; i < tracks.length; i++) {
+        tracks[i].mode = i === selectedSubtitle ? 'showing' : 'hidden';
+      }
+    };
+
+    applyModes();
+    video.textTracks.addEventListener('addtrack', applyModes);
+    return () => video.textTracks.removeEventListener('addtrack', applyModes);
+  }, [selectedSubtitle, subtitleTracks]);
 
   // Auto-hide controls
   const resetHideTimer = useCallback(() => {
@@ -159,9 +161,17 @@ export function VideoPlayer({
     video.volume = volume;
 
     const onLoaded = () => {
-      setDuration(video.duration);
+      if (isSwitchingAudio.current) {
+        // Audio track switch — keep existing duration, stream starts at streamOffsetRef.current
+        isSwitchingAudio.current = false;
+        setIsLoading(false);
+        video.play().catch(() => {});
+        return;
+      }
+      const dur = isFinite(video.duration) && video.duration > 0 ? video.duration : (propDuration || 0);
+      setDuration(dur);
       setIsLoading(false);
-      if (savedPosition > 0 && savedPosition < video.duration - 5) {
+      if (savedPosition > 0 && savedPosition < dur - 5) {
         video.currentTime = savedPosition;
       }
       video.play().catch(() => {});
@@ -172,7 +182,8 @@ export function VideoPlayer({
     return () => {
       video.removeEventListener('loadedmetadata', onLoaded);
     };
-  }, [savedPosition, pause]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedPosition, pause, propDuration]);
 
   // Sync playback
   useEffect(() => {
@@ -180,16 +191,17 @@ export function VideoPlayer({
     if (!video) return;
 
     const onTime = () => {
-      setSeek(video.currentTime);
-      onProgress?.(Math.floor(video.currentTime));
-      updateProgress(video.currentTime, video.duration);
+      const realTime = video.currentTime + streamOffsetRef.current;
+      setSeek(realTime);
+      onProgress?.(Math.floor(realTime));
+      updateProgress(realTime, duration);
 
       if (introStart != null && introEnd != null) {
-        const inIntro = video.currentTime >= introStart && video.currentTime < introEnd - 5;
+        const inIntro = realTime >= introStart && realTime < introEnd - 5;
         setShowSkipIntro(inIntro);
       }
 
-      if (nextEpisode && video.currentTime > video.duration - 30) {
+      if (nextEpisode && realTime > duration - 30) {
         setShowNextEpisode(true);
       } else {
         setShowNextEpisode(false);
@@ -211,7 +223,7 @@ export function VideoPlayer({
       video.removeEventListener('pause', onPause);
       video.removeEventListener('ended', onEnded);
     };
-  }, [onProgress, onComplete, introStart, introEnd, nextEpisode, resetHideTimer]);
+  }, [onProgress, onComplete, introStart, introEnd, nextEpisode, resetHideTimer, duration, updateProgress]);
 
   const togglePlay = () => {
     const video = videoRef.current;
@@ -223,7 +235,8 @@ export function VideoPlayer({
   const handleSeek = (seconds: number) => {
     const video = videoRef.current;
     if (!video) return;
-    video.currentTime = seconds;
+    const localTime = Math.max(0, seconds - streamOffsetRef.current);
+    video.currentTime = localTime;
     setSeek(seconds);
     resetHideTimer();
   };
@@ -231,7 +244,11 @@ export function VideoPlayer({
   const skip = (seconds: number) => {
     const video = videoRef.current;
     if (!video) return;
-    video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + seconds));
+    const newLocal = Math.max(0, Math.min(
+      isFinite(video.duration) ? video.duration : Infinity,
+      video.currentTime + seconds,
+    ));
+    video.currentTime = newLocal;
     resetHideTimer();
   };
 
@@ -282,6 +299,18 @@ export function VideoPlayer({
   const selectAudioTrack = (idx: number) => {
     setSelectedAudio(idx);
     setShowAudioMenu(false);
+
+    if (!mediaType || !mediaId) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    // Calculate real current position (accounting for any existing offset)
+    const realPos = Math.floor(video.currentTime + streamOffsetRef.current);
+    streamOffsetRef.current = realPos;
+    isSwitchingAudio.current = true;
+    setIsLoading(true);
+    video.src = `/api/video/stream/audio/${mediaType}/${mediaId}?track=${idx}&start=${realPos}`;
+    video.load();
   };
 
   const selectSubtitleTrack = (idx: number | null) => {
@@ -425,9 +454,9 @@ export function VideoPlayer({
         </div>
 
         {/* Controls Row */}
-        <div className="flex items-center justify-between h-full px-4">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center h-full px-4 gap-2">
           {/* Left: Info */}
-          <div className="flex items-center gap-3 w-[30%]">
+          <div className="flex items-center gap-3 min-w-0">
             {posterUrl && (
               <img src={posterUrl} alt="" className="h-12 w-12 object-cover rounded bg-black" />
             )}
@@ -441,7 +470,7 @@ export function VideoPlayer({
           </div>
 
           {/* Center: Playback Controls */}
-          <div className="flex items-center justify-center gap-1 flex-1">
+          <div className="flex items-center justify-center gap-1">
             <button
               onClick={() => skip(-10)}
               className="flex flex-col items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded"
@@ -492,7 +521,7 @@ export function VideoPlayer({
           </div>
 
           {/* Right: Track selectors + Volume */}
-          <div className="flex items-center justify-end gap-1 w-[30%]">
+          <div className="flex items-center justify-end gap-1">
 
             {/* Audio Track Selector */}
             {audioTracks.length > 1 && (
