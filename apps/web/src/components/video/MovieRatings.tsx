@@ -7,6 +7,7 @@ type RatableMedia = Pick<
   | 'rottenTomatoesScore' | 'rottenTomatoesAudienceScore'
   | 'metacriticScore'
   | 'traktRating' | 'traktVotes'
+  | 'letterboxdScore'
 >;
 
 interface Props {
@@ -180,6 +181,20 @@ function MetacriticIcon({ score }: { score: number }) {
   );
 }
 
+/** Letterboxd overlapping-circles logo */
+function LetterboxdIcon() {
+  return (
+    <svg viewBox="0 0 52 28" className="h-6 w-auto">
+      {/* left circle — green */}
+      <circle cx="14" cy="14" r="14" fill="#00E054" />
+      {/* middle circle — blue, overlapping */}
+      <circle cx="26" cy="14" r="14" fill="#40BCF4" />
+      {/* right circle — orange, overlapping */}
+      <circle cx="38" cy="14" r="14" fill="#FF8000" />
+    </svg>
+  );
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export function MovieRatings({ movie }: Props) {
@@ -189,8 +204,9 @@ export function MovieRatings({ movie }: Props) {
   const hasRtAud     = movie.rottenTomatoesAudienceScore != null;
   const hasMeta      = movie.metacriticScore != null;
   const hasTrakt     = movie.traktRating != null && movie.traktRating > 0;
+  const hasLetterboxd = movie.letterboxdScore != null && movie.letterboxdScore > 0;
 
-  if (!hasTmdb && !hasImdb && !hasRt && !hasRtAud && !hasMeta && !hasTrakt) return null;
+  if (!hasTmdb && !hasImdb && !hasRt && !hasRtAud && !hasMeta && !hasTrakt && !hasLetterboxd) return null;
 
   const rtScore    = movie.rottenTomatoesScore!;
   const rtAudScore = movie.rottenTomatoesAudienceScore!;
@@ -258,6 +274,17 @@ export function MovieRatings({ movie }: Props) {
           value={`${movie.metacriticScore!}`}
           label="Metacritic"
           title="Metacritic Score"
+        />
+      )}
+
+      {/* Letterboxd */}
+      {hasLetterboxd && (
+        <Badge
+          icon={<LetterboxdIcon />}
+          value={movie.letterboxdScore!.toFixed(1)}
+          label="Letterboxd"
+          href={movie.imdbId ? `https://letterboxd.com/film/${movie.imdbId}` : 'https://letterboxd.com'}
+          title={`Letterboxd · ${movie.letterboxdScore!.toFixed(2)} / 5`}
         />
       )}
 
