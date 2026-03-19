@@ -84,10 +84,6 @@ export function MovieDetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['movie', id] }),
   });
 
-  const refreshRatingsMutation = useMutation({
-    mutationFn: () => api.post(`/video/movies/${id}/refresh-ratings`, {}),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['movie', id] }),
-  });
 
   const refreshMetadataMutation = useMutation({
     mutationFn: () => api.post(`/video/movies/${id}/refresh-metadata`, {}),
