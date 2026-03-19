@@ -260,11 +260,12 @@ function getRecommendedBitrate(width: number, height: number): number {
  */
 export function getDefaultClientCapabilities(): ClientCapabilities {
   return {
-    videoCodecs: ['h264', 'vp9'],
-    audioCodecs: ['aac', 'opus', 'mp3'],
-    maxResolution: { width: 1920, height: 1080 },
-    maxBitrate: 8000000,
-    containerFormats: ['mp4', 'webm'],
+    videoCodecs: ['h264', 'hevc', 'vp9', 'av1'],
+    audioCodecs: ['aac', 'opus', 'mp3', 'ac3', 'eac3', 'flac', 'dts', 'truehd'],
+    maxResolution: { width: 3840, height: 2160 },
+    maxBitrate: 40000000,
+    // Chrome can play MKV/AVI/MOV containers natively
+    containerFormats: ['mp4', 'webm', 'mkv', 'matroska', 'mov', 'avi', 'm4v'],
   };
 }
 
@@ -286,20 +287,6 @@ export function parseClientCapabilities(req: any): ClientCapabilities {
     } catch {
       // Ignore parse error, use defaults
     }
-  }
-
-  // Detect from user agent
-  const ua = req.headers['user-agent'] || '';
-
-  // Safari supports HEVC
-  if (ua.includes('Safari') && !ua.includes('Chrome')) {
-    defaults.videoCodecs.push('hevc');
-  }
-
-  // 4K support detection (simplified)
-  if (ua.includes('Chrome') || ua.includes('Safari') || ua.includes('Firefox')) {
-    defaults.maxResolution = { width: 3840, height: 2160 };
-    defaults.maxBitrate = 20000000;
   }
 
   return defaults;
