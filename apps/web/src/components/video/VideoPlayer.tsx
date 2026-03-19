@@ -202,7 +202,8 @@ export function VideoPlayer({
         };
 
         if (streamUrl.includes('.m3u8')) {
-          // Transcode path — Chrome/Firefox need hls.js for HLS
+          // Transcode path — pause the direct-play stream and hand over to hls.js
+          video.pause();
           if (Hls.isSupported()) {
             const hls = new Hls();
             hlsRef.current = hls;
@@ -214,10 +215,8 @@ export function VideoPlayer({
             video.src = streamUrl;
             startPlay();
           }
-        } else {
-          // Direct play — src already set via JSX prop, just start playback
-          startPlay();
         }
+        // Direct play: init effect already called video.play() — nothing to do here.
       })
       .catch(() => {
         // Info fetch failed — fall back to direct play
@@ -256,17 +255,14 @@ export function VideoPlayer({
     video.muted = false;
     video.volume = volume;
 
-    // If there is no media info to fetch (no mediaType/mediaId), start playing the
-    // raw src immediately while the user-gesture activation is still valid.
-    // When mediaType/mediaId exist, the info-fetch effect handles play() after
-    // determining the correct stream URL (~100 ms — well within the 5 s gesture window).
-    if (!mediaTypeRef.current || !mediaIdRef.current) {
-      video.play().catch(() => {
-        video.muted = true;
-        setIsMuted(true);
-        video.play().catch(() => {});
-      });
-    }
+    // Always start playback immediately while the user-gesture activation is valid.
+    // For direct play this is the primary play() call.
+    // For HLS the info-fetch effect will pause, reinit hls.js, then play again.
+    video.play().catch(() => {
+      video.muted = true;
+      setIsMuted(true);
+      video.play().catch(() => {});
+    });
 
     const onLoaded = () => {
       if (isSwitchingAudio.current) {
