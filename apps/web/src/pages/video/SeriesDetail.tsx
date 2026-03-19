@@ -102,6 +102,8 @@ export function SeriesDetail() {
             src={`/api/video/episodes/${activeEpisode.id}/stream`}
             title={`S${String(activeEpisode.seasonNum).padStart(2, '0')}E${String(activeEpisode.episodeNum).padStart(2, '0')} · ${activeEpisode.title}`}
             subtitle={series.title}
+            mediaType="episode"
+            mediaId={activeEpisode.id}
             posterUrl={series.posterPath}
             duration={activeEpisode.runtime ? activeEpisode.runtime * 60 : null}
             onClose={handleClosePlayer}

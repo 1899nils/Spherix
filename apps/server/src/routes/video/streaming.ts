@@ -289,6 +289,61 @@ router.post('/job/:jobId/cancel', async (req, res, next) => {
 });
 
 /**
+ * GET /api/video/stream/subtitle/:type/:id/:streamIndex
+ * Extract a subtitle track from the media file and serve it as WebVTT.
+ * :streamIndex is the absolute ffprobe stream index.
+ */
+router.get('/subtitle/:type/:id/:streamIndex', async (req, res, next) => {
+  try {
+    const { type, id, streamIndex } = req.params;
+    const idx = parseInt(streamIndex, 10);
+    if (isNaN(idx) || idx < 0) {
+      res.status(400).json({ error: 'Invalid stream index' });
+      return;
+    }
+
+    let filePath: string | null = null;
+    if (type === 'movie') {
+      const movie = await prisma.movie.findUnique({ where: { id }, select: { filePath: true } });
+      filePath = movie?.filePath ?? null;
+    } else if (type === 'episode') {
+      const episode = await prisma.episode.findUnique({ where: { id }, select: { filePath: true } });
+      filePath = episode?.filePath ?? null;
+    } else {
+      res.status(400).json({ error: 'Invalid type' });
+      return;
+    }
+
+    if (!filePath || !existsSync(filePath)) {
+      res.status(404).json({ error: 'Media file not found' });
+      return;
+    }
+
+    const { spawn } = await import('node:child_process');
+    const ffmpeg = spawn('ffmpeg', [
+      '-i', filePath,
+      '-map', `0:${idx}`,
+      '-c:s', 'webvtt',
+      '-f', 'webvtt',
+      'pipe:1',
+    ]);
+
+    res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    ffmpeg.stdout.pipe(res);
+    ffmpeg.stderr.on('data', () => {});
+    ffmpeg.on('error', (err) => {
+      if (!res.headersSent) next(err);
+    });
+    res.on('close', () => ffmpeg.kill());
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/video/stream/capabilities
  * Get detected client capabilities
  */
