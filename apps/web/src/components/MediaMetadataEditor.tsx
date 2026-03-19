@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
   X, Loader2, FileText, Image as ImageIcon, Info,
   Music, AlignLeft, Lock, Search, Upload, Film, Tv, Headphones,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -21,7 +22,7 @@ export interface MediaMetadataEditorProps {
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
 
-type TabId = 'general' | 'artwork' | 'lyrics' | 'info';
+type TabId = 'general' | 'artwork' | 'lyrics' | 'info' | 'images' | 'links';
 
 interface Tab {
   id: TabId;
@@ -42,13 +43,17 @@ const TRACK_TABS: Tab[] = [
 ];
 
 const MOVIE_TABS: Tab[] = [
-  { id: 'general', label: 'Allgemein', icon: Film },
-  { id: 'info',    label: 'Info',      icon: Info },
+  { id: 'general', label: 'Allgemein',  icon: Film },
+  { id: 'images',  label: 'Bilder',     icon: ImageIcon },
+  { id: 'links',   label: 'Verknüpfung', icon: LinkIcon },
+  { id: 'info',    label: 'Info',       icon: Info },
 ];
 
 const SERIES_TABS: Tab[] = [
-  { id: 'general', label: 'Allgemein', icon: Tv },
-  { id: 'info',    label: 'Info',      icon: Info },
+  { id: 'general', label: 'Allgemein',  icon: Tv },
+  { id: 'images',  label: 'Bilder',     icon: ImageIcon },
+  { id: 'links',   label: 'Verknüpfung', icon: LinkIcon },
+  { id: 'info',    label: 'Info',       icon: Info },
 ];
 
 const EPISODE_TABS: Tab[] = [
@@ -455,7 +460,10 @@ function TrackInfoTab({ form }: { form: Record<string, string> }) {
   );
 }
 
-// ── Movie tab panels ──────────────────────────────────────────────────────────
+// ── Movie / Series tab panels ─────────────────────────────────────────────────
+
+const FSK_OPTIONS = ['', 'FSK 0', 'FSK 6', 'FSK 12', 'FSK 16', 'FSK 18'];
+const US_RATING_OPTIONS = ['', 'G', 'PG', 'PG-13', 'R', 'NC-17'];
 
 function MovieGeneralTab({ form, onChange }: {
   form: Record<string, string>;
@@ -464,88 +472,46 @@ function MovieGeneralTab({ form, onChange }: {
   return (
     <div className="space-y-4">
       <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} />
-      <TextField label="Sortiertitel" value={form.sortTitle ?? ''} onChange={v => onChange('sortTitle', v)} />
+      <div className="grid grid-cols-2 gap-4">
+        <TextField label="Sortiertitel"   value={form.sortTitle ?? ''}     onChange={v => onChange('sortTitle', v)} />
+        <TextField label="Originaltitel"  value={form.originalTitle ?? ''} onChange={v => onChange('originalTitle', v)} />
+      </div>
       <div className="grid grid-cols-3 gap-4">
-        <NumberField label="Jahr"            value={form.year ?? ''}    onChange={v => onChange('year', v)} />
-        <NumberField label="Laufzeit (Min.)" value={form.runtime ?? ''} onChange={v => onChange('runtime', v)} />
-        <NumberField label="TMDb ID"         value={form.tmdbId ?? ''}  onChange={v => onChange('tmdbId', v)} />
+        <NumberField label="Erscheinungsjahr" value={form.year ?? ''}        onChange={v => onChange('year', v)} />
+        <TextField   label="Erscheinungsdatum" value={form.releaseDate ?? ''} onChange={v => onChange('releaseDate', v)} placeholder="YYYY-MM-DD" />
+        <NumberField label="Laufzeit (Min.)"  value={form.runtime ?? ''}    onChange={v => onChange('runtime', v)} />
       </div>
-      <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={6} />
-      
-      {/* Poster & Backdrop URLs */}
-      <div className="grid grid-cols-2 gap-4">
-        <TextField label="Poster URL" value={form.posterPath ?? ''} onChange={v => onChange('posterPath', v)} />
-        <TextField label="Backdrop URL" value={form.backdropPath ?? ''} onChange={v => onChange('backdropPath', v)} />
-      </div>
-      
-      {/* Technische Felder */}
-      <div className="grid grid-cols-2 gap-4">
-        <TextField label="Codec" value={form.codec ?? ''} onChange={v => onChange('codec', v)} />
-        <TextField label="Auflösung" value={form.resolution ?? ''} onChange={v => onChange('resolution', v)} />
-      </div>
-      
-      {/* Status */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <FieldLabel label="Gesehen" />
+          <FieldLabel label="Altersfreigabe (FSK)" />
           <select
-            value={form.watched ?? 'false'}
-            onChange={e => onChange('watched', e.target.value)}
+            value={form.fskRating ?? ''}
+            onChange={e => onChange('fskRating', e.target.value)}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            <option value="false">Nein</option>
-            <option value="true">Ja</option>
+            {FSK_OPTIONS.map(o => <option key={o} value={o}>{o || '–'}</option>)}
           </select>
         </div>
-        <NumberField label="Fortschritt (Sek.)" value={form.watchProgress ?? ''} onChange={v => onChange('watchProgress', v)} />
-      </div>
-    </div>
-  );
-}
-
-function MovieInfoTab({ form }: { form: Record<string, string> }) {
-  const formatFileSize = (bytes: string) => {
-    const n = parseInt(bytes);
-    if (!n) return '–';
-    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-    if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
-    return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
-  };
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '–';
-    try {
-      return new Date(dateStr).toLocaleString('de-DE');
-    } catch {
-      return dateStr;
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <ReadonlyField label="Codec"     value={form.codec ?? ''} />
-        <ReadonlyField label="Auflösung" value={form.resolution ?? ''} />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <ReadonlyField label="Dateigröße" value={formatFileSize(form.fileSize ?? '')} />
-        <ReadonlyField label="TMDb ID" value={form.tmdbId ?? ''} />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <ReadonlyField label="Hinzugefügt" value={formatDate(form.addedAt ?? '')} />
-        <ReadonlyField label="Aktualisiert" value={formatDate(form.updatedAt ?? '')} />
-      </div>
-      <div>
-        <FieldLabel label="Dateipfad" />
-        <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-xs text-muted-foreground break-all">
-          {form.filePath || '–'}
+        <div>
+          <FieldLabel label="US-Freigabe" />
+          <select
+            value={form.contentRating ?? ''}
+            onChange={e => onChange('contentRating', e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            {US_RATING_OPTIONS.map(o => <option key={o} value={o}>{o || '–'}</option>)}
+          </select>
         </div>
       </div>
+      <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={4} />
+      <TextField label="Beschreibung Untertitel (Tagline)" value={form.tagline ?? ''} onChange={v => onChange('tagline', v)} />
+      <div className="grid grid-cols-2 gap-4">
+        <TextField label="Studio"     value={form.studio ?? ''}  onChange={v => onChange('studio', v)} />
+        <TextField label="Publisher"  value={form.network ?? ''} onChange={v => onChange('network', v)} />
+      </div>
     </div>
   );
 }
-
-// ── Series tab panels ─────────────────────────────────────────────────────────
 
 function SeriesGeneralTab({ form, onChange }: {
   form: Record<string, string>;
@@ -554,57 +520,279 @@ function SeriesGeneralTab({ form, onChange }: {
   return (
     <div className="space-y-4">
       <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} />
-      <TextField label="Sortiertitel" value={form.sortTitle ?? ''} onChange={v => onChange('sortTitle', v)} />
       <div className="grid grid-cols-2 gap-4">
-        <NumberField label="Jahr" value={form.year ?? ''} onChange={v => onChange('year', v)} />
-        <NumberField label="TMDb ID" value={form.tmdbId ?? ''} onChange={v => onChange('tmdbId', v)} />
+        <TextField label="Sortiertitel"  value={form.sortTitle ?? ''}     onChange={v => onChange('sortTitle', v)} />
+        <TextField label="Originaltitel" value={form.originalTitle ?? ''} onChange={v => onChange('originalTitle', v)} />
       </div>
-      <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={6} />
-      
-      {/* Poster & Backdrop URLs */}
       <div className="grid grid-cols-2 gap-4">
-        <TextField label="Poster URL" value={form.posterPath ?? ''} onChange={v => onChange('posterPath', v)} />
-        <TextField label="Backdrop URL" value={form.backdropPath ?? ''} onChange={v => onChange('backdropPath', v)} />
+        <NumberField label="Erscheinungsjahr"  value={form.year ?? ''}        onChange={v => onChange('year', v)} />
+        <TextField   label="Erscheinungsdatum" value={form.releaseDate ?? ''} onChange={v => onChange('releaseDate', v)} placeholder="YYYY-MM-DD" />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <FieldLabel label="Altersfreigabe (FSK)" />
+          <select
+            value={form.fskRating ?? ''}
+            onChange={e => onChange('fskRating', e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            {FSK_OPTIONS.map(o => <option key={o} value={o}>{o || '–'}</option>)}
+          </select>
+        </div>
+        <div>
+          <FieldLabel label="US-Freigabe" />
+          <select
+            value={form.contentRating ?? ''}
+            onChange={e => onChange('contentRating', e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            {US_RATING_OPTIONS.map(o => <option key={o} value={o}>{o || '–'}</option>)}
+          </select>
+        </div>
+      </div>
+      <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={4} />
+      <div className="grid grid-cols-2 gap-4">
+        <TextField label="Studio"    value={form.studio ?? ''}  onChange={v => onChange('studio', v)} />
+        <TextField label="Publisher" value={form.network ?? ''} onChange={v => onChange('network', v)} placeholder="Netflix, Disney+ …" />
       </div>
     </div>
   );
 }
 
-function SeriesInfoTab({ form }: { form: Record<string, string> }) {
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '–';
-    try {
-      return new Date(dateStr).toLocaleString('de-DE');
-    } catch {
-      return dateStr;
-    }
-  };
+// ── Image preview component ───────────────────────────────────────────────────
 
+function ImagePreviewField({ label, value, onChange }: {
+  label: string; value: string; onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <FieldLabel label={label} />
+      <div className="rounded-lg overflow-hidden bg-zinc-900 border border-border flex items-center justify-center" style={{ aspectRatio: label.includes('ster') ? '2/3' : label.includes('Logo') ? '16/5' : '16/9', maxHeight: 180 }}>
+        {value ? (
+          <img src={value} alt={label} className="h-full w-full object-contain" />
+        ) : (
+          <span className="text-muted-foreground text-xs">Kein Bild</span>
+        )}
+      </div>
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder="URL …"
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+      />
+    </div>
+  );
+}
+
+function MediaImagesTab({ form, onChange }: {
+  form: Record<string, string>;
+  onChange: (key: string, val: string) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <ImagePreviewField label="Plakat (Poster)" value={form.posterPath ?? ''} onChange={v => onChange('posterPath', v)} />
+      <ImagePreviewField label="Hintergrundbild (Backdrop)" value={form.backdropPath ?? ''} onChange={v => onChange('backdropPath', v)} />
+      <ImagePreviewField label="Logo" value={form.logoPath ?? ''} onChange={v => onChange('logoPath', v)} />
+    </div>
+  );
+}
+
+function MediaLinksTab({ form, onChange }: {
+  form: Record<string, string>;
+  onChange: (key: string, val: string) => void;
+}) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <ReadonlyField label="TMDb ID" value={form.tmdbId ?? ''} />
-        <ReadonlyField label="Staffeln" value={form.seasonCount ?? ''} />
+        <NumberField label="TMDb ID" value={form.tmdbId ?? ''} onChange={v => onChange('tmdbId', v)} />
+        <TextField   label="IMDb ID" value={form.imdbId ?? ''} onChange={v => onChange('imdbId', v)} placeholder="tt0000000" />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <ReadonlyField label="Hinzugefügt" value={formatDate(form.addedAt ?? '')} />
-        <ReadonlyField label="Aktualisiert" value={formatDate(form.updatedAt ?? '')} />
+      <div className="rounded-md bg-muted/40 border border-border p-3 text-xs text-muted-foreground mt-4">
+        <p>Anbieter-IDs werden für Bewertungen und externe Links verwendet. Verwende den TMDb-Verlinkungsmanager auf der Detailseite, um Metadaten automatisch zu laden.</p>
       </div>
+    </div>
+  );
+}
+
+// ── Media info tab (ffprobe data) ─────────────────────────────────────────────
+
+interface MediaInfo {
+  container: string;
+  duration: number;
+  size: number;
+  video: {
+    codec: string; codecLongName: string;
+    width: number; height: number;
+    fps: number; bitrate: number;
+    pixFmt: string; profile?: string; level?: string;
+  } | null;
+  audio: {
+    index: number; codec: string; codecLongName: string;
+    language?: string; channels: number;
+    sampleRate: number; bitrate: number; default: boolean;
+  }[];
+  subtitles: {
+    index: number; codec: string; language?: string;
+    title?: string; default: boolean; forced: boolean;
+  }[];
+}
+
+function fmtDuration(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function fmtSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+function fmtBitrate(bps: number): string {
+  if (!bps) return '–';
+  if (bps < 1_000_000) return `${Math.round(bps / 1000)} kbps`;
+  return `${(bps / 1_000_000).toFixed(1)} Mbps`;
+}
+
+function getResolutionLabel(w: number, h: number): string {
+  if (h >= 2160) return '4K UHD';
+  if (h >= 1440) return '1440p (QHD)';
+  if (h >= 1080) return '1080p (Full HD)';
+  if (h >= 720)  return '720p (HD)';
+  if (h >= 480)  return '480p (SD)';
+  return `${w}×${h}`;
+}
+
+function getChannelLabel(ch: number): string {
+  if (ch === 1) return 'Mono';
+  if (ch === 2) return 'Stereo';
+  if (ch === 6) return '5.1 Surround';
+  if (ch === 8) return '7.1 Surround';
+  return `${ch} Kanäle`;
+}
+
+function getLangLabel(lang?: string): string {
+  if (!lang || lang === 'und') return 'Unbekannt';
+  const map: Record<string, string> = {
+    deu: 'Deutsch', ger: 'Deutsch', eng: 'Englisch', fra: 'Französisch',
+    fre: 'Französisch', spa: 'Spanisch', ita: 'Italienisch', jpn: 'Japanisch',
+    por: 'Portugiesisch', rus: 'Russisch', zho: 'Chinesisch', chi: 'Chinesisch',
+    ara: 'Arabisch', kor: 'Koreanisch', tur: 'Türkisch', nld: 'Niederländisch',
+    pol: 'Polnisch', swe: 'Schwedisch', nor: 'Norwegisch', dan: 'Dänisch',
+  };
+  return map[lang] ?? lang.toUpperCase();
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-1.5 border-b border-white/5 last:border-0">
+      <span className="text-xs text-muted-foreground shrink-0 w-36">{label}</span>
+      <span className="text-xs text-foreground text-right">{value || '–'}</span>
+    </div>
+  );
+}
+
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest pt-2 pb-1 border-b border-border mb-1">
+      {label}
+    </h4>
+  );
+}
+
+function MovieInfoTab({ mediaId, mediaType }: { mediaId: string; mediaType: 'movie' | 'series' }) {
+  const endpoint = mediaType === 'movie'
+    ? `/video/movies/${mediaId}/mediainfo`
+    : undefined; // series has no single file
+
+  const { data, isLoading, isError } = useQuery<{ data: MediaInfo | null }>({
+    queryKey: ['mediainfo', mediaId],
+    queryFn:  () => api.get(endpoint!),
+    enabled:  !!endpoint,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (mediaType === 'series') {
+    return (
+      <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+        Medieninfo ist pro Episode verfügbar.
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Lade Medieninfo …
+      </div>
+    );
+  }
+
+  if (isError || !data?.data) {
+    return (
+      <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+        Medieninfo nicht verfügbar (ffprobe nicht gefunden oder Datei fehlt).
+      </div>
+    );
+  }
+
+  const info = data.data;
+
+  return (
+    <div className="space-y-4 text-sm">
+      {/* Container */}
       <div>
-        <FieldLabel label="Poster URL" />
-        <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-xs text-muted-foreground break-all">
-          {form.posterPath || '–'}
+        <SectionHeader label="Datei" />
+        <InfoRow label="Container"   value={info.container.toUpperCase()} />
+        <InfoRow label="Dauer"       value={fmtDuration(info.duration)} />
+        <InfoRow label="Dateigröße"  value={fmtSize(info.size)} />
+      </div>
+
+      {/* Video */}
+      {info.video && (
+        <div>
+          <SectionHeader label="Video" />
+          <InfoRow label="Codec"       value={info.video.codecLongName || info.video.codec} />
+          <InfoRow label="Auflösung"   value={`${info.video.width}×${info.video.height} · ${getResolutionLabel(info.video.width, info.video.height)}`} />
+          <InfoRow label="Framerate"   value={`${info.video.fps.toFixed(3).replace(/\.?0+$/, '')} fps`} />
+          <InfoRow label="Bitrate"     value={fmtBitrate(info.video.bitrate)} />
+          <InfoRow label="Farbformat"  value={info.video.pixFmt} />
+          {info.video.profile && <InfoRow label="Profil" value={`${info.video.profile}${info.video.level ? ` · Level ${info.video.level}` : ''}`} />}
         </div>
-      </div>
-      <div>
-        <FieldLabel label="Backdrop URL" />
-        <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-xs text-muted-foreground break-all">
-          {form.backdropPath || '–'}
+      )}
+
+      {/* Audio */}
+      {info.audio.length > 0 && (
+        <div>
+          <SectionHeader label="Audio" />
+          {info.audio.map((a, i) => (
+            <div key={i} className={i > 0 ? 'mt-2 pt-2 border-t border-white/5' : ''}>
+              <InfoRow label={`Spur ${i + 1}${a.default ? ' (Standard)' : ''}`} value={getLangLabel(a.language)} />
+              <InfoRow label="Codec"   value={a.codecLongName || a.codec} />
+              <InfoRow label="Kanäle"  value={getChannelLabel(a.channels)} />
+              <InfoRow label="Bitrate" value={fmtBitrate(a.bitrate)} />
+              <InfoRow label="Sample"  value={`${a.sampleRate} Hz`} />
+            </div>
+          ))}
         </div>
-      </div>
-      <div className="rounded-md bg-muted/40 border border-border p-3 text-xs text-muted-foreground">
-        <p>Weitere Metadaten werden beim nächsten Scan automatisch aktualisiert.</p>
-      </div>
+      )}
+
+      {/* Subtitles */}
+      {info.subtitles.length > 0 && (
+        <div>
+          <SectionHeader label="Untertitel" />
+          {info.subtitles.map((s, i) => (
+            <InfoRow
+              key={i}
+              label={`Spur ${i + 1}${s.default ? ' (Standard)' : ''}${s.forced ? ' · Erzwungen' : ''}`}
+              value={`${getLangLabel(s.language)}${s.title ? ` · ${s.title}` : ''} [${s.codec}]`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -766,7 +954,7 @@ export function MediaMetadataEditor({
   // Build payload: only changed fields
   const buildPayload = () => {
     const changes: Record<string, unknown> = {};
-    const numericKeys = ['year', 'trackNumber', 'discNumber', 'runtime', 'number', 'tmdbId', 'watchProgress'];
+    const numericKeys = ['year', 'trackNumber', 'discNumber', 'runtime', 'number', 'tmdbId', 'watchProgress', 'totalTracks', 'totalDiscs'];
     const booleanKeys = ['watched'];
     for (const k of Object.keys(form)) {
       const newVal = form[k];
@@ -906,16 +1094,28 @@ export function MediaMetadataEditor({
             {type === 'movie' && activeTab === 'general' && (
               <MovieGeneralTab form={form} onChange={handleChange} />
             )}
+            {type === 'movie' && activeTab === 'images' && (
+              <MediaImagesTab form={form} onChange={handleChange} />
+            )}
+            {type === 'movie' && activeTab === 'links' && (
+              <MediaLinksTab form={form} onChange={handleChange} />
+            )}
             {type === 'movie' && activeTab === 'info' && (
-              <MovieInfoTab form={form} />
+              <MovieInfoTab mediaId={id} mediaType="movie" />
             )}
 
             {/* Series tabs */}
             {type === 'series' && activeTab === 'general' && (
               <SeriesGeneralTab form={form} onChange={handleChange} />
             )}
+            {type === 'series' && activeTab === 'images' && (
+              <MediaImagesTab form={form} onChange={handleChange} />
+            )}
+            {type === 'series' && activeTab === 'links' && (
+              <MediaLinksTab form={form} onChange={handleChange} />
+            )}
             {type === 'series' && activeTab === 'info' && (
-              <SeriesInfoTab form={form} />
+              <MovieInfoTab mediaId={id} mediaType="series" />
             )}
 
             {/* Episode tabs */}

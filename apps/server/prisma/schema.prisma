@@ -289,12 +289,17 @@ model Movie {
   id                  String   @id @default(uuid())
   title               String
   sortTitle           String?  @map("sort_title")
+  originalTitle       String?  @map("original_title")
   year                Int?
+  releaseDate         String?  @map("release_date")
   runtime             Int?
   overview            String?
   tagline             String?
+  studio              String?
+  network             String?
   posterPath          String?  @map("poster_path")
   backdropPath        String?  @map("backdrop_path")
+  logoPath            String?  @map("logo_path")
   tmdbId              Int?     @map("tmdb_id")
   imdbId              String?  @map("imdb_id")
   rating              Float?
@@ -332,10 +337,15 @@ model Series {
   id                  String    @id @default(uuid())
   title               String
   sortTitle           String?   @map("sort_title")
+  originalTitle       String?   @map("original_title")
   year                Int?
+  releaseDate         String?   @map("release_date")
   overview            String?
+  studio              String?
+  network             String?
   posterPath          String?   @map("poster_path")
   backdropPath        String?   @map("backdrop_path")
+  logoPath            String?   @map("logo_path")
   tmdbId              Int?      @map("tmdb_id")
   imdbId              String?   @map("imdb_id")
   rating              Float?

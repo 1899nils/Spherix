@@ -135,18 +135,44 @@ router.post('/:id/progress', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// ─── GET /api/video/movies/:id/mediainfo ─────────────────────────────────────
+
+router.get('/:id/mediainfo', async (req, res, next) => {
+  try {
+    const movie = await prisma.movie.findUnique({
+      where:  { id: req.params.id },
+      select: { filePath: true },
+    });
+    if (!movie) { res.status(404).json({ error: 'Movie not found' }); return; }
+
+    const { probeMedia } = await import('../../services/streaming/mediaInfo.service.js');
+    const info = await probeMedia(movie.filePath);
+    res.json({ data: info });
+  } catch (error) { next(error); }
+});
+
 // ─── PATCH /api/video/movies/:id ─────────────────────────────────────────────
 
 router.patch('/:id', async (req, res, next) => {
   try {
-    const { title, year, overview, runtime } = req.body;
+    const { title, sortTitle, originalTitle, year, releaseDate, runtime, overview, tagline, studio, network, posterPath, backdropPath, logoPath, imdbId } = req.body;
     const movie = await prisma.movie.update({
       where: { id: req.params.id },
       data: {
-        ...(title    !== undefined ? { title }    : {}),
-        ...(year     !== undefined ? { year }     : {}),
-        ...(overview !== undefined ? { overview } : {}),
-        ...(runtime  !== undefined ? { runtime }  : {}),
+        ...(title         !== undefined ? { title }         : {}),
+        ...(sortTitle     !== undefined ? { sortTitle }     : {}),
+        ...(originalTitle !== undefined ? { originalTitle } : {}),
+        ...(year          !== undefined ? { year }          : {}),
+        ...(releaseDate   !== undefined ? { releaseDate }   : {}),
+        ...(runtime       !== undefined ? { runtime }       : {}),
+        ...(overview      !== undefined ? { overview }      : {}),
+        ...(tagline       !== undefined ? { tagline }       : {}),
+        ...(studio        !== undefined ? { studio }        : {}),
+        ...(network       !== undefined ? { network }       : {}),
+        ...(posterPath    !== undefined ? { posterPath }    : {}),
+        ...(backdropPath  !== undefined ? { backdropPath }  : {}),
+        ...(logoPath      !== undefined ? { logoPath }      : {}),
+        ...(imdbId        !== undefined ? { imdbId }        : {}),
       },
       include: genreInclude,
     });
