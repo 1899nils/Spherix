@@ -18,6 +18,8 @@ export interface MdblistRatings {
   rottenTomatoesAudienceScore: number | null;
   /** Metacritic score (0–100) */
   metacriticScore: number | null;
+  /** Letterboxd score (0–5 scale, e.g. 3.8) */
+  letterboxdScore: number | null;
 }
 
 interface MdblistRatingEntry {
@@ -50,6 +52,7 @@ export async function fetchMdblistRatings(
     rottenTomatoesScore: null,
     rottenTomatoesAudienceScore: null,
     metacriticScore: null,
+    letterboxdScore: null,
   };
 
   if (!apiKey || !imdbId) return empty;
@@ -69,13 +72,18 @@ export async function fetchMdblistRatings(
     const rtEntry              = find('tomatoes');
     const rtAudienceEntry      = find('tomatoesaudience');
     const metacriticEntry      = find('metacritic');
+    const letterboxdEntry      = find('letterboxd');
 
     const imdbRating                    = imdbEntry?.value ?? null;
     const rottenTomatoesScore           = rtEntry?.value != null ? Math.round(rtEntry.value) : null;
     const rottenTomatoesAudienceScore   = rtAudienceEntry?.value != null ? Math.round(rtAudienceEntry.value) : null;
     const metacriticScore               = metacriticEntry?.value != null ? Math.round(metacriticEntry.value) : null;
+    // Letterboxd value is already on a 0–5 scale; round to 2 decimal places
+    const letterboxdScore               = letterboxdEntry?.value != null
+      ? Math.round(letterboxdEntry.value * 100) / 100
+      : null;
 
-    return { imdbRating, rottenTomatoesScore, rottenTomatoesAudienceScore, metacriticScore };
+    return { imdbRating, rottenTomatoesScore, rottenTomatoesAudienceScore, metacriticScore, letterboxdScore };
   } catch {
     return empty;
   }

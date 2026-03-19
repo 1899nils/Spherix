@@ -29,6 +29,8 @@ export interface Movie {
   traktRating: number | null;
   /** Trakt.tv vote count */
   traktVotes: number | null;
+  /** Letterboxd score (0–5 scale, e.g. 3.8) */
+  letterboxdScore: number | null;
   /** US content rating: "G", "PG", "PG-13", "R", "NC-17" */
   contentRating: string | null;
   /** German FSK rating: "FSK 0", "FSK 6", "FSK 12", "FSK 16", "FSK 18" */
@@ -91,6 +93,8 @@ export interface Series {
   traktRating: number | null;
   /** Trakt.tv vote count */
   traktVotes: number | null;
+  /** Letterboxd score (0–5 scale, e.g. 3.8) */
+  letterboxdScore: number | null;
   /** US content rating */
   contentRating: string | null;
   /** German FSK rating: "FSK 0", "FSK 6", "FSK 12", "FSK 16", "FSK 18" */

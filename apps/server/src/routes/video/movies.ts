@@ -248,6 +248,7 @@ async function enrichMovieRatings(
         if (mdblist.rottenTomatoesScore         !== null) ratingData.rottenTomatoesScore         = mdblist.rottenTomatoesScore;
         if (mdblist.rottenTomatoesAudienceScore !== null) ratingData.rottenTomatoesAudienceScore = mdblist.rottenTomatoesAudienceScore;
         if (mdblist.metacriticScore             !== null) ratingData.metacriticScore             = mdblist.metacriticScore;
+        if (mdblist.letterboxdScore             !== null) ratingData.letterboxdScore             = mdblist.letterboxdScore;
         ratingData.ratingsUpdatedAt = new Date();
       }
 
