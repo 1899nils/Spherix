@@ -112,13 +112,22 @@ seriesRouter.get('/:id', async (req, res, next) => {
 
 seriesRouter.patch('/:id', async (req, res, next) => {
   try {
-    const { title, year, overview } = req.body;
+    const { title, sortTitle, originalTitle, year, releaseDate, overview, studio, network, posterPath, backdropPath, logoPath, imdbId } = req.body;
     const series = await prisma.series.update({
       where: { id: req.params.id },
       data: {
-        ...(title    !== undefined ? { title }    : {}),
-        ...(year     !== undefined ? { year }     : {}),
-        ...(overview !== undefined ? { overview } : {}),
+        ...(title         !== undefined ? { title }         : {}),
+        ...(sortTitle     !== undefined ? { sortTitle }     : {}),
+        ...(originalTitle !== undefined ? { originalTitle } : {}),
+        ...(year          !== undefined ? { year }          : {}),
+        ...(releaseDate   !== undefined ? { releaseDate }   : {}),
+        ...(overview      !== undefined ? { overview }      : {}),
+        ...(studio        !== undefined ? { studio }        : {}),
+        ...(network       !== undefined ? { network }       : {}),
+        ...(posterPath    !== undefined ? { posterPath }    : {}),
+        ...(backdropPath  !== undefined ? { backdropPath }  : {}),
+        ...(logoPath      !== undefined ? { logoPath }      : {}),
+        ...(imdbId        !== undefined ? { imdbId }        : {}),
       },
       include: genreInclude,
     });

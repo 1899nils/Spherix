@@ -7,12 +7,17 @@ export interface Movie {
   id: string;
   title: string;
   sortTitle: string | null;
+  originalTitle: string | null;
   year: number | null;
+  releaseDate: string | null;
   runtime: number | null;
   overview: string | null;
   tagline: string | null;
+  studio: string | null;
+  network: string | null;
   posterPath: string | null;
   backdropPath: string | null;
+  logoPath: string | null;
   tmdbId: number | null;
   imdbId: string | null;
   /** TMDB vote_average (0–10) */
@@ -73,10 +78,15 @@ export interface Series {
   id: string;
   title: string;
   sortTitle: string | null;
+  originalTitle: string | null;
   year: number | null;
+  releaseDate: string | null;
   overview: string | null;
+  studio: string | null;
+  network: string | null;
   posterPath: string | null;
   backdropPath: string | null;
+  logoPath: string | null;
   tmdbId: number | null;
   imdbId: string | null;
   /** TMDB vote_average (0–10) */
