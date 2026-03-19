@@ -132,6 +132,8 @@ export function MovieDetail() {
             onComplete={() => {
               if (movie.runtime) handleProgress(movie.runtime * 60 * 0.95);
             }}
+            mediaType="movie"
+            mediaId={movie.id}
           />
         </div>
       )}
