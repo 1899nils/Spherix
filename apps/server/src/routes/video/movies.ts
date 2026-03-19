@@ -331,8 +331,8 @@ router.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
       return;
     }
 
-    // Fetch details from TMDb (base details for poster/backdrop/genres)
-    const details = await getMovieDetails(tmdbId, apiKey);
+    // Fetch enriched details from TMDb (poster/backdrop/genres/ratings/FSK/logo)
+    const details = await getMovieEnrichedDetails(tmdbId, apiKey);
     if (!details) {
       res.status(404).json({ error: 'Movie not found on TMDb' });
       return;
@@ -350,16 +350,24 @@ router.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
       }
     }
 
-    // Update movie with TMDb data
+    // Update movie with all enriched TMDb data
     const updated = await prisma.movie.update({
       where: { id: movie.id },
       data: {
-        tmdbId: details.tmdbId,
-        overview: details.overview || movie.overview,
-        posterPath: posterPath || details.posterPath,
-        backdropPath: details.backdropPath || movie.backdropPath,
-        rating: details.rating || movie.rating,
-        year: details.year || movie.year,
+        tmdbId:        details.tmdbId,
+        imdbId:        details.imdbId        ?? movie.imdbId,
+        originalTitle: details.originalTitle ?? movie.originalTitle,
+        releaseDate:   details.releaseDate   ?? movie.releaseDate,
+        overview:      details.overview      || movie.overview,
+        tagline:       details.tagline       ?? movie.tagline,
+        posterPath:    posterPath            || details.posterPath,
+        backdropPath:  details.backdropPath  || movie.backdropPath,
+        logoPath:      details.logoPath      ?? movie.logoPath,
+        rating:        details.rating        || movie.rating,
+        year:          details.year          || movie.year,
+        contentRating: details.contentRating ?? movie.contentRating,
+        fskRating:     details.fskRating     ?? movie.fskRating,
+        studio:        details.studio        ?? movie.studio,
       },
       include: genreInclude,
     });
@@ -391,18 +399,28 @@ router.post('/:id/unlink-tmdb', requireAuth, async (req, res, next) => {
     const updated = await prisma.movie.update({
       where: { id: movie.id },
       data: {
-        tmdbId:              null,
-        imdbId:              null,
-        overview:            null,
-        tagline:             null,
-        backdropPath:        null,
-        rating:              null,
-        imdbRating:          null,
-        rottenTomatoesScore: null,
-        metacriticScore:     null,
-        traktRating:         null,
-        traktVotes:          null,
-        contentRating:       null,
+        tmdbId:                     null,
+        imdbId:                     null,
+        originalTitle:              null,
+        releaseDate:                null,
+        overview:                   null,
+        tagline:                    null,
+        backdropPath:               null,
+        logoPath:                   null,
+        studio:                     null,
+        network:                    null,
+        rating:                     null,
+        imdbRating:                 null,
+        rottenTomatoesScore:        null,
+        rottenTomatoesAudienceScore: null,
+        metacriticScore:            null,
+        traktRating:                null,
+        traktVotes:                 null,
+        letterboxdScore:            null,
+        contentRating:              null,
+        fskRating:                  null,
+        ratingsUpdatedAt:           null,
+        ratingsNextRetry:           null,
       },
       include: genreInclude,
     });

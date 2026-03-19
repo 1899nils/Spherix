@@ -270,9 +270,13 @@ export interface TmdbCrewMember {
 
 export interface TmdbMovieEnriched extends TmdbResult {
   imdbId: string | null;
+  originalTitle: string | null;
+  releaseDate: string | null;
   tagline: string | null;
   contentRating: string | null;   // US certification: "PG-13", "R", "G", etc.
   fskRating: string | null;       // German FSK certification: "FSK 12", "FSK 16", etc.
+  studio: string | null;          // Primary production company
+  logoPath: string | null;        // Logo image URL
   productionCompanies: string[];
   cast: TmdbCastMember[];
   crew: TmdbCrewMember[];
@@ -291,6 +295,7 @@ export async function getMovieEnrichedDetails(
     id: number;
     imdb_id: string | null;
     title: string;
+    original_title: string | null;
     overview: string;
     tagline: string | null;
     poster_path: string | null;
@@ -304,6 +309,9 @@ export async function getMovieEnrichedDetails(
         iso_3166_1: string;
         release_dates: { certification: string; type: number }[];
       }[];
+    };
+    images: {
+      logos: { file_path: string; iso_639_1: string | null; vote_average: number }[];
     };
     credits: {
       cast: {
@@ -322,7 +330,7 @@ export async function getMovieEnrichedDetails(
       }[];
     };
   }>(
-    `/movie/${tmdbId}?append_to_response=release_dates,credits&language=de-DE`,
+    `/movie/${tmdbId}?append_to_response=release_dates,credits,images&language=de-DE`,
     apiKey,
   );
 
@@ -364,9 +372,17 @@ export async function getMovieEnrichedDetails(
       profilePath: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null,
     }));
 
+  // Pick best logo: prefer English, then any, pick highest vote_average
+  const logos = data.images?.logos ?? [];
+  const enLogo = logos.filter((l) => l.iso_639_1 === 'en').sort((a, b) => b.vote_average - a.vote_average)[0];
+  const bestLogo = enLogo ?? logos.sort((a, b) => b.vote_average - a.vote_average)[0];
+  const logoPath = bestLogo ? `https://image.tmdb.org/t/p/w500${bestLogo.file_path}` : null;
+
   return {
     tmdbId: data.id,
     imdbId: data.imdb_id ?? null,
+    originalTitle: data.original_title ?? null,
+    releaseDate: data.release_date ?? null,
     overview: data.overview ?? '',
     tagline: data.tagline ?? null,
     posterPath: toImageUrl(data.poster_path),
@@ -376,6 +392,8 @@ export async function getMovieEnrichedDetails(
     year: extractYear(data.release_date),
     contentRating: certification,
     fskRating,
+    studio: (data.production_companies ?? [])[0]?.name ?? null,
+    logoPath,
     productionCompanies: (data.production_companies ?? []).map((c) => c.name),
     cast,
     crew,
@@ -452,6 +470,75 @@ export async function getSeriesDetails(
     rating: data.vote_average ?? 0,
     genreIds: data.genre_ids ?? [],
     year: extractYear(data.first_air_date),
+  };
+}
+
+export interface TmdbSeriesEnriched extends TmdbResult {
+  imdbId: string | null;
+  originalTitle: string | null;
+  releaseDate: string | null;
+  fskRating: string | null;
+  contentRating: string | null;
+  studio: string | null;        // Primary production company
+  network: string | null;       // Primary broadcast network (Netflix, HBO, …)
+  logoPath: string | null;
+}
+
+/**
+ * Fetch enriched series details in parallel TMDB requests.
+ * Returns all fields needed for the series detail page including
+ * originalTitle, releaseDate, FSK, studio, network, and logo.
+ */
+export async function getSeriesEnrichedDetails(
+  tmdbId: number,
+  apiKey: string,
+): Promise<TmdbSeriesEnriched | null> {
+  const [details, externalIds, contentRatings, images] = await Promise.all([
+    tmdbFetch<{
+      id: number;
+      name: string;
+      original_name: string | null;
+      overview: string;
+      poster_path: string | null;
+      backdrop_path: string | null;
+      vote_average: number;
+      genres: { id: number; name: string }[];
+      first_air_date: string | null;
+      production_companies: { id: number; name: string }[];
+      networks: { id: number; name: string; logo_path: string | null }[];
+    }>(`/tv/${tmdbId}?language=de-DE`, apiKey),
+    tmdbFetch<{ imdb_id?: string | null }>(`/tv/${tmdbId}/external_ids`, apiKey),
+    tmdbFetch<{ results: { iso_3166_1: string; rating: string }[] }>(`/tv/${tmdbId}/content_ratings`, apiKey),
+    tmdbFetch<{ logos: { file_path: string; iso_639_1: string | null; vote_average: number }[] }>(
+      `/tv/${tmdbId}/images`, apiKey,
+    ),
+  ]);
+
+  if (!details) return null;
+
+  const deRating = contentRatings?.results?.find((r) => r.iso_3166_1 === 'DE')?.rating ?? null;
+  const usRating = contentRatings?.results?.find((r) => r.iso_3166_1 === 'US')?.rating ?? null;
+
+  const logos = images?.logos ?? [];
+  const enLogo = logos.filter((l) => l.iso_639_1 === 'en').sort((a, b) => b.vote_average - a.vote_average)[0];
+  const bestLogo = enLogo ?? logos.sort((a, b) => b.vote_average - a.vote_average)[0];
+
+  return {
+    tmdbId: details.id,
+    imdbId: externalIds?.imdb_id ?? null,
+    originalTitle: details.original_name ?? null,
+    releaseDate: details.first_air_date ?? null,
+    overview: details.overview ?? '',
+    posterPath: toImageUrl(details.poster_path),
+    backdropPath: toImageUrl(details.backdrop_path),
+    rating: details.vote_average ?? 0,
+    genreIds: (details.genres ?? []).map((g) => g.id),
+    year: extractYear(details.first_air_date),
+    fskRating: normalizeFsk(deRating),
+    contentRating: usRating ?? null,
+    studio: (details.production_companies ?? [])[0]?.name ?? null,
+    network: (details.networks ?? [])[0]?.name ?? null,
+    logoPath: bestLogo ? `https://image.tmdb.org/t/p/w500${bestLogo.file_path}` : null,
   };
 }
 

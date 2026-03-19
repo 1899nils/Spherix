@@ -4,6 +4,7 @@ import { streamFile, VIDEO_MIME } from './stream.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import {
   getSeriesDetails,
+  getSeriesEnrichedDetails,
   getSeriesExternalData,
   fetchGenreMap,
 } from '../../services/metadata/tmdb.service.js';
@@ -336,8 +337,8 @@ seriesRouter.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
       return;
     }
 
-    // Fetch details from TMDb
-    const details = await getSeriesDetails(tmdbId, apiKey);
+    // Fetch enriched details from TMDb (all fields in parallel)
+    const details = await getSeriesEnrichedDetails(tmdbId, apiKey);
     if (!details) {
       res.status(404).json({ error: 'Series not found on TMDb' });
       return;
@@ -355,16 +356,24 @@ seriesRouter.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
       }
     }
 
-    // Update series with TMDb data
+    // Update series with all enriched TMDb data
     const updated = await prisma.series.update({
       where: { id: series.id },
       data: {
-        tmdbId: details.tmdbId,
-        overview: details.overview || series.overview,
-        posterPath: posterPath || details.posterPath,
-        backdropPath: details.backdropPath || series.backdropPath,
-        rating: details.rating || series.rating,
-        year: details.year || series.year,
+        tmdbId:        details.tmdbId,
+        imdbId:        details.imdbId        ?? series.imdbId,
+        originalTitle: details.originalTitle ?? series.originalTitle,
+        releaseDate:   details.releaseDate   ?? series.releaseDate,
+        overview:      details.overview      || series.overview,
+        posterPath:    posterPath            || details.posterPath,
+        backdropPath:  details.backdropPath  || series.backdropPath,
+        logoPath:      details.logoPath      ?? series.logoPath,
+        rating:        details.rating        || series.rating,
+        year:          details.year          || series.year,
+        contentRating: details.contentRating ?? series.contentRating,
+        fskRating:     details.fskRating     ?? series.fskRating,
+        studio:        details.studio        ?? series.studio,
+        network:       details.network       ?? series.network,
       },
       include: genreInclude,
     });
@@ -372,16 +381,10 @@ seriesRouter.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
     // Sync genres
     await syncSeriesGenres(series.id, details.genreIds, apiKey);
 
-    // Fetch external IDs (imdbId + FSK) and enrich ratings in the background
-    getSeriesExternalData(tmdbId, apiKey).then(async ({ imdbId, fskRating }) => {
-      const extData: Record<string, unknown> = {};
-      if (imdbId)    extData.imdbId    = imdbId;
-      if (fskRating) extData.fskRating = fskRating;
-      if (Object.keys(extData).length > 0) {
-        await prisma.series.update({ where: { id: series.id }, data: extData as any });
-      }
-      if (imdbId) void enrichSeriesRatings(series.id, imdbId);
-    }).catch((e) => logger.warn(`Failed to fetch external data for series ${series.id}`, { error: String(e) }));
+    // Enrich ratings in the background
+    if (details.imdbId) {
+      enrichSeriesRatings(series.id, details.imdbId).catch(() => {});
+    }
 
     logger.info(`Manually linked series "${series.title}" to TMDb ID ${tmdbId}`);
     res.json({ data: updated });
@@ -404,18 +407,27 @@ seriesRouter.post('/:id/unlink-tmdb', requireAuth, async (req, res, next) => {
     const updated = await prisma.series.update({
       where: { id: series.id },
       data: {
-        tmdbId: null,
-        imdbId: null,
-        overview: null,
-        backdropPath: null,
-        rating: null,
-        imdbRating: null,
-        rottenTomatoesScore: null,
-        metacriticScore: null,
-        traktRating: null,
-        traktVotes: null,
-        ratingsUpdatedAt: null,
-        ratingsNextRetry: null,
+        tmdbId:                      null,
+        imdbId:                      null,
+        originalTitle:               null,
+        releaseDate:                 null,
+        overview:                    null,
+        backdropPath:                null,
+        logoPath:                    null,
+        studio:                      null,
+        network:                     null,
+        rating:                      null,
+        imdbRating:                  null,
+        rottenTomatoesScore:         null,
+        rottenTomatoesAudienceScore: null,
+        metacriticScore:             null,
+        traktRating:                 null,
+        traktVotes:                  null,
+        letterboxdScore:             null,
+        contentRating:               null,
+        fskRating:                   null,
+        ratingsUpdatedAt:            null,
+        ratingsNextRetry:            null,
       },
       include: genreInclude,
     });
