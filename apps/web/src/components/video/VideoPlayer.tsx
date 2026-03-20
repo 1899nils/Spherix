@@ -231,6 +231,30 @@ export function VideoPlayer({
 
         if (needsAudioTranscode && resolvedIdx !== null) {
           autoAudioSwitchRef.current = { idx: resolvedIdx, mediaType, mediaId, originalSrc: src };
+
+          // If the play event already fired before this fetch resolved (very common —
+          // play() is called synchronously in the init effect, fetch takes ~50 ms),
+          // onPlay will have seen an empty ref and skipped the switch. Trigger it now.
+          if (!video.paused && !isSwitchingAudio.current) {
+            autoAudioSwitchRef.current = null;
+            const realPos = Math.floor(video.currentTime + streamOffsetRef.current);
+            const onAudioError = () => {
+              isSwitchingAudio.current = false;
+              streamOffsetRef.current = 0;
+              setIsLoading(false);
+              const v = videoRef.current;
+              if (!v) return;
+              v.src = src;
+              v.load();
+              v.play().catch(() => {});
+            };
+            video.addEventListener('error', onAudioError, { once: true });
+            streamOffsetRef.current = realPos;
+            isSwitchingAudio.current = true;
+            setIsLoading(true);
+            video.src = `/api/video/stream/audio/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${realPos}`;
+            video.load();
+          }
         }
 
         // Direct play — init effect's video.play() already started playback.
