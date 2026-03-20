@@ -182,8 +182,6 @@ export function VideoPlayer({
         setSelectedAudio(resolvedIdx);
         setSelectedSubtitle(null);
 
-        // Use the stream URL recommended by the server.
-        // For incompatible codecs (AC3/DTS/HEVC …), this will be an HLS URL.
         const streamUrl: string = data?.streamUrl ?? src;
         const video = videoRef.current;
         if (!video) return;
@@ -215,8 +213,28 @@ export function VideoPlayer({
             video.src = streamUrl;
             startPlay();
           }
+          return;
         }
-        // Direct play: init effect already called video.play() — nothing to do here.
+
+        // Direct play: check if default audio track is browser-decodable.
+        // Chrome cannot decode AC3/EAC3/DTS/TrueHD natively — if the default track
+        // uses one of these codecs, switch immediately to the server-side AAC transcode.
+        const NATIVE_AUDIO = new Set(['aac', 'mp3', 'opus', 'vorbis', 'flac', 'alac', 'pcm_s16le', 'pcm_s24le']);
+        const defaultTrack = resolvedIdx !== null ? audio[resolvedIdx] : null;
+        const needsAudioTranscode = defaultTrack != null && !NATIVE_AUDIO.has(defaultTrack.codec.toLowerCase());
+
+        if (needsAudioTranscode && resolvedIdx !== null) {
+          // Auto-switch to the ffmpeg audio transcode endpoint so the user hears sound.
+          // streamOffsetRef ensures the displayed playback position stays correct.
+          streamOffsetRef.current = savedPosition;
+          isSwitchingAudio.current = true;
+          setIsLoading(true);
+          video.src = `/api/video/stream/audio/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${savedPosition}`;
+          video.load();
+          return;
+        }
+
+        // Compatible audio — init effect's video.play() already started playback.
       })
       .catch(() => {
         // Info fetch failed — fall back to direct play
@@ -265,15 +283,16 @@ export function VideoPlayer({
     });
 
     const onLoaded = () => {
+      const dur = isFinite(video.duration) && video.duration > 0 ? video.duration : (propDuration || 0);
+      if (dur > 0) setDuration(dur);
+      setIsLoading(false);
+
       if (isSwitchingAudio.current) {
         isSwitchingAudio.current = false;
-        setIsLoading(false);
         video.play().catch(() => {});
         return;
       }
-      const dur = isFinite(video.duration) && video.duration > 0 ? video.duration : (propDuration || 0);
-      setDuration(dur);
-      setIsLoading(false);
+
       if (savedPosition > 0 && savedPosition < dur - 5) {
         video.currentTime = savedPosition;
       }
