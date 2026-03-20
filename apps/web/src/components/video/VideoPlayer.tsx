@@ -136,6 +136,10 @@ export function VideoPlayer({
 
   // Audio stream offset tracking (for ffmpeg-piped audio streams)
   const streamOffsetRef = useRef(0);
+  // Ref for deferred auto-audio-switch (set by info fetch, consumed by onPlay handler)
+  const autoAudioSwitchRef = useRef<{
+    idx: number; mediaType: string; mediaId: string; originalSrc: string;
+  } | null>(null);
   const isSwitchingAudio = useRef(false);
   const audioTrackInitialized = useRef(false);
 
@@ -216,25 +220,20 @@ export function VideoPlayer({
           return;
         }
 
-        // Direct play: check if default audio track is browser-decodable.
-        // Chrome cannot decode AC3/EAC3/DTS/TrueHD natively — if the default track
-        // uses one of these codecs, switch immediately to the server-side AAC transcode.
+        // Detect if default audio track needs browser-side transcoding.
+        // Chrome cannot decode AC3/EAC3/DTS/TrueHD natively.
+        // We don't switch immediately (would interrupt the ongoing play() call with an
+        // AbortError). Instead, we save the intent here and let the onPlay handler in
+        // the timeupdate effect trigger the switch once the video is actually playing.
         const NATIVE_AUDIO = new Set(['aac', 'mp3', 'opus', 'vorbis', 'flac', 'alac', 'pcm_s16le', 'pcm_s24le']);
         const defaultTrack = resolvedIdx !== null ? audio[resolvedIdx] : null;
         const needsAudioTranscode = defaultTrack != null && !NATIVE_AUDIO.has(defaultTrack.codec.toLowerCase());
 
         if (needsAudioTranscode && resolvedIdx !== null) {
-          // Auto-switch to the ffmpeg audio transcode endpoint so the user hears sound.
-          // streamOffsetRef ensures the displayed playback position stays correct.
-          streamOffsetRef.current = savedPosition;
-          isSwitchingAudio.current = true;
-          setIsLoading(true);
-          video.src = `/api/video/stream/audio/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${savedPosition}`;
-          video.load();
-          return;
+          autoAudioSwitchRef.current = { idx: resolvedIdx, mediaType, mediaId, originalSrc: src };
         }
 
-        // Compatible audio — init effect's video.play() already started playback.
+        // Direct play — init effect's video.play() already started playback.
       })
       .catch(() => {
         // Info fetch failed — fall back to direct play
@@ -276,7 +275,10 @@ export function VideoPlayer({
     // Always start playback immediately while the user-gesture activation is valid.
     // For direct play this is the primary play() call.
     // For HLS the info-fetch effect will pause, reinit hls.js, then play again.
-    video.play().catch(() => {
+    video.play().catch((err: Error) => {
+      // AbortError means play() was interrupted by a video.load() call (e.g. HLS takeover).
+      // That is not an autoplay block — don't mute; the new src will call play() itself.
+      if (err?.name === 'AbortError') return;
       video.muted = true;
       setIsMuted(true);
       video.play().catch(() => {});
@@ -338,7 +340,38 @@ export function VideoPlayer({
       }
     };
 
-    const onPlay  = () => { setIsPlaying(true);  resetHideTimer(); };
+    const onPlay = () => {
+      setIsPlaying(true);
+      resetHideTimer();
+
+      // If the info fetch flagged an incompatible audio codec, switch to the AAC
+      // transcode endpoint now that the video is confirmed playing (safe to load a
+      // new src — the initial play() call has already resolved).
+      const pending = autoAudioSwitchRef.current;
+      if (pending) {
+        autoAudioSwitchRef.current = null;
+        const vid = videoRef.current;
+        if (!vid) return;
+        const realPos = Math.floor(vid.currentTime + streamOffsetRef.current);
+        // Fallback: if the transcode stream fails, restore the original direct-play src
+        const onAudioError = () => {
+          isSwitchingAudio.current = false;
+          streamOffsetRef.current = 0;
+          setIsLoading(false);
+          const v = videoRef.current;
+          if (!v) return;
+          v.src = pending.originalSrc;
+          v.load();
+          v.play().catch(() => {});
+        };
+        vid.addEventListener('error', onAudioError, { once: true });
+        streamOffsetRef.current = realPos;
+        isSwitchingAudio.current = true;
+        setIsLoading(true);
+        vid.src = `/api/video/stream/audio/${pending.mediaType}/${pending.mediaId}?track=${pending.idx}&start=${realPos}`;
+        vid.load();
+      }
+    };
     const onPause = () => { setIsPlaying(false); setShowControls(true); };
     const onEnded = () => { setIsPlaying(false); setShowControls(true); onCompleteRef.current?.(); };
 
