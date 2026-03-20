@@ -134,14 +134,17 @@ export function VideoPlayer({
   const mediaIdRef = useRef(mediaId);
   mediaIdRef.current = mediaId;
 
-  // Audio stream offset tracking (for ffmpeg-piped audio streams)
+  // Stream offset when using ffmpeg audio endpoint (user-initiated track switch)
   const streamOffsetRef = useRef(0);
-  // Ref for deferred auto-audio-switch (set by info fetch, consumed by onPlay handler)
-  const autoAudioSwitchRef = useRef<{
-    idx: number; mediaType: string; mediaId: string; originalSrc: string;
-  } | null>(null);
   const isSwitchingAudio = useRef(false);
   const audioTrackInitialized = useRef(false);
+
+  // Separate <audio> element used when default track is AC3/DTS/TrueHD.
+  // The <video> keeps playing the direct stream (muted); this element plays AAC.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const usesSeparateAudio = useRef(false);
+  // Track the selected audio index so seek handlers can reload audio-only stream
+  const selectedAudioRef = useRef<number | null>(null);
 
   // Subtitle overlay state
   const subtitleCuesRef = useRef<SubtitleCue[]>([]);
@@ -183,6 +186,7 @@ export function VideoPlayer({
         const defAudioIdx = audio.findIndex((a: AudioTrackInfo) => a.default);
         const resolvedIdx = defAudioIdx >= 0 ? defAudioIdx : audio.length > 0 ? 0 : null;
         audioTrackInitialized.current = true;
+        selectedAudioRef.current = resolvedIdx;
         setSelectedAudio(resolvedIdx);
         setSelectedSubtitle(null);
 
@@ -195,14 +199,6 @@ export function VideoPlayer({
           hlsRef.current = null;
         }
 
-        const startPlay = () => {
-          video.play().catch(() => {
-            video.muted = true;
-            setIsMuted(true);
-            video.play().catch(() => {});
-          });
-        };
-
         if (streamUrl.includes('.m3u8')) {
           // Transcode path — pause the direct-play stream and hand over to hls.js
           video.pause();
@@ -211,52 +207,37 @@ export function VideoPlayer({
             hlsRef.current = hls;
             hls.loadSource(streamUrl);
             hls.attachMedia(video);
-            hls.once(Hls.Events.MANIFEST_PARSED, startPlay);
+            hls.once(Hls.Events.MANIFEST_PARSED, () => {
+              video.play().catch(() => { video.muted = true; setIsMuted(true); video.play().catch(() => {}); });
+            });
           } else {
-            // Safari: native HLS
             video.src = streamUrl;
-            startPlay();
+            video.play().catch(() => { video.muted = true; setIsMuted(true); video.play().catch(() => {}); });
           }
           return;
         }
 
-        // Detect if default audio track needs browser-side transcoding.
-        // Chrome cannot decode AC3/EAC3/DTS/TrueHD natively.
-        // We don't switch immediately (would interrupt the ongoing play() call with an
-        // AbortError). Instead, we save the intent here and let the onPlay handler in
-        // the timeupdate effect trigger the switch once the video is actually playing.
+        // Direct play. Check if default audio needs transcoding (AC3/DTS/TrueHD — not
+        // decodable by Chrome). If so, create a *separate* hidden <audio> element that
+        // plays an AAC-transcoded audio-only stream. The <video> element is muted and
+        // keeps playing the direct stream uninterrupted — no video.src change, no
+        // AbortError, no black screen.
         const NATIVE_AUDIO = new Set(['aac', 'mp3', 'opus', 'vorbis', 'flac', 'alac', 'pcm_s16le', 'pcm_s24le']);
         const defaultTrack = resolvedIdx !== null ? audio[resolvedIdx] : null;
         const needsAudioTranscode = defaultTrack != null && !NATIVE_AUDIO.has(defaultTrack.codec.toLowerCase());
 
         if (needsAudioTranscode && resolvedIdx !== null) {
-          autoAudioSwitchRef.current = { idx: resolvedIdx, mediaType, mediaId, originalSrc: src };
-
-          // If the play event already fired before this fetch resolved (very common —
-          // play() is called synchronously in the init effect, fetch takes ~50 ms),
-          // onPlay will have seen an empty ref and skipped the switch. Trigger it now.
-          if (!video.paused && !isSwitchingAudio.current) {
-            autoAudioSwitchRef.current = null;
-            const realPos = Math.floor(video.currentTime + streamOffsetRef.current);
-            const onAudioError = () => {
-              isSwitchingAudio.current = false;
-              streamOffsetRef.current = 0;
-              setIsLoading(false);
-              const v = videoRef.current;
-              if (!v) return;
-              v.src = src;
-              v.load();
-              v.play().catch(() => {});
-            };
-            video.addEventListener('error', onAudioError, { once: true });
-            streamOffsetRef.current = realPos;
-            isSwitchingAudio.current = true;
-            setIsLoading(true);
-            video.src = `/api/video/stream/audio/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${realPos}`;
-            video.load();
-          }
+          // Destroy any previous audio element
+          if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
+          const ael = new Audio();
+          ael.volume = volume;
+          ael.src = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${savedPosition}`;
+          ael.play().catch(() => {}); // start loading; plays when enough data is buffered
+          audioRef.current = ael;
+          usesSeparateAudio.current = true;
+          // Mute the video element so we don't hear garbled AC3
+          video.muted = true;
         }
-
         // Direct play — init effect's video.play() already started playback.
       })
       .catch(() => {
@@ -364,39 +345,8 @@ export function VideoPlayer({
       }
     };
 
-    const onPlay = () => {
-      setIsPlaying(true);
-      resetHideTimer();
-
-      // If the info fetch flagged an incompatible audio codec, switch to the AAC
-      // transcode endpoint now that the video is confirmed playing (safe to load a
-      // new src — the initial play() call has already resolved).
-      const pending = autoAudioSwitchRef.current;
-      if (pending) {
-        autoAudioSwitchRef.current = null;
-        const vid = videoRef.current;
-        if (!vid) return;
-        const realPos = Math.floor(vid.currentTime + streamOffsetRef.current);
-        // Fallback: if the transcode stream fails, restore the original direct-play src
-        const onAudioError = () => {
-          isSwitchingAudio.current = false;
-          streamOffsetRef.current = 0;
-          setIsLoading(false);
-          const v = videoRef.current;
-          if (!v) return;
-          v.src = pending.originalSrc;
-          v.load();
-          v.play().catch(() => {});
-        };
-        vid.addEventListener('error', onAudioError, { once: true });
-        streamOffsetRef.current = realPos;
-        isSwitchingAudio.current = true;
-        setIsLoading(true);
-        vid.src = `/api/video/stream/audio/${pending.mediaType}/${pending.mediaId}?track=${pending.idx}&start=${realPos}`;
-        vid.load();
-      }
-    };
-    const onPause = () => { setIsPlaying(false); setShowControls(true); };
+    const onPlay  = () => { setIsPlaying(true);  resetHideTimer(); audioRef.current?.play().catch(() => {}); };
+    const onPause = () => { setIsPlaying(false); setShowControls(true); audioRef.current?.pause(); };
     const onEnded = () => { setIsPlaying(false); setShowControls(true); onCompleteRef.current?.(); };
 
     video.addEventListener('timeupdate', onTime);
@@ -412,10 +362,25 @@ export function VideoPlayer({
     };
   }, [resetHideTimer]); // stable — all other values read through refs
 
+  // Helper: reload the separate audio element at a new position
+  const resyncAudio = (posSeconds: number) => {
+    const ael = audioRef.current;
+    if (!ael || !usesSeparateAudio.current) return;
+    ael.pause();
+    ael.src = `/api/video/stream/audio-only/${mediaTypeRef.current}/${mediaIdRef.current}?track=${selectedAudioRef.current ?? 0}&start=${Math.floor(posSeconds)}`;
+    if (videoRef.current && !videoRef.current.paused) ael.play().catch(() => {});
+  };
+
   const togglePlay = () => {
     const video = videoRef.current;
     if (!video) return;
-    video.paused ? video.play() : video.pause();
+    if (video.paused) {
+      video.play();
+      audioRef.current?.play().catch(() => {});
+    } else {
+      video.pause();
+      audioRef.current?.pause();
+    }
     resetHideTimer();
   };
 
@@ -425,6 +390,7 @@ export function VideoPlayer({
     const localTime = Math.max(0, seconds - streamOffsetRef.current);
     video.currentTime = localTime;
     setSeek(seconds);
+    resyncAudio(seconds);
     resetHideTimer();
   };
 
@@ -436,21 +402,32 @@ export function VideoPlayer({
       video.currentTime + seconds,
     ));
     video.currentTime = newLocal;
+    resyncAudio(newLocal + streamOffsetRef.current);
     resetHideTimer();
   };
 
   const toggleMute = () => {
     const video = videoRef.current;
     if (!video) return;
-    video.muted = !video.muted;
-    setIsMuted(video.muted);
+    const newMuted = !isMuted;
+    if (usesSeparateAudio.current && audioRef.current) {
+      audioRef.current.muted = newMuted;
+    } else {
+      video.muted = newMuted;
+    }
+    setIsMuted(newMuted);
     resetHideTimer();
   };
 
   const handleVolume = (v: number) => {
     const video = videoRef.current;
     if (!video) return;
-    video.volume = v;
+    if (usesSeparateAudio.current && audioRef.current) {
+      audioRef.current.volume = v;
+      audioRef.current.muted = v === 0;
+    } else {
+      video.volume = v;
+    }
     setVolume(v);
     setIsMuted(v === 0);
     resetHideTimer();
@@ -466,17 +443,19 @@ export function VideoPlayer({
     }
   };
 
-  // Destroy HLS instance when VideoPlayer unmounts
-  useEffect(() => () => { hlsRef.current?.destroy(); }, []);
+  // Cleanup HLS and separate audio element on unmount
+  useEffect(() => () => {
+    hlsRef.current?.destroy();
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
+  }, []);
 
   const handleStop = useCallback(() => {
     const video = videoRef.current;
-    if (video) {
-      video.pause();
-      video.currentTime = 0;
-    }
+    if (video) { video.pause(); video.currentTime = 0; }
     hlsRef.current?.destroy();
     hlsRef.current = null;
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; audioRef.current = null; }
+    usesSeparateAudio.current = false;
     stop();
     onClose();
   }, [onClose, stop]);
@@ -489,6 +468,7 @@ export function VideoPlayer({
   };
 
   const selectAudioTrack = (idx: number) => {
+    selectedAudioRef.current = idx;
     setSelectedAudio(idx);
     setShowAudioMenu(false);
 
@@ -496,16 +476,22 @@ export function VideoPlayer({
     const video = videoRef.current;
     if (!video) return;
 
-    // Destroy HLS before switching to the ffmpeg audio-transcode stream
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
+    // If we were using a separate audio element, destroy it and resync via audio-only
+    if (usesSeparateAudio.current && audioRef.current) {
+      const currentPos = video.currentTime + streamOffsetRef.current;
+      audioRef.current.pause();
+      audioRef.current.src = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${idx}&start=${Math.floor(currentPos)}`;
+      if (!video.paused) audioRef.current.play().catch(() => {});
+      return;
     }
 
+    // Full video+audio remux path (used when not on separate audio)
+    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
     const realPos = Math.floor(video.currentTime + streamOffsetRef.current);
     streamOffsetRef.current = realPos;
     isSwitchingAudio.current = true;
     setIsLoading(true);
+    video.muted = false;
     video.src = `/api/video/stream/audio/${mediaType}/${mediaId}?track=${idx}&start=${realPos}`;
     video.load();
   };

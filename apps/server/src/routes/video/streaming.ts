@@ -344,6 +344,65 @@ router.get('/subtitle/:type/:id/:streamIndex', async (req, res, next) => {
 });
 
 /**
+ * GET /api/video/stream/audio-only/:type/:id
+ * Stream a single audio track transcoded to AAC with NO video channel.
+ * Used by the web player's separate <audio> element when the primary video
+ * file has an incompatible audio codec (AC3/DTS/TrueHD).
+ *
+ * Query params:
+ *   track  – 0-based index into the audio stream list (default: 0)
+ *   start  – start offset in seconds (default: 0)
+ */
+router.get('/audio-only/:type/:id', async (req, res, next) => {
+  try {
+    const { type, id } = req.params;
+    const audioTrack = Math.max(0, parseInt(req.query.track as string || '0', 10));
+    const startSec   = Math.max(0, parseFloat(req.query.start  as string || '0'));
+
+    let filePath: string | null = null;
+    if (type === 'movie') {
+      const movie = await prisma.movie.findUnique({ where: { id }, select: { filePath: true } });
+      filePath = movie?.filePath ?? null;
+    } else if (type === 'episode') {
+      const episode = await prisma.episode.findUnique({ where: { id }, select: { filePath: true } });
+      filePath = episode?.filePath ?? null;
+    } else {
+      res.status(400).json({ error: 'Invalid type' });
+      return;
+    }
+
+    if (!filePath || !existsSync(filePath)) {
+      res.status(404).json({ error: 'Media file not found' });
+      return;
+    }
+
+    const { spawn } = await import('node:child_process');
+    const args = [
+      ...(startSec > 0 ? ['-ss', String(startSec)] : []),
+      '-i', filePath,
+      '-vn',                    // no video
+      '-map', `0:a:${audioTrack}`,
+      '-c:a', 'aac',
+      '-b:a', '192k',
+      '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+      '-f', 'mp4',
+      'pipe:1',
+    ];
+
+    res.setHeader('Content-Type', 'audio/mp4');
+    res.setHeader('Cache-Control', 'no-cache');
+
+    const ffmpeg = spawn('ffmpeg', args);
+    ffmpeg.stdout.pipe(res);
+    ffmpeg.stderr.on('data', () => {});
+    ffmpeg.on('error', (err) => { if (!res.headersSent) next(err); });
+    res.on('close', () => ffmpeg.kill());
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/video/stream/audio/:type/:id
  * Re-mux the media file with a specific audio track via ffmpeg and stream
  * the result as fragmented MP4. Used for browsers without native audioTracks API.
