@@ -297,40 +297,46 @@ export function VideoPlayer({
     const video = videoRef.current;
     if (!video) return;
 
-    video.muted = false;
-    video.volume = volume;
-
-    video.play().catch((err: Error) => {
-      // AbortError = play() interrupted by a src change — don't mute.
-      if (err?.name === 'AbortError') return;
-      video.muted = true;
-      setIsMuted(true);
-      video.play().catch(() => {});
-    });
-
     const onLoaded = () => {
-      // Compute real total duration: for remux streams the video.duration is
+      // Compute real total duration: for remux streams video.duration is
       // (totalDuration - streamStart), so add the offset back.
       const rawDur = isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
-      const dur = propDuration ||
-        (rawDur > 0 ? rawDur + streamOffsetRef.current : 0);
+      const dur = propDuration || (rawDur > 0 ? rawDur + streamOffsetRef.current : 0);
       if (dur > 0) setDuration(dur);
       setIsLoading(false);
 
       if (isSwitchingStream.current) {
-        // Stream was restarted for audio-track switch or seek — just resume.
+        // Stream was restarted (audio-track switch or seek) — just resume.
         isSwitchingStream.current = false;
         video.play().catch(() => {});
         return;
       }
-
       // Initial load: seek to resume position.
       if (savedPosition > 0 && savedPosition < dur - 5) {
         video.currentTime = savedPosition;
       }
     };
 
+    // Register listener BEFORE setting src so we never miss loadedmetadata
+    // (it fires as soon as the browser parses the media header, which can be
+    // near-instant for cached or local files).
     video.addEventListener('loadedmetadata', onLoaded);
+
+    // Set src imperatively — keeps React from overriding it on re-renders and
+    // ensures the listener above is always in place before loading starts.
+    video.src = src;
+
+    video.muted = false;
+    video.volume = volume;
+
+    video.play().catch((err: Error) => {
+      // AbortError = play() was interrupted by a src change — don't mute.
+      if (err?.name === 'AbortError') return;
+      video.muted = true;
+      setIsMuted(true);
+      video.play().catch(() => {});
+    });
+
     return () => video.removeEventListener('loadedmetadata', onLoaded);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedPosition, pause, propDuration]);
@@ -552,9 +558,11 @@ export function VideoPlayer({
     >
       {/* Video */}
       <div className="flex-1 relative" onClick={togglePlay}>
+        {/* src is set imperatively in the init effect — never via JSX prop —
+            to prevent React re-renders from overriding the remux stream URL
+            and to guarantee the loadedmetadata listener is registered first. */}
         <video
           ref={videoRef}
-          src={src}
           poster={posterUrl ?? undefined}
           className="w-full h-full object-contain"
           playsInline
