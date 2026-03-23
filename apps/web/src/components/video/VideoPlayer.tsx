@@ -23,12 +23,10 @@ function parseVtt(vttText: string): SubtitleCue[] {
     if (!timeLine) continue;
     const [startStr, endStr] = timeLine.split('-->').map(s => s.trim());
     const parseTime = (t: string) => {
-      // Only take the time portion before any positioning cues (e.g. "align:start")
       const timeOnly = t.split(' ')[0].replace(',', '.');
       const parts = timeOnly.split(':').map(parseFloat);
       return parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
     };
-    // Strip VTT/HTML tags (e.g. <i>, <b>, <c.yellow>, <00:00:00.000>)
     const text = lines.slice(lines.indexOf(timeLine) + 1).join('\n').trim()
       .replace(/<[^>]+>/g, '');
     if (text) cues.push({ start: parseTime(startStr), end: parseTime(endStr), text });
@@ -83,6 +81,15 @@ function trackLabel(t: AudioTrackInfo | SubtitleTrackInfo, idx: number): string 
   return `${lang}${name} (${extra})`;
 }
 
+// Audio codecs Chrome can decode natively in MKV/MP4 containers.
+const NATIVE_AUDIO = new Set(['aac', 'mp3', 'opus', 'vorbis']);
+
+// Image-based subtitle codecs that ffmpeg cannot convert to WebVTT.
+const IMAGE_SUB_CODECS = new Set([
+  'hdmv_pgs_subtitle', 'pgssub', 'pgs',
+  'dvd_subtitle', 'dvbsub', 'dvb_subtitle', 'vobsub',
+]);
+
 export function VideoPlayer({
   src,
   title,
@@ -125,33 +132,36 @@ export function VideoPlayer({
   const [showAudioMenu, setShowAudioMenu] = useState(false);
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
 
-  // HLS instance (used when direct play is not possible)
+  // HLS instance
   const hlsRef = useRef<Hls | null>(null);
 
-  // Refs so init effect can check without adding deps
+  // Stable refs for media identity
   const mediaTypeRef = useRef(mediaType);
   mediaTypeRef.current = mediaType;
   const mediaIdRef = useRef(mediaId);
   mediaIdRef.current = mediaId;
 
-  // Stream offset when using ffmpeg audio endpoint (user-initiated track switch)
+  // Stream offset: the real media position (seconds) at which the current ffmpeg stream
+  // starts. realTime = video.currentTime + streamOffsetRef.current
   const streamOffsetRef = useRef(0);
-  const isSwitchingAudio = useRef(false);
-  const audioTrackInitialized = useRef(false);
 
-  // Separate <audio> element used when default track is AC3/DTS/TrueHD.
-  // The <video> keeps playing the direct stream (muted); this element plays AAC.
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const usesSeparateAudio = useRef(false);
-  // Track the selected audio index so seek handlers can reload audio-only stream
+  // True when currently switching streams (audio track change or seek-restart).
+  // Prevents onLoaded from seeking to savedPosition again.
+  const isSwitchingStream = useRef(false);
+
+  // True after info fetch determined the file needs audio transcoding (AC3/DTS/etc.).
+  // In this mode every seek restarts the ffmpeg remux stream from the new position.
+  const usesRemuxStream = useRef(false);
+
+  // Selected audio track index (0-based into audio array) — needed by seek handler
   const selectedAudioRef = useRef<number | null>(null);
 
-  // Subtitle overlay state
+  // Subtitle overlay
   const subtitleCuesRef = useRef<SubtitleCue[]>([]);
   const currentCueRef = useRef<string | null>(null);
   const [currentCueText, setCurrentCueText] = useState<string | null>(null);
 
-  // Stable refs so timeupdate effect never needs to re-register
+  // Stable refs to avoid re-registering event listeners
   const durationRef = useRef(duration);
   durationRef.current = duration;
   const updateProgressRef = useRef(updateProgress);
@@ -167,10 +177,32 @@ export function VideoPlayer({
   const nextEpisodeRef = useRef(nextEpisode);
   nextEpisodeRef.current = nextEpisode;
 
-  // Fetch track info and determine correct stream URL (direct play vs. HLS transcode)
+  // ─── Stream URL builder ─────────────────────────────────────────────────────
+
+  const remuxUrl = useCallback((trackIdx: number, startSec: number) =>
+    `/api/video/stream/audio/${mediaTypeRef.current}/${mediaIdRef.current}?track=${trackIdx}&start=${startSec}`,
+  []);
+
+  // ─── Switch to the remux endpoint ──────────────────────────────────────────
+
+  const startRemuxStream = useCallback((trackIdx: number, startSec: number) => {
+    const video = videoRef.current;
+    if (!video || !mediaTypeRef.current || !mediaIdRef.current) return;
+    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+    streamOffsetRef.current = startSec;
+    isSwitchingStream.current = true;
+    setIsLoading(true);
+    video.muted = false;
+    video.src = remuxUrl(trackIdx, startSec);
+    video.load();
+  }, [remuxUrl]);
+
+  // ─── Info fetch: detect codec and choose stream path ───────────────────────
+
   useEffect(() => {
     if (!mediaType || !mediaId) return;
-    audioTrackInitialized.current = false;
+    usesRemuxStream.current = false;
+    streamOffsetRef.current = 0;
 
     fetch(`/api/video/stream/info/${mediaType}/${mediaId}`)
       .then(r => r.json())
@@ -180,34 +212,26 @@ export function VideoPlayer({
         if (!info) return;
 
         const audio: AudioTrackInfo[] = info.audio ?? [];
-        const allSubs: SubtitleTrackInfo[] = info.subtitles ?? [];
-        // Filter out image-based subtitle codecs (PGS, VOBSUB) that ffmpeg cannot
-        // convert to WebVTT — only text-based tracks are supported in the browser.
-        const IMAGE_SUB_CODECS = new Set([
-          'hdmv_pgs_subtitle', 'pgssub', 'pgs',
-          'dvd_subtitle', 'dvbsub', 'dvb_subtitle', 'vobsub',
-        ]);
-        const subs = allSubs.filter(s => !IMAGE_SUB_CODECS.has(s.codec.toLowerCase()));
+        const subs: SubtitleTrackInfo[] = (info.subtitles ?? [])
+          .filter((s: SubtitleTrackInfo) => !IMAGE_SUB_CODECS.has(s.codec.toLowerCase()));
+
         setAudioTracks(audio);
         setSubtitleTracks(subs);
+
         const defAudioIdx = audio.findIndex((a: AudioTrackInfo) => a.default);
         const resolvedIdx = defAudioIdx >= 0 ? defAudioIdx : audio.length > 0 ? 0 : null;
-        audioTrackInitialized.current = true;
         selectedAudioRef.current = resolvedIdx;
         setSelectedAudio(resolvedIdx);
         setSelectedSubtitle(null);
 
-        const streamUrl: string = data?.streamUrl ?? src;
         const video = videoRef.current;
         if (!video) return;
 
-        if (hlsRef.current) {
-          hlsRef.current.destroy();
-          hlsRef.current = null;
-        }
+        const streamUrl: string = data?.streamUrl ?? src;
 
+        // ── HLS transcode path ──────────────────────────────────────────────
         if (streamUrl.includes('.m3u8')) {
-          // Transcode path — pause the direct-play stream and hand over to hls.js
+          if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
           video.pause();
           if (Hls.isSupported()) {
             const hls = new Hls();
@@ -224,39 +248,30 @@ export function VideoPlayer({
           return;
         }
 
-        // Direct play. Check if default audio needs transcoding (AC3/DTS/TrueHD — not
-        // decodable by Chrome). If so, create a *separate* hidden <audio> element that
-        // plays an AAC-transcoded audio-only stream. The <video> element is muted and
-        // keeps playing the direct stream uninterrupted — no video.src change, no
-        // AbortError, no black screen.
-        const NATIVE_AUDIO = new Set(['aac', 'mp3', 'opus', 'vorbis', 'flac', 'alac', 'pcm_s16le', 'pcm_s24le']);
+        // ── Direct play path ───────────────────────────────────────────────
+        // Check whether the default audio track can be played natively by Chrome.
+        // AC3 / EAC3 / DTS / TrueHD cannot — remux with AAC transcode instead.
         const defaultTrack = resolvedIdx !== null ? audio[resolvedIdx] : null;
-        const needsAudioTranscode = defaultTrack != null && !NATIVE_AUDIO.has(defaultTrack.codec.toLowerCase());
+        const needsAudioTranscode = defaultTrack != null &&
+          !NATIVE_AUDIO.has(defaultTrack.codec.toLowerCase());
 
         if (needsAudioTranscode && resolvedIdx !== null) {
-          // Use the persistent <audio> DOM element (always in the DOM, so Chrome's
-          // autoplay policy treats it as trusted — unlike new Audio() in a .then() callback).
-          const ael = audioRef.current;
-          if (ael) {
-            ael.pause();
-            ael.volume = volume;
-            ael.src = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${savedPosition}`;
-            ael.play().catch(() => {});
-            usesSeparateAudio.current = true;
-            // Mute the video element so we don't hear garbled AC3
-            video.muted = true;
-          }
+          // Like Jellyfin / Plex: use ONE combined stream (video copy + AAC audio).
+          // A single <video> element handles everything — no sync issues.
+          usesRemuxStream.current = true;
+          startRemuxStream(resolvedIdx, savedPosition);
         }
-        // Direct play — init effect's video.play() already started playback.
+        // If audio is native (AAC/MP3/Opus/Vorbis), the init effect's video.play()
+        // already started direct play — nothing to do here.
       })
       .catch(() => {
-        // Info fetch failed — fall back to direct play
         videoRef.current?.play().catch(() => {});
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaType, mediaId, src]);
 
-  // Clear overlay when subtitle is turned off
+  // ─── Clear subtitle overlay when disabled ──────────────────────────────────
+
   useEffect(() => {
     if (selectedSubtitle === null) {
       subtitleCuesRef.current = [];
@@ -265,33 +280,28 @@ export function VideoPlayer({
     }
   }, [selectedSubtitle]);
 
-  // Auto-hide controls
+  // ─── Auto-hide controls ────────────────────────────────────────────────────
+
   const resetHideTimer = useCallback(() => {
     setShowControls(true);
     if (hideTimer.current) clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => {
-      if (videoRef.current && !videoRef.current.paused) {
-        setShowControls(false);
-      }
+      if (videoRef.current && !videoRef.current.paused) setShowControls(false);
     }, 3000);
   }, []);
 
-  // Initialize video
+  // ─── Initialize video ──────────────────────────────────────────────────────
+
   useEffect(() => {
     pause();
-
     const video = videoRef.current;
     if (!video) return;
 
     video.muted = false;
     video.volume = volume;
 
-    // Always start playback immediately while the user-gesture activation is valid.
-    // For direct play this is the primary play() call.
-    // For HLS the info-fetch effect will pause, reinit hls.js, then play again.
     video.play().catch((err: Error) => {
-      // AbortError means play() was interrupted by a video.load() call (e.g. HLS takeover).
-      // That is not an autoplay block — don't mute; the new src will call play() itself.
+      // AbortError = play() interrupted by a src change — don't mute.
       if (err?.name === 'AbortError') return;
       video.muted = true;
       setIsMuted(true);
@@ -299,30 +309,34 @@ export function VideoPlayer({
     });
 
     const onLoaded = () => {
-      const dur = isFinite(video.duration) && video.duration > 0 ? video.duration : (propDuration || 0);
+      // Compute real total duration: for remux streams the video.duration is
+      // (totalDuration - streamStart), so add the offset back.
+      const rawDur = isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+      const dur = propDuration ||
+        (rawDur > 0 ? rawDur + streamOffsetRef.current : 0);
       if (dur > 0) setDuration(dur);
       setIsLoading(false);
 
-      if (isSwitchingAudio.current) {
-        isSwitchingAudio.current = false;
+      if (isSwitchingStream.current) {
+        // Stream was restarted for audio-track switch or seek — just resume.
+        isSwitchingStream.current = false;
         video.play().catch(() => {});
         return;
       }
 
+      // Initial load: seek to resume position.
       if (savedPosition > 0 && savedPosition < dur - 5) {
         video.currentTime = savedPosition;
       }
     };
 
     video.addEventListener('loadedmetadata', onLoaded);
-
-    return () => {
-      video.removeEventListener('loadedmetadata', onLoaded);
-    };
+    return () => video.removeEventListener('loadedmetadata', onLoaded);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedPosition, pause, propDuration]);
 
-  // Sync playback — deps kept minimal via refs so listeners never re-register needlessly
+  // ─── Sync playback events ──────────────────────────────────────────────────
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -354,8 +368,8 @@ export function VideoPlayer({
       }
     };
 
-    const onPlay  = () => { setIsPlaying(true);  resetHideTimer(); audioRef.current?.play().catch(() => {}); };
-    const onPause = () => { setIsPlaying(false); setShowControls(true); audioRef.current?.pause(); };
+    const onPlay  = () => { setIsPlaying(true);  resetHideTimer(); };
+    const onPause = () => { setIsPlaying(false); setShowControls(true); };
     const onEnded = () => { setIsPlaying(false); setShowControls(true); onCompleteRef.current?.(); };
 
     video.addEventListener('timeupdate', onTime);
@@ -369,61 +383,53 @@ export function VideoPlayer({
       video.removeEventListener('pause',      onPause);
       video.removeEventListener('ended',      onEnded);
     };
-  }, [resetHideTimer]); // stable — all other values read through refs
+  }, [resetHideTimer]);
 
-  // Helper: reload the separate audio element at a new position
-  const resyncAudio = (posSeconds: number) => {
-    const ael = audioRef.current;
-    if (!ael || !usesSeparateAudio.current) return;
-    ael.pause();
-    ael.src = `/api/video/stream/audio-only/${mediaTypeRef.current}/${mediaIdRef.current}?track=${selectedAudioRef.current ?? 0}&start=${Math.floor(posSeconds)}`;
-    if (videoRef.current && !videoRef.current.paused) ael.play().catch(() => {});
-  };
+  // ─── Cleanup on unmount ────────────────────────────────────────────────────
+
+  useEffect(() => () => { hlsRef.current?.destroy(); }, []);
+
+  // ─── Controls ──────────────────────────────────────────────────────────────
 
   const togglePlay = () => {
     const video = videoRef.current;
     if (!video) return;
-    if (video.paused) {
-      video.play();
-      audioRef.current?.play().catch(() => {});
+    video.paused ? video.play() : video.pause();
+    resetHideTimer();
+  };
+
+  /**
+   * Seek to an absolute media position (seconds).
+   * For remux streams: restart the ffmpeg stream from that position.
+   * For direct play / HLS: simply set video.currentTime.
+   */
+  const handleSeek = useCallback((seconds: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (usesRemuxStream.current) {
+      const newStart = Math.floor(Math.max(0, seconds));
+      startRemuxStream(selectedAudioRef.current ?? 0, newStart);
     } else {
-      video.pause();
-      audioRef.current?.pause();
+      video.currentTime = Math.max(0, seconds - streamOffsetRef.current);
     }
-    resetHideTimer();
-  };
-
-  const handleSeek = (seconds: number) => {
-    const video = videoRef.current;
-    if (!video) return;
-    const localTime = Math.max(0, seconds - streamOffsetRef.current);
-    video.currentTime = localTime;
     setSeek(seconds);
-    resyncAudio(seconds);
     resetHideTimer();
-  };
+  }, [startRemuxStream, resetHideTimer]);
 
-  const skip = (seconds: number) => {
+  const skip = (delta: number) => {
     const video = videoRef.current;
     if (!video) return;
-    const newLocal = Math.max(0, Math.min(
-      isFinite(video.duration) ? video.duration : Infinity,
-      video.currentTime + seconds,
-    ));
-    video.currentTime = newLocal;
-    resyncAudio(newLocal + streamOffsetRef.current);
-    resetHideTimer();
+    const realTime = video.currentTime + streamOffsetRef.current;
+    const newTime = Math.max(0, Math.min(durationRef.current || Infinity, realTime + delta));
+    handleSeek(newTime);
   };
 
   const toggleMute = () => {
     const video = videoRef.current;
     if (!video) return;
     const newMuted = !isMuted;
-    if (usesSeparateAudio.current && audioRef.current) {
-      audioRef.current.muted = newMuted;
-    } else {
-      video.muted = newMuted;
-    }
+    video.muted = newMuted;
     setIsMuted(newMuted);
     resetHideTimer();
   };
@@ -431,12 +437,8 @@ export function VideoPlayer({
   const handleVolume = (v: number) => {
     const video = videoRef.current;
     if (!video) return;
-    if (usesSeparateAudio.current && audioRef.current) {
-      audioRef.current.volume = v;
-      audioRef.current.muted = v === 0;
-    } else {
-      video.volume = v;
-    }
+    video.volume = v;
+    video.muted = v === 0;
     setVolume(v);
     setIsMuted(v === 0);
     resetHideTimer();
@@ -452,20 +454,13 @@ export function VideoPlayer({
     }
   };
 
-  // Cleanup HLS and separate audio element on unmount
-  useEffect(() => () => {
-    hlsRef.current?.destroy();
-    const ael = audioRef.current;
-    if (ael) { ael.pause(); ael.src = ''; }
-  }, []);
-
   const handleStop = useCallback(() => {
     const video = videoRef.current;
     if (video) { video.pause(); video.currentTime = 0; }
     hlsRef.current?.destroy();
     hlsRef.current = null;
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
-    usesSeparateAudio.current = false;
+    usesRemuxStream.current = false;
+    streamOffsetRef.current = 0;
     stop();
     onClose();
   }, [onClose, stop]);
@@ -477,34 +472,24 @@ export function VideoPlayer({
     }
   };
 
-  const selectAudioTrack = (idx: number) => {
-    selectedAudioRef.current = idx;
-    setSelectedAudio(idx);
-    setShowAudioMenu(false);
+  // ─── Audio track selection ─────────────────────────────────────────────────
 
+  const selectAudioTrack = (idx: number) => {
     if (!mediaType || !mediaId) return;
     const video = videoRef.current;
     if (!video) return;
 
-    // If we were using a separate audio element, destroy it and resync via audio-only
-    if (usesSeparateAudio.current && audioRef.current) {
-      const currentPos = video.currentTime + streamOffsetRef.current;
-      audioRef.current.pause();
-      audioRef.current.src = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${idx}&start=${Math.floor(currentPos)}`;
-      if (!video.paused) audioRef.current.play().catch(() => {});
-      return;
-    }
+    selectedAudioRef.current = idx;
+    setSelectedAudio(idx);
+    setShowAudioMenu(false);
 
-    // Full video+audio remux path (used when not on separate audio)
-    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+    // Current real media position
     const realPos = Math.floor(video.currentTime + streamOffsetRef.current);
-    streamOffsetRef.current = realPos;
-    isSwitchingAudio.current = true;
-    setIsLoading(true);
-    video.muted = false;
-    video.src = `/api/video/stream/audio/${mediaType}/${mediaId}?track=${idx}&start=${realPos}`;
-    video.load();
+    usesRemuxStream.current = true; // remux path from now on
+    startRemuxStream(idx, realPos);
   };
+
+  // ─── Subtitle track selection ──────────────────────────────────────────────
 
   const selectSubtitleTrack = (idx: number | null) => {
     setSelectedSubtitle(idx);
@@ -518,49 +503,43 @@ export function VideoPlayer({
     if (!track) return;
 
     fetch(`/api/video/stream/subtitle/${mediaType}/${mediaId}/${track.index}`)
-      .then(r => r.text())
-      .then(vttText => { subtitleCuesRef.current = parseVtt(vttText); })
-      .catch(() => {});
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      })
+      .then(vttText => {
+        const cues = parseVtt(vttText);
+        if (cues.length === 0) {
+          console.warn('[VideoPlayer] Subtitle fetch returned empty cues for track', track);
+        }
+        subtitleCuesRef.current = cues;
+      })
+      .catch((err) => {
+        console.warn('[VideoPlayer] Subtitle fetch failed:', err);
+      });
   };
 
-  // Keyboard
+  // ─── Keyboard shortcuts ────────────────────────────────────────────────────
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const video = videoRef.current;
-      if (!video) return;
-
+      if (!videoRef.current) return;
       switch (e.key) {
         case ' ':
-        case 'k':
-          e.preventDefault();
-          togglePlay();
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          skip(10);
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          skip(-10);
-          break;
-        case 'f':
-          e.preventDefault();
-          toggleFullscreen();
-          break;
-        case 'm':
-          e.preventDefault();
-          toggleMute();
-          break;
-        case 'Escape':
-          handleStop();
-          break;
+        case 'k': e.preventDefault(); togglePlay(); break;
+        case 'ArrowRight': e.preventDefault(); skip(10); break;
+        case 'ArrowLeft':  e.preventDefault(); skip(-10); break;
+        case 'f': e.preventDefault(); toggleFullscreen(); break;
+        case 'm': e.preventDefault(); toggleMute(); break;
+        case 'Escape': handleStop(); break;
       }
       resetHideTimer();
     };
-
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [resetHideTimer, handleStop]);
+
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   const progressPercent = duration ? (seek / duration) * 100 : 0;
   const VolumeIcon = isMuted || volume === 0 ? VolumeX : Volume2;
@@ -580,10 +559,6 @@ export function VideoPlayer({
           className="w-full h-full object-contain"
           playsInline
         />
-        {/* Hidden persistent audio element for AC3/DTS/TrueHD transcoding.
-            Must be in the DOM from the start so Chrome's autoplay policy
-            allows play() calls triggered from async callbacks. */}
-        <audio ref={audioRef} style={{ display: 'none' }} />
 
         {/* Loading */}
         {isLoading && (
