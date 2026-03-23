@@ -317,14 +317,19 @@ export function VideoPlayer({
       }
     };
 
-    // Register listener BEFORE setting src so we never miss loadedmetadata
-    // (it fires as soon as the browser parses the media header, which can be
-    // near-instant for cached or local files).
+    // Register listener first.
     video.addEventListener('loadedmetadata', onLoaded);
 
-    // Set src imperatively — keeps React from overriding it on re-renders and
-    // ensures the listener above is always in place before loading starts.
-    video.src = src;
+    // If the browser already has the metadata (src set via JSX, file cached,
+    // or a previous load already completed) the event will never fire again.
+    // Call the handler immediately in that case.
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      onLoaded();
+    }
+
+    // Clear the loading spinner on error so the screen doesn't stay black.
+    const onError = () => { setIsLoading(false); };
+    video.addEventListener('error', onError);
 
     video.muted = false;
     video.volume = volume;
@@ -337,7 +342,10 @@ export function VideoPlayer({
       video.play().catch(() => {});
     });
 
-    return () => video.removeEventListener('loadedmetadata', onLoaded);
+    return () => {
+      video.removeEventListener('loadedmetadata', onLoaded);
+      video.removeEventListener('error', onError);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedPosition, pause, propDuration]);
 
@@ -558,11 +566,9 @@ export function VideoPlayer({
     >
       {/* Video */}
       <div className="flex-1 relative" onClick={togglePlay}>
-        {/* src is set imperatively in the init effect — never via JSX prop —
-            to prevent React re-renders from overriding the remux stream URL
-            and to guarantee the loadedmetadata listener is registered first. */}
         <video
           ref={videoRef}
+          src={src}
           poster={posterUrl ?? undefined}
           className="w-full h-full object-contain"
           playsInline
