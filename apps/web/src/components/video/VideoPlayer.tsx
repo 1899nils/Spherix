@@ -86,6 +86,14 @@ const NATIVE_AUDIO = new Set([
   'aac', 'mp3', 'opus', 'vorbis', 'flac', 'alac', 'pcm_s16le', 'pcm_s24le',
 ]);
 
+// MIME types for canPlayType() checks on non-native codecs.
+const CODEC_TO_MIME: Record<string, string> = {
+  ac3:    'audio/ac3',
+  eac3:   'audio/eac3',
+  dts:    'audio/x-dca',
+  truehd: 'audio/truehd',
+};
+
 // Image-based subtitle codecs that cannot be converted to WebVTT.
 const IMAGE_SUB_CODECS = new Set([
   'hdmv_pgs_subtitle', 'pgssub', 'pgs',
@@ -229,25 +237,34 @@ export function VideoPlayer({
         }
 
         // ── Direct play path ───────────────────────────────────────────────
-        // For AC3/DTS/TrueHD: create a *separate* hidden <audio> element that plays
-        // an AAC-transcoded audio-only stream. The <video> is muted but keeps playing
-        // the direct stream — video.src is NEVER changed, so no black screen even if
-        // ffmpeg is unavailable (worst case: video visible, no audio).
+        // For AC3/DTS/TrueHD: try a separate <audio> element with an AAC-transcoded
+        // audio-only stream. The <video> is muted but keeps its direct stream — so
+        // video.src is NEVER changed and the picture always appears.
+        // If the audio-only endpoint fails (e.g. ffmpeg not installed), we unmute the
+        // video immediately as fallback so the browser can try the original codec.
         const defaultTrack = resolvedIdx !== null ? audio[resolvedIdx] : null;
-        const needsAudioTranscode = defaultTrack != null &&
-          !NATIVE_AUDIO.has(defaultTrack.codec.toLowerCase());
+        const codec = defaultTrack?.codec.toLowerCase() ?? '';
+        const browserCanPlay = NATIVE_AUDIO.has(codec) ||
+          video.canPlayType(CODEC_TO_MIME[codec] ?? '') !== '';
+        const needsAudioTranscode = defaultTrack != null && !browserCanPlay;
 
         if (needsAudioTranscode && resolvedIdx !== null) {
           if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
           const ael = new Audio();
           ael.volume = volume;
           ael.src = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${savedPosition}`;
+          // Fallback: if transcoding fails (ffmpeg missing etc.), unmute the video
+          // so the browser can attempt native codec playback instead.
+          ael.addEventListener('error', () => {
+            usesSeparateAudio.current = false;
+            if (videoRef.current) videoRef.current.muted = false;
+          }, { once: true });
           ael.play().catch(() => {});
           audioRef.current = ael;
           usesSeparateAudio.current = true;
           video.muted = true;
         }
-        // For native audio, init effect's video.play() already started direct play.
+        // For native / browser-supported audio, init effect's video.play() handles it.
       })
       .catch(() => {
         videoRef.current?.play().catch(() => {});
