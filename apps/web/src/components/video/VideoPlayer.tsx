@@ -180,7 +180,14 @@ export function VideoPlayer({
         if (!info) return;
 
         const audio: AudioTrackInfo[] = info.audio ?? [];
-        const subs: SubtitleTrackInfo[] = info.subtitles ?? [];
+        const allSubs: SubtitleTrackInfo[] = info.subtitles ?? [];
+        // Filter out image-based subtitle codecs (PGS, VOBSUB) that ffmpeg cannot
+        // convert to WebVTT — only text-based tracks are supported in the browser.
+        const IMAGE_SUB_CODECS = new Set([
+          'hdmv_pgs_subtitle', 'pgssub', 'pgs',
+          'dvd_subtitle', 'dvbsub', 'dvb_subtitle', 'vobsub',
+        ]);
+        const subs = allSubs.filter(s => !IMAGE_SUB_CODECS.has(s.codec.toLowerCase()));
         setAudioTracks(audio);
         setSubtitleTracks(subs);
         const defAudioIdx = audio.findIndex((a: AudioTrackInfo) => a.default);
@@ -227,16 +234,18 @@ export function VideoPlayer({
         const needsAudioTranscode = defaultTrack != null && !NATIVE_AUDIO.has(defaultTrack.codec.toLowerCase());
 
         if (needsAudioTranscode && resolvedIdx !== null) {
-          // Destroy any previous audio element
-          if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
-          const ael = new Audio();
-          ael.volume = volume;
-          ael.src = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${savedPosition}`;
-          ael.play().catch(() => {}); // start loading; plays when enough data is buffered
-          audioRef.current = ael;
-          usesSeparateAudio.current = true;
-          // Mute the video element so we don't hear garbled AC3
-          video.muted = true;
+          // Use the persistent <audio> DOM element (always in the DOM, so Chrome's
+          // autoplay policy treats it as trusted — unlike new Audio() in a .then() callback).
+          const ael = audioRef.current;
+          if (ael) {
+            ael.pause();
+            ael.volume = volume;
+            ael.src = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${savedPosition}`;
+            ael.play().catch(() => {});
+            usesSeparateAudio.current = true;
+            // Mute the video element so we don't hear garbled AC3
+            video.muted = true;
+          }
         }
         // Direct play — init effect's video.play() already started playback.
       })
@@ -446,7 +455,8 @@ export function VideoPlayer({
   // Cleanup HLS and separate audio element on unmount
   useEffect(() => () => {
     hlsRef.current?.destroy();
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
+    const ael = audioRef.current;
+    if (ael) { ael.pause(); ael.src = ''; }
   }, []);
 
   const handleStop = useCallback(() => {
@@ -454,7 +464,7 @@ export function VideoPlayer({
     if (video) { video.pause(); video.currentTime = 0; }
     hlsRef.current?.destroy();
     hlsRef.current = null;
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; audioRef.current = null; }
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
     usesSeparateAudio.current = false;
     stop();
     onClose();
@@ -570,6 +580,10 @@ export function VideoPlayer({
           className="w-full h-full object-contain"
           playsInline
         />
+        {/* Hidden persistent audio element for AC3/DTS/TrueHD transcoding.
+            Must be in the DOM from the start so Chrome's autoplay policy
+            allows play() calls triggered from async callbacks. */}
+        <audio ref={audioRef} style={{ display: 'none' }} />
 
         {/* Loading */}
         {isLoading && (
