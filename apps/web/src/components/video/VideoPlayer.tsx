@@ -81,10 +81,12 @@ function trackLabel(t: AudioTrackInfo | SubtitleTrackInfo, idx: number): string 
   return `${lang}${name} (${extra})`;
 }
 
-// Audio codecs Chrome can decode natively in MKV/MP4 containers.
-const NATIVE_AUDIO = new Set(['aac', 'mp3', 'opus', 'vorbis']);
+// Audio codecs the browser can decode natively — no transcoding needed.
+const NATIVE_AUDIO = new Set([
+  'aac', 'mp3', 'opus', 'vorbis', 'flac', 'alac', 'pcm_s16le', 'pcm_s24le',
+]);
 
-// Image-based subtitle codecs that ffmpeg cannot convert to WebVTT.
+// Image-based subtitle codecs that cannot be converted to WebVTT.
 const IMAGE_SUB_CODECS = new Set([
   'hdmv_pgs_subtitle', 'pgssub', 'pgs',
   'dvd_subtitle', 'dvbsub', 'dvb_subtitle', 'vobsub',
@@ -141,20 +143,18 @@ export function VideoPlayer({
   const mediaIdRef = useRef(mediaId);
   mediaIdRef.current = mediaId;
 
-  // Stream offset: the real media position (seconds) at which the current ffmpeg stream
-  // starts. realTime = video.currentTime + streamOffsetRef.current
-  const streamOffsetRef = useRef(0);
+  // Separate <audio> element for AC3/DTS tracks.
+  // The <video> keeps its direct stream (muted); this element plays AAC-transcoded audio.
+  // This avoids changing video.src which causes a black screen when ffmpeg is unavailable.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const usesSeparateAudio = useRef(false);
 
-  // True when currently switching streams (audio track change or seek-restart).
-  // Prevents onLoaded from seeking to savedPosition again.
-  const isSwitchingStream = useRef(false);
-
-  // True after info fetch determined the file needs audio transcoding (AC3/DTS/etc.).
-  // In this mode every seek restarts the ffmpeg remux stream from the new position.
-  const usesRemuxStream = useRef(false);
-
-  // Selected audio track index (0-based into audio array) — needed by seek handler
+  // Selected audio track index — needed by seek and resync handlers
   const selectedAudioRef = useRef<number | null>(null);
+
+  // For HLS/remux streams that start at an offset (audio track switch fallback)
+  const streamOffsetRef = useRef(0);
+  const isSwitchingAudio = useRef(false);
 
   // Subtitle overlay
   const subtitleCuesRef = useRef<SubtitleCue[]>([]);
@@ -177,32 +177,12 @@ export function VideoPlayer({
   const nextEpisodeRef = useRef(nextEpisode);
   nextEpisodeRef.current = nextEpisode;
 
-  // ─── Stream URL builder ─────────────────────────────────────────────────────
-
-  const remuxUrl = useCallback((trackIdx: number, startSec: number) =>
-    `/api/video/stream/audio/${mediaTypeRef.current}/${mediaIdRef.current}?track=${trackIdx}&start=${startSec}`,
-  []);
-
-  // ─── Switch to the remux endpoint ──────────────────────────────────────────
-
-  const startRemuxStream = useCallback((trackIdx: number, startSec: number) => {
-    const video = videoRef.current;
-    if (!video || !mediaTypeRef.current || !mediaIdRef.current) return;
-    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
-    streamOffsetRef.current = startSec;
-    isSwitchingStream.current = true;
-    setIsLoading(true);
-    video.muted = false;
-    video.src = remuxUrl(trackIdx, startSec);
-    video.load();
-  }, [remuxUrl]);
-
   // ─── Info fetch: detect codec and choose stream path ───────────────────────
 
   useEffect(() => {
     if (!mediaType || !mediaId) return;
-    usesRemuxStream.current = false;
     streamOffsetRef.current = 0;
+    usesSeparateAudio.current = false;
 
     fetch(`/api/video/stream/info/${mediaType}/${mediaId}`)
       .then(r => r.json())
@@ -249,20 +229,25 @@ export function VideoPlayer({
         }
 
         // ── Direct play path ───────────────────────────────────────────────
-        // Check whether the default audio track can be played natively by Chrome.
-        // AC3 / EAC3 / DTS / TrueHD cannot — remux with AAC transcode instead.
+        // For AC3/DTS/TrueHD: create a *separate* hidden <audio> element that plays
+        // an AAC-transcoded audio-only stream. The <video> is muted but keeps playing
+        // the direct stream — video.src is NEVER changed, so no black screen even if
+        // ffmpeg is unavailable (worst case: video visible, no audio).
         const defaultTrack = resolvedIdx !== null ? audio[resolvedIdx] : null;
         const needsAudioTranscode = defaultTrack != null &&
           !NATIVE_AUDIO.has(defaultTrack.codec.toLowerCase());
 
         if (needsAudioTranscode && resolvedIdx !== null) {
-          // Like Jellyfin / Plex: use ONE combined stream (video copy + AAC audio).
-          // A single <video> element handles everything — no sync issues.
-          usesRemuxStream.current = true;
-          startRemuxStream(resolvedIdx, savedPosition);
+          if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
+          const ael = new Audio();
+          ael.volume = volume;
+          ael.src = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${savedPosition}`;
+          ael.play().catch(() => {});
+          audioRef.current = ael;
+          usesSeparateAudio.current = true;
+          video.muted = true;
         }
-        // If audio is native (AAC/MP3/Opus/Vorbis), the init effect's video.play()
-        // already started direct play — nothing to do here.
+        // For native audio, init effect's video.play() already started direct play.
       })
       .catch(() => {
         videoRef.current?.play().catch(() => {});
@@ -298,36 +283,27 @@ export function VideoPlayer({
     if (!video) return;
 
     const onLoaded = () => {
-      // Compute real total duration: for remux streams video.duration is
-      // (totalDuration - streamStart), so add the offset back.
       const rawDur = isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
-      const dur = propDuration || (rawDur > 0 ? rawDur + streamOffsetRef.current : 0);
+      const dur = propDuration || (rawDur > 0 ? rawDur : 0);
       if (dur > 0) setDuration(dur);
       setIsLoading(false);
 
-      if (isSwitchingStream.current) {
-        // Stream was restarted (audio-track switch or seek) — just resume.
-        isSwitchingStream.current = false;
+      if (isSwitchingAudio.current) {
+        isSwitchingAudio.current = false;
         video.play().catch(() => {});
         return;
       }
-      // Initial load: seek to resume position.
       if (savedPosition > 0 && savedPosition < dur - 5) {
         video.currentTime = savedPosition;
       }
     };
 
-    // Register listener first.
     video.addEventListener('loadedmetadata', onLoaded);
 
-    // If the browser already has the metadata (src set via JSX, file cached,
-    // or a previous load already completed) the event will never fire again.
-    // Call the handler immediately in that case.
     if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
       onLoaded();
     }
 
-    // Clear the loading spinner on error so the screen doesn't stay black.
     const onError = () => { setIsLoading(false); };
     video.addEventListener('error', onError);
 
@@ -335,7 +311,6 @@ export function VideoPlayer({
     video.volume = volume;
 
     video.play().catch((err: Error) => {
-      // AbortError = play() was interrupted by a src change — don't mute.
       if (err?.name === 'AbortError') return;
       video.muted = true;
       setIsMuted(true);
@@ -382,8 +357,8 @@ export function VideoPlayer({
       }
     };
 
-    const onPlay  = () => { setIsPlaying(true);  resetHideTimer(); };
-    const onPause = () => { setIsPlaying(false); setShowControls(true); };
+    const onPlay  = () => { setIsPlaying(true);  resetHideTimer(); audioRef.current?.play().catch(() => {}); };
+    const onPause = () => { setIsPlaying(false); setShowControls(true); audioRef.current?.pause(); };
     const onEnded = () => { setIsPlaying(false); setShowControls(true); onCompleteRef.current?.(); };
 
     video.addEventListener('timeupdate', onTime);
@@ -401,49 +376,65 @@ export function VideoPlayer({
 
   // ─── Cleanup on unmount ────────────────────────────────────────────────────
 
-  useEffect(() => () => { hlsRef.current?.destroy(); }, []);
+  useEffect(() => () => {
+    hlsRef.current?.destroy();
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
+  }, []);
+
+  // ─── Reload separate audio element at a new position ──────────────────────
+
+  const resyncAudio = useCallback((posSeconds: number) => {
+    const ael = audioRef.current;
+    if (!ael || !usesSeparateAudio.current) return;
+    ael.pause();
+    ael.src = `/api/video/stream/audio-only/${mediaTypeRef.current}/${mediaIdRef.current}?track=${selectedAudioRef.current ?? 0}&start=${Math.floor(posSeconds)}`;
+    if (videoRef.current && !videoRef.current.paused) ael.play().catch(() => {});
+  }, []);
 
   // ─── Controls ──────────────────────────────────────────────────────────────
 
   const togglePlay = () => {
     const video = videoRef.current;
     if (!video) return;
-    video.paused ? video.play() : video.pause();
+    if (video.paused) {
+      video.play();
+      audioRef.current?.play().catch(() => {});
+    } else {
+      video.pause();
+      audioRef.current?.pause();
+    }
     resetHideTimer();
   };
 
-  /**
-   * Seek to an absolute media position (seconds).
-   * For remux streams: restart the ffmpeg stream from that position.
-   * For direct play / HLS: simply set video.currentTime.
-   */
   const handleSeek = useCallback((seconds: number) => {
     const video = videoRef.current;
     if (!video) return;
-
-    if (usesRemuxStream.current) {
-      const newStart = Math.floor(Math.max(0, seconds));
-      startRemuxStream(selectedAudioRef.current ?? 0, newStart);
-    } else {
-      video.currentTime = Math.max(0, seconds - streamOffsetRef.current);
-    }
+    video.currentTime = Math.max(0, seconds - streamOffsetRef.current);
     setSeek(seconds);
+    resyncAudio(seconds);
     resetHideTimer();
-  }, [startRemuxStream, resetHideTimer]);
+  }, [resyncAudio, resetHideTimer]);
 
   const skip = (delta: number) => {
     const video = videoRef.current;
     if (!video) return;
     const realTime = video.currentTime + streamOffsetRef.current;
     const newTime = Math.max(0, Math.min(durationRef.current || Infinity, realTime + delta));
-    handleSeek(newTime);
+    video.currentTime = Math.max(0, newTime - streamOffsetRef.current);
+    setSeek(newTime);
+    resyncAudio(newTime);
+    resetHideTimer();
   };
 
   const toggleMute = () => {
     const video = videoRef.current;
     if (!video) return;
     const newMuted = !isMuted;
-    video.muted = newMuted;
+    if (usesSeparateAudio.current && audioRef.current) {
+      audioRef.current.muted = newMuted;
+    } else {
+      video.muted = newMuted;
+    }
     setIsMuted(newMuted);
     resetHideTimer();
   };
@@ -451,8 +442,13 @@ export function VideoPlayer({
   const handleVolume = (v: number) => {
     const video = videoRef.current;
     if (!video) return;
-    video.volume = v;
-    video.muted = v === 0;
+    if (usesSeparateAudio.current && audioRef.current) {
+      audioRef.current.volume = v;
+      audioRef.current.muted = v === 0;
+    } else {
+      video.volume = v;
+      video.muted = v === 0;
+    }
     setVolume(v);
     setIsMuted(v === 0);
     resetHideTimer();
@@ -473,7 +469,8 @@ export function VideoPlayer({
     if (video) { video.pause(); video.currentTime = 0; }
     hlsRef.current?.destroy();
     hlsRef.current = null;
-    usesRemuxStream.current = false;
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; audioRef.current = null; }
+    usesSeparateAudio.current = false;
     streamOffsetRef.current = 0;
     stop();
     onClose();
@@ -497,10 +494,34 @@ export function VideoPlayer({
     setSelectedAudio(idx);
     setShowAudioMenu(false);
 
-    // Current real media position
-    const realPos = Math.floor(video.currentTime + streamOffsetRef.current);
-    usesRemuxStream.current = true; // remux path from now on
-    startRemuxStream(idx, realPos);
+    const currentPos = video.currentTime + streamOffsetRef.current;
+
+    if (usesSeparateAudio.current && audioRef.current) {
+      // Already on separate-audio path — just reload the audio-only stream
+      audioRef.current.pause();
+      audioRef.current.src = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${idx}&start=${Math.floor(currentPos)}`;
+      if (!video.paused) audioRef.current.play().catch(() => {});
+      return;
+    }
+
+    // Not yet on separate-audio path (track was native) — switch now
+    const newTrack = audioTracks[idx];
+    if (newTrack && !NATIVE_AUDIO.has(newTrack.codec.toLowerCase())) {
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
+      const ael = new Audio();
+      ael.volume = isMuted ? 0 : volume;
+      ael.muted = isMuted;
+      ael.src = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${idx}&start=${Math.floor(currentPos)}`;
+      if (!video.paused) ael.play().catch(() => {});
+      audioRef.current = ael;
+      usesSeparateAudio.current = true;
+      video.muted = true;
+    } else {
+      // Switching to a native audio track — disable separate audio
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; audioRef.current = null; }
+      usesSeparateAudio.current = false;
+      video.muted = false;
+    }
   };
 
   // ─── Subtitle track selection ──────────────────────────────────────────────
