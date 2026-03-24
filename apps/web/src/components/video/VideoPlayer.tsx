@@ -192,9 +192,12 @@ export function VideoPlayer({
     streamOffsetRef.current = 0;
     usesSeparateAudio.current = false;
 
-    fetch(`/api/video/stream/info/${mediaType}/${mediaId}`)
+    const controller = new AbortController();
+
+    fetch(`/api/video/stream/info/${mediaType}/${mediaId}`, { signal: controller.signal })
       .then(r => r.json())
       .then(json => {
+        if (controller.signal.aborted) return;
         const data = json?.data;
         const info = data?.mediaInfo;
         if (!info) return;
@@ -240,8 +243,8 @@ export function VideoPlayer({
         // For AC3/DTS/TrueHD: try a separate <audio> element with an AAC-transcoded
         // audio-only stream. The <video> is muted but keeps its direct stream — so
         // video.src is NEVER changed and the picture always appears.
-        // If the audio-only endpoint fails (e.g. ffmpeg not installed), we unmute the
-        // video immediately as fallback so the browser can try the original codec.
+        // If the audio-only endpoint fails (e.g. ffmpeg not installed), fall back to
+        // full HLS transcode which re-encodes everything.
         const defaultTrack = resolvedIdx !== null ? audio[resolvedIdx] : null;
         const codec = defaultTrack?.codec.toLowerCase() ?? '';
         const canPlayMime = CODEC_TO_MIME[codec] ?? '';
@@ -254,7 +257,6 @@ export function VideoPlayer({
         });
 
         if (needsAudioTranscode && resolvedIdx !== null) {
-          if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
           const ael = new Audio();
           ael.volume = volume;
           const audioSrc = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${savedPosition}`;
@@ -299,9 +301,19 @@ export function VideoPlayer({
         }
         // For native / browser-supported audio, init effect's video.play() handles it.
       })
-      .catch(() => {
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
         videoRef.current?.play().catch(() => {});
       });
+
+    return () => {
+      controller.abort();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaType, mediaId, src]);
 
