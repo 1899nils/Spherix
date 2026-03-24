@@ -261,9 +261,34 @@ export function VideoPlayer({
           console.log('[VideoPlayer] starting audio-only stream', audioSrc);
           ael.src = audioSrc;
           ael.addEventListener('error', (e) => {
-            console.warn('[VideoPlayer] audio-only failed — unmuting video as fallback', e);
+            const code = (e.target as HTMLAudioElement)?.error?.code;
+            const msg  = (e.target as HTMLAudioElement)?.error?.message;
+            console.warn('[VideoPlayer] audio-only failed (code=' + code + ')', msg, e);
             usesSeparateAudio.current = false;
-            if (videoRef.current) videoRef.current.muted = false;
+
+            // Unmuting alone won't help for AC3/DTS — the browser can't decode it.
+            // Fall back to full HLS transcode (server re-encodes video+audio to AAC).
+            const vid = videoRef.current;
+            if (!vid) return;
+
+            const hlsUrl = `/api/video/stream/hls/${mediaType}/${mediaId}/playlist.m3u8`;
+            vid.muted = false;
+
+            if (Hls.isSupported()) {
+              if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+              const hls = new Hls();
+              hlsRef.current = hls;
+              hls.loadSource(hlsUrl);
+              hls.attachMedia(vid);
+              hls.once(Hls.Events.MANIFEST_PARSED, () => {
+                vid.currentTime = savedPosition;
+                vid.play().catch(() => {});
+              });
+            } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+              vid.src = hlsUrl;
+              vid.currentTime = savedPosition;
+              vid.play().catch(() => {});
+            }
           }, { once: true });
           ael.play().catch((e) => console.warn('[VideoPlayer] audio play() rejected', e));
           audioRef.current = ael;

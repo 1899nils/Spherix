@@ -389,13 +389,39 @@ router.get('/audio-only/:type/:id', async (req, res, next) => {
       'pipe:1',
     ];
 
-    res.setHeader('Content-Type', 'audio/mp4');
-    res.setHeader('Cache-Control', 'no-cache');
-
     const ffmpeg = spawn('ffmpeg', args);
-    ffmpeg.stdout.pipe(res);
+    let headersSentByUs = false;
+    let bytesWritten = 0;
+
+    ffmpeg.stdout.on('data', (chunk: Buffer) => {
+      if (!headersSentByUs) {
+        res.setHeader('Content-Type', 'audio/mp4');
+        res.setHeader('Cache-Control', 'no-cache');
+        headersSentByUs = true;
+      }
+      bytesWritten += chunk.length;
+      res.write(chunk);
+    });
+
+    ffmpeg.stdout.on('end', () => {
+      if (!headersSentByUs) {
+        // ffmpeg produced no output — send a proper error
+        res.status(500).json({ error: 'ffmpeg produced no audio output' });
+        return;
+      }
+      res.end();
+    });
+
     ffmpeg.stderr.on('data', () => {});
-    ffmpeg.on('error', (err) => { if (!res.headersSent) next(err); });
+
+    ffmpeg.on('error', (err) => {
+      if (!headersSentByUs) {
+        next(err);
+      } else {
+        res.end();
+      }
+    });
+
     res.on('close', () => ffmpeg.kill());
   } catch (error) {
     next(error);
