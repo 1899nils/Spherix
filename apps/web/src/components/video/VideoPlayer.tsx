@@ -244,25 +244,33 @@ export function VideoPlayer({
         // video immediately as fallback so the browser can try the original codec.
         const defaultTrack = resolvedIdx !== null ? audio[resolvedIdx] : null;
         const codec = defaultTrack?.codec.toLowerCase() ?? '';
-        const browserCanPlay = NATIVE_AUDIO.has(codec) ||
-          video.canPlayType(CODEC_TO_MIME[codec] ?? '') !== '';
+        const canPlayMime = CODEC_TO_MIME[codec] ?? '';
+        const canPlayResult = canPlayMime ? video.canPlayType(canPlayMime) : '';
+        const browserCanPlay = NATIVE_AUDIO.has(codec) || canPlayResult !== '';
         const needsAudioTranscode = defaultTrack != null && !browserCanPlay;
+
+        console.log('[VideoPlayer] audio decision', {
+          codec, canPlayMime, canPlayResult, browserCanPlay, needsAudioTranscode,
+        });
 
         if (needsAudioTranscode && resolvedIdx !== null) {
           if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
           const ael = new Audio();
           ael.volume = volume;
-          ael.src = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${savedPosition}`;
-          // Fallback: if transcoding fails (ffmpeg missing etc.), unmute the video
-          // so the browser can attempt native codec playback instead.
-          ael.addEventListener('error', () => {
+          const audioSrc = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${savedPosition}`;
+          console.log('[VideoPlayer] starting audio-only stream', audioSrc);
+          ael.src = audioSrc;
+          ael.addEventListener('error', (e) => {
+            console.warn('[VideoPlayer] audio-only failed — unmuting video as fallback', e);
             usesSeparateAudio.current = false;
             if (videoRef.current) videoRef.current.muted = false;
           }, { once: true });
-          ael.play().catch(() => {});
+          ael.play().catch((e) => console.warn('[VideoPlayer] audio play() rejected', e));
           audioRef.current = ael;
           usesSeparateAudio.current = true;
           video.muted = true;
+        } else {
+          console.log('[VideoPlayer] native audio path — video unmuted');
         }
         // For native / browser-supported audio, init effect's video.play() handles it.
       })
