@@ -52,13 +52,25 @@ export async function startHlsTranscode(
 ): Promise<TranscodeJob> {
   const jobId = generateJobId(mediaId);
   const outputDir = join(getTranscodeDirectory(), jobId);
-  
+
   if (!existsSync(outputDir)) {
     mkdirSync(outputDir, { recursive: true });
   }
 
   const settings = getTranscodeSettings(mediaInfo, clientCaps);
-  
+
+  // If the video codec is already browser-compatible, copy it instead of
+  // re-encoding. This is much faster and avoids quality loss.
+  // Typical case: MKV with h264 video + DTS audio → copy video, transcode audio only.
+  const VIDEO_COMPAT: Record<string, string> = {
+    h264: 'h264', avc: 'h264', avc1: 'h264',
+    hevc: 'hevc', h265: 'hevc',
+    vp9: 'vp9', 'vp09': 'vp9',
+    av1: 'av1', 'av01': 'av1',
+  };
+  const srcVideoCodec = VIDEO_COMPAT[mediaInfo.video?.codec?.toLowerCase() ?? ''] ?? '';
+  const copyVideo = !!mediaInfo.video && !!srcVideoCodec && clientCaps.videoCodecs.includes(srcVideoCodec);
+
   const job: TranscodeJob = {
     id: jobId,
     mediaId,
@@ -73,23 +85,23 @@ export async function startHlsTranscode(
   activeJobs.set(jobId, job);
 
   // Start transcoding in background
-  startTranscodingProcess(job, mediaInfo);
+  startTranscodingProcess(job, mediaInfo, copyVideo);
 
-  logger.info(`Started HLS transcode job ${jobId} for ${mediaType} ${mediaId}`);
+  logger.info(`Started HLS transcode job ${jobId} for ${mediaType} ${mediaId} (copyVideo=${copyVideo})`);
   return job;
 }
 
 /**
  * Start FFmpeg process for HLS transcoding
  */
-function startTranscodingProcess(job: TranscodeJob, mediaInfo: MediaInfo): void {
+function startTranscodingProcess(job: TranscodeJob, mediaInfo: MediaInfo, copyVideo = false): void {
   job.status = 'processing';
 
   const outputPath = join(job.outputDir, 'playlist.m3u8');
   const segmentPath = join(job.outputDir, 'segment_%03d.ts');
 
   // Build FFmpeg arguments
-  const args = buildFfmpegArgs(job.inputPath, outputPath, segmentPath, job.settings, mediaInfo);
+  const args = buildFfmpegArgs(job.inputPath, outputPath, segmentPath, job.settings, mediaInfo, copyVideo);
 
   logger.debug(`FFmpeg command: ffmpeg ${args.join(' ')}`);
 
@@ -152,7 +164,8 @@ function buildFfmpegArgs(
   output: string,
   segmentPattern: string,
   settings: ReturnType<typeof getTranscodeSettings>,
-  mediaInfo: MediaInfo
+  mediaInfo: MediaInfo,
+  copyVideo = false
 ): string[] {
   const args: string[] = [
     '-hide_banner',
@@ -160,22 +173,27 @@ function buildFfmpegArgs(
     '-i', input,
   ];
 
-  // Video codec settings
-  const videoCodec = settings.videoCodec === 'hevc' ? 'libx265' : 'libx264';
-  const preset = 'veryfast'; // Balance between speed and quality
-  
-  args.push(
-    '-c:v', videoCodec,
-    '-preset', preset,
-    '-b:v', settings.videoBitrate.toString(),
-    '-maxrate', Math.round(settings.videoBitrate * 1.5).toString(),
-    '-bufsize', Math.round(settings.videoBitrate * 2).toString(),
-    '-s', `${settings.maxResolution.width}x${settings.maxResolution.height}`,
-    '-pix_fmt', 'yuv420p', // For browser compatibility
-    '-g', '48', // GOP size for HLS
-    '-keyint_min', '48',
-    '-sc_threshold', '0',
-  );
+  if (copyVideo) {
+    // Video is already browser-compatible — copy the stream directly.
+    // Avoids re-encoding entirely: faster start, no quality loss.
+    args.push('-c:v', 'copy');
+  } else {
+    // Video codec settings
+    const videoCodec = settings.videoCodec === 'hevc' ? 'libx265' : 'libx264';
+    const preset = 'veryfast'; // Balance between speed and quality
+    args.push(
+      '-c:v', videoCodec,
+      '-preset', preset,
+      '-b:v', settings.videoBitrate.toString(),
+      '-maxrate', Math.round(settings.videoBitrate * 1.5).toString(),
+      '-bufsize', Math.round(settings.videoBitrate * 2).toString(),
+      '-s', `${settings.maxResolution.width}x${settings.maxResolution.height}`,
+      '-pix_fmt', 'yuv420p', // For browser compatibility
+      '-g', '48', // GOP size for HLS
+      '-keyint_min', '48',
+      '-sc_threshold', '0',
+    );
+  }
 
   // Audio codec settings
   args.push(

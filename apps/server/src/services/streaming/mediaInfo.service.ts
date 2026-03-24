@@ -261,7 +261,10 @@ function getRecommendedBitrate(width: number, height: number): number {
 export function getDefaultClientCapabilities(): ClientCapabilities {
   return {
     videoCodecs: ['h264', 'hevc', 'vp9', 'av1'],
-    audioCodecs: ['aac', 'opus', 'mp3', 'ac3', 'eac3', 'flac', 'dts', 'truehd'],
+    // DTS and TrueHD are NOT included — browsers cannot decode them natively.
+    // Omitting them causes the server to correctly return an HLS transcode URL
+    // instead of a direct-play URL for files with those audio codecs.
+    audioCodecs: ['aac', 'opus', 'mp3', 'ac3', 'eac3', 'flac'],
     maxResolution: { width: 3840, height: 2160 },
     maxBitrate: 40000000,
     // Chrome can play MKV/AVI/MOV containers natively
