@@ -64,11 +64,18 @@ router.get('/info/:type/:id', async (req, res, next) => {
 
     if (directPlayCheck.playable) {
       // Direct play URL
-      streamUrl = type === 'movie' 
+      streamUrl = type === 'movie'
         ? `/api/video/movies/${id}/stream`
         : `/api/video/episodes/${id}/stream`;
+    } else if (directPlayCheck.reason?.toLowerCase().includes('audio')) {
+      // Only audio codec is incompatible (video is fine).
+      // Use the audio-remux endpoint: copies video, transcodes audio → AAC.
+      // Much faster than HLS; no manifest wait; client plays it as a normal <video>.
+      const defaultAudioIdx = probeResult.audio.findIndex(a => a.default);
+      const trackIdx = defaultAudioIdx >= 0 ? defaultAudioIdx : 0;
+      streamUrl = `/api/video/stream/audio/${type}/${id}?track=${trackIdx}`;
     } else {
-      // Will need transcoding - return HLS endpoint
+      // Video codec or container is incompatible — full HLS transcode needed.
       streamUrl = `/api/video/stream/hls/${type}/${id}/playlist.m3u8`;
     }
 

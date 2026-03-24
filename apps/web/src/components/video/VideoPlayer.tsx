@@ -86,14 +86,6 @@ const NATIVE_AUDIO = new Set([
   'aac', 'mp3', 'opus', 'vorbis', 'flac', 'alac', 'pcm_s16le', 'pcm_s24le',
 ]);
 
-// MIME types for canPlayType() checks on non-native codecs.
-const CODEC_TO_MIME: Record<string, string> = {
-  ac3:    'audio/ac3',
-  eac3:   'audio/eac3',
-  dts:    'audio/x-dca',
-  truehd: 'audio/truehd',
-};
-
 // Image-based subtitle codecs that cannot be converted to WebVTT.
 const IMAGE_SUB_CODECS = new Set([
   'hdmv_pgs_subtitle', 'pgssub', 'pgs',
@@ -164,6 +156,11 @@ export function VideoPlayer({
   const streamOffsetRef = useRef(0);
   const isSwitchingAudio = useRef(false);
 
+  // Base URL for audio-remux streams (video+AAC via /api/video/stream/audio/).
+  // Set when the server says only audio needs transcoding.
+  // Used by resyncVideo to reload from a new position when seeking.
+  const audioRemuxBaseUrlRef = useRef<string | null>(null);
+
   // Subtitle overlay
   const subtitleCuesRef = useRef<SubtitleCue[]>([]);
   const currentCueRef = useRef<string | null>(null);
@@ -191,6 +188,7 @@ export function VideoPlayer({
     if (!mediaType || !mediaId) return;
     streamOffsetRef.current = 0;
     usesSeparateAudio.current = false;
+    audioRemuxBaseUrlRef.current = null;
 
     const controller = new AbortController();
 
@@ -219,59 +217,42 @@ export function VideoPlayer({
         if (!video) return;
 
         const streamUrl: string = data?.streamUrl ?? src;
+        const directPlay: boolean = data?.directPlay ?? true;
 
-        // ── HLS transcode path ──────────────────────────────────────────────
-        if (streamUrl.includes('.m3u8')) {
+        if (!directPlay) {
           if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
           video.pause();
-          if (Hls.isSupported()) {
-            const hls = new Hls();
-            hlsRef.current = hls;
-            hls.loadSource(streamUrl);
-            hls.attachMedia(video);
-            hls.once(Hls.Events.MANIFEST_PARSED, () => {
+
+          // ── HLS transcode path (video/container incompatible) ─────────────
+          if (streamUrl.includes('.m3u8')) {
+            if (Hls.isSupported()) {
+              const hls = new Hls();
+              hlsRef.current = hls;
+              hls.loadSource(streamUrl);
+              hls.attachMedia(video);
+              hls.once(Hls.Events.MANIFEST_PARSED, () => {
+                video.play().catch(() => { video.muted = true; setIsMuted(true); video.play().catch(() => {}); });
+              });
+            } else {
+              video.src = streamUrl;
               video.play().catch(() => { video.muted = true; setIsMuted(true); video.play().catch(() => {}); });
-            });
-          } else {
-            video.src = streamUrl;
-            video.play().catch(() => { video.muted = true; setIsMuted(true); video.play().catch(() => {}); });
+            }
+            return;
           }
-          return;
-        }
 
-        // ── Direct play path ───────────────────────────────────────────────
-        // For AC3/DTS/TrueHD the browser can't decode the audio. Rather than
-        // using a fragile separate <audio> element (which causes AbortErrors due
-        // to double play() calls and streaming timing issues), go directly to HLS
-        // transcoding which re-encodes video+audio and is the proven stable path.
-        const defaultTrack = resolvedIdx !== null ? audio[resolvedIdx] : null;
-        const codec = defaultTrack?.codec.toLowerCase() ?? '';
-        const canPlayMime = CODEC_TO_MIME[codec] ?? '';
-        const canPlayResult = canPlayMime ? video.canPlayType(canPlayMime) : '';
-        const browserCanPlay = NATIVE_AUDIO.has(codec) || canPlayResult !== '';
-        const needsAudioTranscode = defaultTrack != null && !browserCanPlay;
-
-        console.log('[VideoPlayer] audio decision', {
-          codec, canPlayMime, canPlayResult, browserCanPlay, needsAudioTranscode,
-        });
-
-        if (needsAudioTranscode) {
-          const hlsUrl = `/api/video/stream/hls/${mediaType}/${mediaId}/playlist.m3u8`;
-          console.log('[VideoPlayer] incompatible audio codec — switching to HLS transcode', hlsUrl);
-          if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
-          video.pause();
-          if (Hls.isSupported()) {
-            const hls = new Hls();
-            hlsRef.current = hls;
-            hls.loadSource(hlsUrl);
-            hls.attachMedia(video);
-            hls.once(Hls.Events.MANIFEST_PARSED, () => {
-              video.play().catch(() => { video.muted = true; setIsMuted(true); video.play().catch(() => {}); });
-            });
-          } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = hlsUrl;
-            video.play().catch(() => { video.muted = true; setIsMuted(true); video.play().catch(() => {}); });
-          }
+          // ── Audio-remux path (only audio incompatible) ────────────────────
+          // Server returns /api/video/stream/audio/…  — copies video, AAC audio.
+          // Start ffmpeg at savedPosition so playback begins immediately at the
+          // right spot without buffering from the beginning.
+          audioRemuxBaseUrlRef.current = streamUrl;
+          const startPos = Math.max(0, Math.floor(savedPosition));
+          streamOffsetRef.current = startPos;
+          isSwitchingAudio.current = true; // skip the savedPosition seek in onLoaded
+          const remuxUrl = startPos > 0 ? `${streamUrl}&start=${startPos}` : streamUrl;
+          console.log('[VideoPlayer] audio remux stream', remuxUrl);
+          video.src = remuxUrl;
+          video.load();
+          video.play().catch(() => { video.muted = true; setIsMuted(true); video.play().catch(() => {}); });
           return;
         }
       })
@@ -434,6 +415,23 @@ export function VideoPlayer({
     if (videoRef.current && !videoRef.current.paused) ael.play().catch(() => {});
   }, []);
 
+  // ─── Reload audio-remux video stream at a new position ─────────────────────
+  // Used when seeking in a remux stream (server streams from a new offset).
+
+  const resyncVideo = useCallback((posSeconds: number) => {
+    const baseUrl = audioRemuxBaseUrlRef.current;
+    const video = videoRef.current;
+    if (!baseUrl || !video) return;
+    const startPos = Math.max(0, Math.floor(posSeconds));
+    streamOffsetRef.current = startPos;
+    isSwitchingAudio.current = true; // skip seek in onLoaded
+    const wasPlaying = !video.paused;
+    video.pause();
+    video.src = startPos > 0 ? `${baseUrl}&start=${startPos}` : baseUrl;
+    video.load();
+    if (wasPlaying) video.play().catch(() => {});
+  }, []);
+
   // ─── Controls ──────────────────────────────────────────────────────────────
 
   const togglePlay = () => {
@@ -452,18 +450,27 @@ export function VideoPlayer({
   const handleSeek = useCallback((seconds: number) => {
     const video = videoRef.current;
     if (!video) return;
-    video.currentTime = Math.max(0, seconds - streamOffsetRef.current);
+    if (audioRemuxBaseUrlRef.current) {
+      // Remux stream: reload ffmpeg from the seek position.
+      resyncVideo(seconds);
+    } else {
+      video.currentTime = Math.max(0, seconds - streamOffsetRef.current);
+    }
     setSeek(seconds);
     resyncAudio(seconds);
     resetHideTimer();
-  }, [resyncAudio, resetHideTimer]);
+  }, [resyncAudio, resyncVideo, resetHideTimer]);
 
   const skip = (delta: number) => {
     const video = videoRef.current;
     if (!video) return;
     const realTime = video.currentTime + streamOffsetRef.current;
     const newTime = Math.max(0, Math.min(durationRef.current || Infinity, realTime + delta));
-    video.currentTime = Math.max(0, newTime - streamOffsetRef.current);
+    if (audioRemuxBaseUrlRef.current) {
+      resyncVideo(newTime);
+    } else {
+      video.currentTime = Math.max(0, newTime - streamOffsetRef.current);
+    }
     setSeek(newTime);
     resyncAudio(newTime);
     resetHideTimer();
