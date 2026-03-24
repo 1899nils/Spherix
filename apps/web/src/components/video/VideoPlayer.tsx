@@ -267,6 +267,8 @@ export function VideoPlayer({
             const msg  = (e.target as HTMLAudioElement)?.error?.message;
             console.warn('[VideoPlayer] audio-only failed (code=' + code + ')', msg, e);
             usesSeparateAudio.current = false;
+            // Clear the broken audio ref so onPlay doesn't keep retrying it.
+            audioRef.current = null;
 
             // Unmuting alone won't help for AC3/DTS — the browser can't decode it.
             // Fall back to full HLS transcode (server re-encodes video+audio to AAC).
@@ -419,7 +421,14 @@ export function VideoPlayer({
       }
     };
 
-    const onPlay  = () => { setIsPlaying(true);  resetHideTimer(); audioRef.current?.play().catch(() => {}); };
+    const onPlay  = () => {
+      setIsPlaying(true);
+      resetHideTimer();
+      // Only call play() if the audio element is actually paused — calling
+      // play() on an already-loading element causes the first promise to abort.
+      const ael = audioRef.current;
+      if (ael && ael.paused && usesSeparateAudio.current) ael.play().catch(() => {});
+    };
     const onPause = () => { setIsPlaying(false); setShowControls(true); audioRef.current?.pause(); };
     const onEnded = () => { setIsPlaying(false); setShowControls(true); onCompleteRef.current?.(); };
 
