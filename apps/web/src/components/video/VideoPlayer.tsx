@@ -240,11 +240,10 @@ export function VideoPlayer({
         }
 
         // ── Direct play path ───────────────────────────────────────────────
-        // For AC3/DTS/TrueHD: try a separate <audio> element with an AAC-transcoded
-        // audio-only stream. The <video> is muted but keeps its direct stream — so
-        // video.src is NEVER changed and the picture always appears.
-        // If the audio-only endpoint fails (e.g. ffmpeg not installed), fall back to
-        // full HLS transcode which re-encodes everything.
+        // For AC3/DTS/TrueHD the browser can't decode the audio. Rather than
+        // using a fragile separate <audio> element (which causes AbortErrors due
+        // to double play() calls and streaming timing issues), go directly to HLS
+        // transcoding which re-encodes video+audio and is the proven stable path.
         const defaultTrack = resolvedIdx !== null ? audio[resolvedIdx] : null;
         const codec = defaultTrack?.codec.toLowerCase() ?? '';
         const canPlayMime = CODEC_TO_MIME[codec] ?? '';
@@ -256,52 +255,25 @@ export function VideoPlayer({
           codec, canPlayMime, canPlayResult, browserCanPlay, needsAudioTranscode,
         });
 
-        if (needsAudioTranscode && resolvedIdx !== null) {
-          const ael = new Audio();
-          ael.volume = volume;
-          const audioSrc = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${resolvedIdx}&start=${savedPosition}`;
-          console.log('[VideoPlayer] starting audio-only stream', audioSrc);
-          ael.src = audioSrc;
-          ael.addEventListener('error', (e) => {
-            const code = (e.target as HTMLAudioElement)?.error?.code;
-            const msg  = (e.target as HTMLAudioElement)?.error?.message;
-            console.warn('[VideoPlayer] audio-only failed (code=' + code + ')', msg, e);
-            usesSeparateAudio.current = false;
-            // Clear the broken audio ref so onPlay doesn't keep retrying it.
-            audioRef.current = null;
-
-            // Unmuting alone won't help for AC3/DTS — the browser can't decode it.
-            // Fall back to full HLS transcode (server re-encodes video+audio to AAC).
-            const vid = videoRef.current;
-            if (!vid) return;
-
-            const hlsUrl = `/api/video/stream/hls/${mediaType}/${mediaId}/playlist.m3u8`;
-            vid.muted = false;
-
-            if (Hls.isSupported()) {
-              if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
-              const hls = new Hls();
-              hlsRef.current = hls;
-              hls.loadSource(hlsUrl);
-              hls.attachMedia(vid);
-              hls.once(Hls.Events.MANIFEST_PARSED, () => {
-                vid.currentTime = savedPosition;
-                vid.play().catch(() => {});
-              });
-            } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
-              vid.src = hlsUrl;
-              vid.currentTime = savedPosition;
-              vid.play().catch(() => {});
-            }
-          }, { once: true });
-          ael.play().catch((e) => console.warn('[VideoPlayer] audio play() rejected', e));
-          audioRef.current = ael;
-          usesSeparateAudio.current = true;
-          video.muted = true;
-        } else {
-          console.log('[VideoPlayer] native audio path — video unmuted');
+        if (needsAudioTranscode) {
+          const hlsUrl = `/api/video/stream/hls/${mediaType}/${mediaId}/playlist.m3u8`;
+          console.log('[VideoPlayer] incompatible audio codec — switching to HLS transcode', hlsUrl);
+          if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+          video.pause();
+          if (Hls.isSupported()) {
+            const hls = new Hls();
+            hlsRef.current = hls;
+            hls.loadSource(hlsUrl);
+            hls.attachMedia(video);
+            hls.once(Hls.Events.MANIFEST_PARSED, () => {
+              video.play().catch(() => { video.muted = true; setIsMuted(true); video.play().catch(() => {}); });
+            });
+          } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = hlsUrl;
+            video.play().catch(() => { video.muted = true; setIsMuted(true); video.play().catch(() => {}); });
+          }
+          return;
         }
-        // For native / browser-supported audio, init effect's video.play() handles it.
       })
       .catch((err) => {
         if (err.name === 'AbortError') return;
