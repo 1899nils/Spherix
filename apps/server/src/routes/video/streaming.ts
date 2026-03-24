@@ -469,7 +469,11 @@ router.get('/audio/:type/:id', async (req, res, next) => {
 
     const { spawn } = await import('node:child_process');
     const args = [
-      ...(startSec > 0 ? ['-ss', String(startSec)] : []),
+      // Input seek: fast keyframe seek when a start offset is requested.
+      // -avoid_negative_ts make_zero normalises all output timestamps so the
+      // first packet is always at t=0 — required for the browser to accept
+      // the fragmented MP4 stream.
+      ...(startSec > 0 ? ['-ss', String(startSec), '-avoid_negative_ts', 'make_zero'] : []),
       '-i', filePath,
       '-map', '0:v:0',
       '-map', `0:a:${audioTrack}`,

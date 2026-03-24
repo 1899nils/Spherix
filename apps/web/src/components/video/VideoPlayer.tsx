@@ -242,15 +242,14 @@ export function VideoPlayer({
 
           // ── Audio-remux path (only audio incompatible) ────────────────────
           // Server returns /api/video/stream/audio/…  — copies video, AAC audio.
-          // Start ffmpeg at savedPosition so playback begins immediately at the
-          // right spot without buffering from the beginning.
+          // Always stream from start=0 so timestamps begin at 0 (browser
+          // rejects fragmented MP4 when timestamps start mid-stream).
+          // onLoaded will seek to savedPosition via video.currentTime once
+          // the browser has buffered enough data.
           audioRemuxBaseUrlRef.current = streamUrl;
-          const startPos = Math.max(0, Math.floor(savedPosition));
-          streamOffsetRef.current = startPos;
-          isSwitchingAudio.current = true; // skip the savedPosition seek in onLoaded
-          const remuxUrl = startPos > 0 ? `${streamUrl}&start=${startPos}` : streamUrl;
-          console.log('[VideoPlayer] audio remux stream', remuxUrl);
-          video.src = remuxUrl;
+          streamOffsetRef.current = 0;
+          console.log('[VideoPlayer] audio remux stream (start=0)', streamUrl);
+          video.src = streamUrl;
           video.load();
           video.play().catch(() => { video.muted = true; setIsMuted(true); video.play().catch(() => {}); });
           return;
