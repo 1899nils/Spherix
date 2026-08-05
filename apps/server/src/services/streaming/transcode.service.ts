@@ -42,7 +42,30 @@ export function getTranscodeDirectory(): string {
 }
 
 /**
- * Start a new transcode job for HLS streaming
+ * Find an already pending/processing job for this media, if any.
+ *
+ * Without this, every request for the same media's HLS playlist — a page
+ * reload, or hls.js's own manifest-load retry when the first attempt takes
+ * longer than its client-side timeout — started a brand new ffmpeg job from
+ * scratch instead of reusing the one already in flight. That guarantees the
+ * retry loses the race too: the server's "wait up to 30s for the first
+ * segment" logic (see the /hls/.../playlist.m3u8 route) never gets anywhere
+ * near 30s of actual progress because each retry resets it back to 0, on a
+ * freshly spawned ffmpeg process, while the previous one keeps running
+ * uselessly in the background.
+ */
+function findActiveJobForMedia(mediaId: string): TranscodeJob | undefined {
+  for (const job of activeJobs.values()) {
+    if (job.mediaId === mediaId && (job.status === 'pending' || job.status === 'processing')) {
+      return job;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Start a new transcode job for HLS streaming, reusing an already
+ * in-progress one for the same media if there is one.
  */
 export async function startHlsTranscode(
   mediaId: string,
@@ -51,6 +74,12 @@ export async function startHlsTranscode(
   mediaInfo: MediaInfo,
   clientCaps: ClientCapabilities,
 ): Promise<TranscodeJob> {
+  const existing = findActiveJobForMedia(mediaId);
+  if (existing) {
+    logger.debug(`Reusing in-progress transcode job ${existing.id} for media ${mediaId}`);
+    return existing;
+  }
+
   const jobId = generateJobId(mediaId);
   const outputDir = join(getTranscodeDirectory(), jobId);
 

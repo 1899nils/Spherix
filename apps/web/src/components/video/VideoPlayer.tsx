@@ -281,7 +281,18 @@ export function VideoPlayer({
           // ── HLS transcode path (video/container incompatible) ─────────────
           if (streamUrl.includes('.m3u8')) {
             if (Hls.isSupported()) {
-              const hls = new Hls();
+              const hls = new Hls({
+                // The server can take up to ~30s to hand back the playlist
+                // while it waits for ffmpeg to produce the first HLS
+                // segment (see the /hls/.../playlist.m3u8 route). hls.js's
+                // 10s default manifest-loading timeout was well short of
+                // that, so it would give up and retry before the server
+                // ever got a chance to respond — visible as repeated
+                // NS_BINDING_ABORTED requests for the same playlist URL.
+                manifestLoadingTimeOut: 35000,
+                manifestLoadingMaxRetry: 3,
+                manifestLoadingRetryDelay: 2000,
+              });
               hlsRef.current = hls;
               hls.loadSource(streamUrl);
               hls.attachMedia(video);
