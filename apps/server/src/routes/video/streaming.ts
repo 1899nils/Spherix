@@ -65,8 +65,18 @@ router.get('/info/:type/:id', async (req, res, next) => {
       return;
     }
 
-    // Check direct play compatibility
-    const directPlayCheck = canDirectPlay(probeResult, clientCaps);
+    // Check direct play compatibility. `forceTranscode=1` lets the player
+    // request the transcode path explicitly — used when a browser claimed
+    // (via canPlayType()) that it could decode something, direct play was
+    // attempted, and the video element then reported a real decode error.
+    // canPlayType() is only ever a heuristic, not a guarantee (Firefox in
+    // particular reports "maybe" for HEVC without reliably being able to
+    // decode it), so this reactive fallback is the actual safety net, not
+    // the upfront capability check.
+    const forceTranscode = req.query.forceTranscode === '1';
+    const directPlayCheck = forceTranscode
+      ? { playable: false, reason: 'Forced transcode after a direct-play decode failure' }
+      : canDirectPlay(probeResult, clientCaps);
 
     // Determine optimal stream URL
     let streamUrl: string;

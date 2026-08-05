@@ -191,6 +191,18 @@ export function VideoPlayer({
   // Used by resyncVideo to reload from a new position when seeking.
   const audioRemuxBaseUrlRef = useRef<string | null>(null);
 
+  // Whether the <video> element currently holds a direct-play source (as
+  // opposed to an HLS/audio-remux one) — used to decide whether a decode
+  // error should trigger the transcode fallback below.
+  const isDirectPlayRef = useRef(false);
+  // Only fall back once per media — if the transcoded stream *also* fails
+  // to decode, retrying forever isn't going to help.
+  const hasFallenBackToTranscodeRef = useRef(false);
+  // Holds the latest "(re)fetch /stream/info and load whatever it says"
+  // function from the info-fetch effect below, so the decode-error handler
+  // in a different effect can trigger it with forceTranscode=true.
+  const loadStreamRef = useRef<(opts?: { forceTranscode?: boolean }) => void>(() => {});
+
   // Subtitle overlay
   const subtitleCuesRef = useRef<SubtitleCue[]>([]);
   const currentCueRef = useRef<string | null>(null);
@@ -233,6 +245,7 @@ export function VideoPlayer({
     streamOffsetRef.current = 0;
     usesSeparateAudio.current = false;
     audioRemuxBaseUrlRef.current = null;
+    hasFallenBackToTranscodeRef.current = false;
 
     const controller = new AbortController();
     const playWithMuteFallback = () => {
@@ -243,97 +256,112 @@ export function VideoPlayer({
       });
     };
 
-    fetch(`/api/video/stream/info/${mediaType}/${mediaId}`, {
-      signal: controller.signal,
-      headers: { 'x-client-capabilities': clientCapabilitiesHeader() },
-    })
-      .then((r) => r.json())
-      .then((json) => {
-        if (controller.signal.aborted) return;
-        const data = json?.data;
-        const info = data?.mediaInfo;
-        if (!info) return;
+    // Fetches /stream/info and loads whatever it says to. Called once on
+    // mount, and again with forceTranscode=true if a direct-play attempt
+    // reports a real decode error (see the "Initialize video" effect below)
+    // — canPlayType() (used to decide what capabilities to report to the
+    // server) is only ever a heuristic, not a guarantee.
+    const loadStream = (opts: { forceTranscode?: boolean } = {}) => {
+      const qs = opts.forceTranscode ? '?forceTranscode=1' : '';
+      fetch(`/api/video/stream/info/${mediaType}/${mediaId}${qs}`, {
+        signal: controller.signal,
+        headers: { 'x-client-capabilities': clientCapabilitiesHeader() },
+      })
+        .then((r) => r.json())
+        .then((json) => {
+          if (controller.signal.aborted) return;
+          const data = json?.data;
+          const info = data?.mediaInfo;
+          if (!info) return;
 
-        const audio: AudioTrackInfo[] = info.audio ?? [];
-        const subs: SubtitleTrackInfo[] = (info.subtitles ?? []).filter(
-          (s: SubtitleTrackInfo) => !IMAGE_SUB_CODECS.has(s.codec.toLowerCase()),
-        );
+          const audio: AudioTrackInfo[] = info.audio ?? [];
+          const subs: SubtitleTrackInfo[] = (info.subtitles ?? []).filter(
+            (s: SubtitleTrackInfo) => !IMAGE_SUB_CODECS.has(s.codec.toLowerCase()),
+          );
 
-        setAudioTracks(audio);
-        setSubtitleTracks(subs);
+          setAudioTracks(audio);
+          setSubtitleTracks(subs);
 
-        const defAudioIdx = audio.findIndex((a: AudioTrackInfo) => a.default);
-        const resolvedIdx = defAudioIdx >= 0 ? defAudioIdx : audio.length > 0 ? 0 : null;
-        selectedAudioRef.current = resolvedIdx;
-        setSelectedAudio(resolvedIdx);
-        setSelectedSubtitle(null);
+          const defAudioIdx = audio.findIndex((a: AudioTrackInfo) => a.default);
+          const resolvedIdx = defAudioIdx >= 0 ? defAudioIdx : audio.length > 0 ? 0 : null;
+          selectedAudioRef.current = resolvedIdx;
+          setSelectedAudio(resolvedIdx);
+          setSelectedSubtitle(null);
 
-        const streamUrl: string = data?.streamUrl ?? src;
-        const directPlay: boolean = data?.directPlay ?? true;
+          const streamUrl: string = data?.streamUrl ?? src;
+          const directPlay: boolean = data?.directPlay ?? true;
+          isDirectPlayRef.current = directPlay;
 
-        if (!directPlay) {
-          if (hlsRef.current) {
-            hlsRef.current.destroy();
-            hlsRef.current = null;
-          }
-          video.pause();
-
-          // ── HLS transcode path (video/container incompatible) ─────────────
-          if (streamUrl.includes('.m3u8')) {
-            if (Hls.isSupported()) {
-              const hls = new Hls({
-                // The server can take up to ~30s to hand back the playlist
-                // while it waits for ffmpeg to produce the first HLS
-                // segment (see the /hls/.../playlist.m3u8 route). hls.js's
-                // 10s default manifest-loading timeout was well short of
-                // that, so it would give up and retry before the server
-                // ever got a chance to respond — visible as repeated
-                // NS_BINDING_ABORTED requests for the same playlist URL.
-                manifestLoadingTimeOut: 35000,
-                manifestLoadingMaxRetry: 3,
-                manifestLoadingRetryDelay: 2000,
-              });
-              hlsRef.current = hls;
-              hls.loadSource(streamUrl);
-              hls.attachMedia(video);
-              hls.once(Hls.Events.MANIFEST_PARSED, playWithMuteFallback);
-            } else {
-              video.src = streamUrl;
-              playWithMuteFallback();
+          if (!directPlay) {
+            if (hlsRef.current) {
+              hlsRef.current.destroy();
+              hlsRef.current = null;
             }
+            video.pause();
+
+            // ── HLS transcode path (video/container incompatible) ───────────
+            if (streamUrl.includes('.m3u8')) {
+              if (Hls.isSupported()) {
+                const hls = new Hls({
+                  // The server can take up to ~30s to hand back the
+                  // playlist while it waits for ffmpeg to produce the
+                  // first HLS segment (see the /hls/.../playlist.m3u8
+                  // route). hls.js's 10s default manifest-loading timeout
+                  // was well short of that, so it would give up and retry
+                  // before the server ever got a chance to respond —
+                  // visible as repeated NS_BINDING_ABORTED requests for
+                  // the same playlist URL.
+                  manifestLoadingTimeOut: 35000,
+                  manifestLoadingMaxRetry: 3,
+                  manifestLoadingRetryDelay: 2000,
+                });
+                hlsRef.current = hls;
+                hls.loadSource(streamUrl);
+                hls.attachMedia(video);
+                hls.once(Hls.Events.MANIFEST_PARSED, playWithMuteFallback);
+              } else {
+                video.src = streamUrl;
+                playWithMuteFallback();
+              }
+              return;
+            }
+
+            // ── Audio-remux path (only audio incompatible) ──────────────────
+            // Server returns /api/video/stream/audio/…  — copies video, AAC audio.
+            // Always stream from start=0 so timestamps begin at 0 (browser
+            // rejects fragmented MP4 when timestamps start mid-stream).
+            // onLoaded will seek to savedPosition via video.currentTime once
+            // the browser has buffered enough data.
+            audioRemuxBaseUrlRef.current = streamUrl;
+            streamOffsetRef.current = 0;
+            console.log('[VideoPlayer] audio remux stream (start=0)', streamUrl);
+            video.src = streamUrl;
+            video.load();
+            playWithMuteFallback();
             return;
           }
 
-          // ── Audio-remux path (only audio incompatible) ────────────────────
-          // Server returns /api/video/stream/audio/…  — copies video, AAC audio.
-          // Always stream from start=0 so timestamps begin at 0 (browser
-          // rejects fragmented MP4 when timestamps start mid-stream).
-          // onLoaded will seek to savedPosition via video.currentTime once
-          // the browser has buffered enough data.
-          audioRemuxBaseUrlRef.current = streamUrl;
-          streamOffsetRef.current = 0;
-          console.log('[VideoPlayer] audio remux stream (start=0)', streamUrl);
+          // ── Direct play ────────────────────────────────────────────────────
+          // The <video> element has no `src` until this resolves (see
+          // render), so this is the only thing that ever starts direct
+          // playback — no race with a second effect trying to play a
+          // not-yet-decided source.
           video.src = streamUrl;
           video.load();
           playWithMuteFallback();
-          return;
-        }
+        })
+        .catch((err) => {
+          if (err.name === 'AbortError') return;
+          // Info request failed — fall back to playing `src` directly rather
+          // than leaving the player stuck with no source at all.
+          isDirectPlayRef.current = true;
+          video.src = src;
+          playWithMuteFallback();
+        });
+    };
 
-        // ── Direct play ──────────────────────────────────────────────────────
-        // The <video> element has no `src` until this resolves (see render),
-        // so this is the only thing that ever starts direct playback — no
-        // race with a second effect trying to play a not-yet-decided source.
-        video.src = streamUrl;
-        video.load();
-        playWithMuteFallback();
-      })
-      .catch((err) => {
-        if (err.name === 'AbortError') return;
-        // Info request failed — fall back to playing `src` directly rather
-        // than leaving the player stuck with no source at all.
-        video.src = src;
-        playWithMuteFallback();
-      });
+    loadStreamRef.current = loadStream;
+    loadStream();
 
     return () => {
       controller.abort();
@@ -396,6 +424,28 @@ export function VideoPlayer({
 
     const onError = () => {
       setIsLoading(false);
+
+      // A genuine decode/format failure while attempting direct play means
+      // canPlayType() (used client-side to decide what to report as
+      // supported) was wrong about this browser actually being able to
+      // handle the content — reload through the transcode path instead of
+      // leaving the player stuck on a black/frozen frame. Only for a real
+      // decode failure, not e.g. MEDIA_ERR_ABORTED from our own src/load()
+      // reassignments elsewhere, and only once per media so a transcoded
+      // stream that *also* fails to decode doesn't retry forever.
+      const err = video.error;
+      const isDecodeFailure =
+        !!err &&
+        (err.code === MediaError.MEDIA_ERR_DECODE ||
+          err.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED);
+      if (isDecodeFailure && isDirectPlayRef.current && !hasFallenBackToTranscodeRef.current) {
+        hasFallenBackToTranscodeRef.current = true;
+        console.warn(
+          '[VideoPlayer] Direct play reported a decode error, falling back to transcode',
+          err,
+        );
+        loadStreamRef.current({ forceTranscode: true });
+      }
     };
     video.addEventListener('error', onError);
 
