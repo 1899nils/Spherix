@@ -33,9 +33,15 @@ export function detectClientCapabilities(): DetectedClientCapabilities {
 
   const videoCodecs: string[] = [];
   if (can('video/mp4; codecs="avc1.42E01E"')) videoCodecs.push('h264');
-  if (can('video/mp4; codecs="hev1.1.6.L93.B0"') || can('video/mp4; codecs="hvc1.1.6.L93.B0"')) {
-    videoCodecs.push('hevc');
-  }
+  // Deliberately NOT probing HEVC via canPlayType(): a live repro showed
+  // Firefox report "maybe" for the HEVC MIME/codec string and then fail to
+  // actually decode a real HEVC stream ("blob:... konnte nicht dekodiert
+  // werden", MSE decode error, no network/loading issue at all) — Firefox
+  // doesn't ship HEVC decode support on most platforms regardless of what
+  // canPlayType claims. A false "yes" here means canDirectPlay() lets a
+  // copyVideo=true stream through that then silently fails to render, which
+  // is worse than the cost of an unnecessary transcode on a browser that
+  // genuinely could have played it natively.
   if (can('video/webm; codecs="vp9"')) videoCodecs.push('vp9');
   if (can('video/mp4; codecs="av01.0.05M.08"')) videoCodecs.push('av1');
 
