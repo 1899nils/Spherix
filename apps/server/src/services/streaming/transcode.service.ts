@@ -280,8 +280,19 @@ function buildFfmpegArgs(
     '0', // Keep all segments
     '-hls_segment_filename',
     segmentPattern,
+    // "vod" tells ffmpeg's HLS muxer to buffer the *entire* segment list and
+    // only write playlist.m3u8 once, at the very end of encoding — so the
+    // "wait up to 30s for the playlist to appear" logic in the
+    // /hls/.../playlist.m3u8 route could never succeed for anything but the
+    // shortest clips; a live repro showed a job take ~4 minutes to
+    // "complete" (even in copyVideo fast-path mode) with no playlist file
+    // visible at any point before that. "event" makes ffmpeg write/update
+    // the playlist incrementally as each segment finishes (appending
+    // #EXT-X-ENDLIST once done), which is what "start playback as soon as
+    // a few segments exist" actually needs — hls.js handles EVENT
+    // playlists the same as VOD ones once ENDLIST appears.
     '-hls_playlist_type',
-    'vod',
+    'event',
     '-start_number',
     '0',
   );
