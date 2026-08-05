@@ -241,7 +241,16 @@ function buildFfmpegArgs(
   } else {
     // Video codec settings
     const videoCodec = settings.videoCodec === 'hevc' ? 'libx265' : 'libx264';
-    const preset = 'veryfast'; // Balance between speed and quality
+    // 'veryfast' was too slow for real-world hardware to produce even the
+    // *first* HLS segment within the client/server wait windows: a live
+    // log showed a copyVideo=false (real re-encode) job for one movie still
+    // running well past the point where a *different*, later-started
+    // copyVideo=true job for another movie had already finished
+    // completely. 'ultrafast' trades some compression efficiency (bigger
+    // segments at the same bitrate target) for substantially faster
+    // encoding — the right tradeoff here, since a stream nobody can start
+    // watching is worse than a slightly larger one.
+    const preset = 'ultrafast';
     args.push(
       '-c:v',
       videoCodec,
