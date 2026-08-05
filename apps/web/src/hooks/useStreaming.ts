@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import type { MediaStreamInfo, TranscodeStatus } from '@musicserver/shared';
 
 interface UseStreamingOptions {
@@ -91,50 +91,7 @@ export function useStreaming({ type, id, enabled = true }: UseStreamingOptions):
   };
 }
 
-/**
- * Hook for HLS.js integration (for transcoded streams)
- */
-export function useHlsPlayer() {
-  const [hlsInstance] = useState<any>(null);
-  const [isSupported, setIsSupported] = useState(false);
-
-  useEffect(() => {
-    // Check native HLS support (Safari)
-    const video = document.createElement('video');
-    const nativeHls = video.canPlayType('application/vnd.apple.mpegurl') !== '';
-    
-    if (nativeHls) {
-      setIsSupported(true);
-      return;
-    }
-
-    // Check for hls.js support
-    // Note: In a real implementation, you'd import hls.js here
-    // import Hls from 'hls.js';
-    // setIsSupported(Hls.isSupported());
-    setIsSupported(true); // Assume supported for now
-  }, []);
-
-  const attachMedia = useCallback((videoElement: HTMLVideoElement, src: string) => {
-    // Native HLS (Safari)
-    const video = videoElement;
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = src;
-      return () => { video.src = ''; };
-    }
-
-    // hls.js for other browsers
-    // In real implementation:
-    // const hls = new Hls();
-    // hls.loadSource(src);
-    // hls.attachMedia(video);
-    // setHlsInstance(hls);
-    // return () => hls.destroy();
-    
-    // For now, fallback to native
-    video.src = src;
-    return () => { video.src = ''; };
-  }, []);
-
-  return { isSupported, attachMedia, hlsInstance };
-}
+// Note: an earlier `useHlsPlayer` stub lived here — it never got past
+// "in a real implementation, you'd import hls.js here" placeholder comments,
+// was never wired up anywhere, and is superseded by the real hls.js
+// integration in components/video/VideoPlayer.tsx. Removed as dead code.

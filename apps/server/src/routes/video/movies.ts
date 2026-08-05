@@ -10,6 +10,7 @@ import {
 import { fetchMdblistRatings } from '../../services/metadata/mdblist.service.js';
 import { fetchTraktRatings } from '../../services/metadata/trakt.service.js';
 import { logger } from '../../config/logger.js';
+import { getTmdbApiKeyForRequest } from './tmdbApiKey.js';
 
 const router: Router = Router();
 
@@ -196,16 +197,6 @@ router.get('/:id/stream', async (req, res, next) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // Manual TMDb Linking (Admin only)
 // ═══════════════════════════════════════════════════════════════════════════════
-
-async function getTmdbApiKeyForRequest(req: any): Promise<string | null> {
-  const userId = req.session?.userId || (await prisma.user.findFirst({ select: { id: true } }))?.id;
-  if (!userId) return null;
-  const settings = await prisma.userSettings.findUnique({
-    where: { userId },
-    select: { tmdbApiKey: true },
-  });
-  return settings?.tmdbApiKey ?? null;
-}
 
 async function getAdminRatingKeys(): Promise<{ mdblistApiKey: string | null; traktClientId: string | null }> {
   const settings = await prisma.userSettings.findFirst({

@@ -4,14 +4,9 @@ import { scrobbleQueue } from '../services/lastfm/scrobble.queue.js';
 import { prisma } from '../config/database.js';
 import { logger } from '../config/logger.js';
 import { getServerSettings } from './settings.js';
+import { getUserId } from '../utils/getUserId.js';
 
 const router: Router = Router();
-
-async function getUserId(req: any) {
-  if (req.session?.userId) return req.session.userId;
-  const user = await prisma.user.findFirst({ select: { id: true } });
-  return user?.id || null;
-}
 
 /** Get Last.fm connection status and config */
 router.get('/status', async (req, res) => {

@@ -1,14 +1,9 @@
 import { Router } from 'express';
 import { prisma } from '../config/database.js';
 import { searchRecording } from '../services/musicbrainz/musicbrainz.service.js';
+import { getUserId } from '../utils/getUserId.js';
 
 const router: Router = Router();
-
-async function getUserId(req: any): Promise<string | null> {
-  if (req.session?.userId) return req.session.userId as string;
-  const user = await prisma.user.findFirst({ select: { id: true } });
-  return user?.id ?? null;
-}
 
 /** Try to enrich a watchlist item with MusicBrainz metadata (cover, album, duration) */
 async function enrichWithMusicBrainz(artist: string, title: string) {

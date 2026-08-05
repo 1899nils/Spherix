@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import type { Request } from 'express';
 import { logger } from '../../config/logger.js';
 
 const execFileAsync = promisify(execFile);
@@ -293,11 +294,12 @@ export function getDefaultClientCapabilities(): ClientCapabilities {
 /**
  * Parse client capabilities from request headers or query params
  */
-export function parseClientCapabilities(req: any): ClientCapabilities {
+export function parseClientCapabilities(req: Request): ClientCapabilities {
   const defaults = getDefaultClientCapabilities();
 
   // Check for custom header
-  const capsHeader = req.headers['x-client-capabilities'];
+  const capsHeaderRaw = req.headers['x-client-capabilities'];
+  const capsHeader = Array.isArray(capsHeaderRaw) ? capsHeaderRaw[0] : capsHeaderRaw;
   if (capsHeader) {
     try {
       const parsed = JSON.parse(capsHeader);

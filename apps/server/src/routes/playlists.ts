@@ -1,16 +1,9 @@
 import { Router } from 'express';
 import { prisma } from '../config/database.js';
 import type { Playlist, PlaylistWithTracks } from '@musicserver/shared';
+import { getUserId } from '../utils/getUserId.js';
 
 const router: Router = Router();
-
-/** Helper to get current user ID (or a fallback for dev) */
-async function getUserId(req: any) {
-  if (req.session?.userId) return req.session.userId;
-  // Fallback to first user in DB if no session
-  const user = await prisma.user.findFirst({ select: { id: true } });
-  return user?.id || null;
-}
 
 /** List all playlists for current user, sorted by pinned then lastPlayedAt */
 router.get('/', async (req, res, next) => {

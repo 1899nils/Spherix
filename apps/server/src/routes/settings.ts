@@ -1,8 +1,9 @@
-import { Router, type Request } from 'express';
+import { Router } from 'express';
 import { redis } from '../config/redis.js';
 import { prisma } from '../config/database.js';
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
+import { getUserId } from '../utils/getUserId.js';
 
 const router: Router = Router();
 
@@ -30,14 +31,6 @@ export async function getServerSettings(): Promise<ServerSettings> {
   return {
     publicUrl: env.publicUrl,
   };
-}
-
-/** Resolve user ID from session or fall back to first user in DB. */
-async function getUserId(req: Request): Promise<string | null> {
-  const sessionUserId = (req.session as unknown as Record<string, unknown>)?.userId as string | undefined;
-  if (sessionUserId) return sessionUserId;
-  const user = await prisma.user.findFirst({ select: { id: true } });
-  return user?.id ?? null;
 }
 
 /** Read media paths from UserSettings, falling back to env defaults. */

@@ -8,14 +8,9 @@ import {
   getMovieDetails,
   getSeriesDetails,
 } from '../services/metadata/tmdb.service.js';
+import { getUserId } from '../utils/getUserId.js';
 
 const router: Router = Router();
-
-async function getUserId(req: any) {
-  if (req.session?.userId) return req.session.userId;
-  const user = await prisma.user.findFirst({ select: { id: true } });
-  return user?.id || null;
-}
 
 async function getTmdbApiKey(userId: string | null): Promise<string | null> {
   if (!userId) return null;

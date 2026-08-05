@@ -1,13 +1,8 @@
 import { Router } from 'express';
 import { prisma } from '../config/database.js';
+import { getUserId } from '../utils/getUserId.js';
 
 const router: Router = Router();
-
-async function getUserId(req: any): Promise<string | null> {
-  if (req.session?.userId) return req.session.userId as string;
-  const user = await prisma.user.findFirst({ select: { id: true } });
-  return user?.id ?? null;
-}
 
 function shuffleArray<T>(arr: T[]): T[] {
   const a = [...arr];

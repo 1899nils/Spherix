@@ -360,7 +360,7 @@ export async function checkTranscodeNeeded(
   mediaId: string,
   mediaType: 'movie' | 'episode',
   filePath: string,
-  clientCaps: any
+  clientCaps: ClientCapabilities
 ): Promise<{
   directPlay: boolean;
   transcodeJob?: TranscodeJob;

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerStore, type RadioStation, type PodcastEpisodePlayerItem } from '@/stores/playerStore';
+import type { TrackWithRelations } from '@musicserver/shared';
 import { useAudiobookPlayerStore } from '@/stores/audiobookPlayerStore';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { useSectionStore } from '@/stores/sectionStore';
@@ -213,7 +214,7 @@ function MusicPlayerBar() {
       return 'Live Radio';
     }
     if (isPodcast) return (currentTrack as PodcastEpisodePlayerItem).podcastTitle;
-    return (currentTrack as any).artist?.name || 'Unknown';
+    return (currentTrack as TrackWithRelations).artist?.name || 'Unknown';
   };
 
   const getTrackTitle = () => {

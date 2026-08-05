@@ -1,17 +1,10 @@
-import { Router, type Request } from 'express';
+import { Router } from 'express';
 import { prisma } from '../config/database.js';
 import { logger } from '../config/logger.js';
 import { getQuotaStatus } from '../services/metadata/providers/youtube.provider.js';
+import { getUserId } from '../utils/getUserId.js';
 
 const router: Router = Router();
-
-/** Resolve user ID from session or fall back to first user in DB. */
-async function getUserId(req: Request): Promise<string | null> {
-  const sessionUserId = (req.session as unknown as Record<string, unknown>)?.userId as string | undefined;
-  if (sessionUserId) return sessionUserId;
-  const user = await prisma.user.findFirst({ select: { id: true } });
-  return user?.id ?? null;
-}
 
 /**
  * GET /api/youtube/status
