@@ -215,12 +215,33 @@ export function VideoPlayer({
   // ─── Info fetch: detect codec and choose stream path ───────────────────────
 
   useEffect(() => {
-    if (!mediaType || !mediaId) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    // No mediaType/mediaId means the caller isn't using the direct-play/
+    // transcode negotiation at all — just play whatever `src` was given.
+    if (!mediaType || !mediaId) {
+      video.src = src;
+      video.play().catch(() => {
+        video.muted = true;
+        setIsMuted(true);
+        video.play().catch(() => {});
+      });
+      return;
+    }
+
     streamOffsetRef.current = 0;
     usesSeparateAudio.current = false;
     audioRemuxBaseUrlRef.current = null;
 
     const controller = new AbortController();
+    const playWithMuteFallback = () => {
+      video.play().catch(() => {
+        video.muted = true;
+        setIsMuted(true);
+        video.play().catch(() => {});
+      });
+    };
 
     fetch(`/api/video/stream/info/${mediaType}/${mediaId}`, {
       signal: controller.signal,
@@ -247,9 +268,6 @@ export function VideoPlayer({
         setSelectedAudio(resolvedIdx);
         setSelectedSubtitle(null);
 
-        const video = videoRef.current;
-        if (!video) return;
-
         const streamUrl: string = data?.streamUrl ?? src;
         const directPlay: boolean = data?.directPlay ?? true;
 
@@ -267,20 +285,10 @@ export function VideoPlayer({
               hlsRef.current = hls;
               hls.loadSource(streamUrl);
               hls.attachMedia(video);
-              hls.once(Hls.Events.MANIFEST_PARSED, () => {
-                video.play().catch(() => {
-                  video.muted = true;
-                  setIsMuted(true);
-                  video.play().catch(() => {});
-                });
-              });
+              hls.once(Hls.Events.MANIFEST_PARSED, playWithMuteFallback);
             } else {
               video.src = streamUrl;
-              video.play().catch(() => {
-                video.muted = true;
-                setIsMuted(true);
-                video.play().catch(() => {});
-              });
+              playWithMuteFallback();
             }
             return;
           }
@@ -296,17 +304,24 @@ export function VideoPlayer({
           console.log('[VideoPlayer] audio remux stream (start=0)', streamUrl);
           video.src = streamUrl;
           video.load();
-          video.play().catch(() => {
-            video.muted = true;
-            setIsMuted(true);
-            video.play().catch(() => {});
-          });
+          playWithMuteFallback();
           return;
         }
+
+        // ── Direct play ──────────────────────────────────────────────────────
+        // The <video> element has no `src` until this resolves (see render),
+        // so this is the only thing that ever starts direct playback — no
+        // race with a second effect trying to play a not-yet-decided source.
+        video.src = streamUrl;
+        video.load();
+        playWithMuteFallback();
       })
       .catch((err) => {
         if (err.name === 'AbortError') return;
-        videoRef.current?.play().catch(() => {});
+        // Info request failed — fall back to playing `src` directly rather
+        // than leaving the player stuck with no source at all.
+        video.src = src;
+        playWithMuteFallback();
       });
 
     return () => {
@@ -376,12 +391,14 @@ export function VideoPlayer({
     video.muted = false;
     video.volume = volume;
 
-    video.play().catch((err: Error) => {
-      if (err?.name === 'AbortError') return;
-      video.muted = true;
-      setIsMuted(true);
-      video.play().catch(() => {});
-    });
+    // Playback itself is started by the info-fetch effect above, once it
+    // knows the actual URL to use (direct play, HLS, or audio-remux) — not
+    // here. This effect used to call video.play() unconditionally on mount,
+    // racing against that effect's later video.src/load() reassignment:
+    // whichever `play()` promise was still pending when the source got
+    // swapped rejected with "The fetching process for the media resource
+    // was aborted by the user agent at the user's request", and the video
+    // would visibly stall/restart once the correct source finally loaded.
 
     return () => {
       video.removeEventListener('loadedmetadata', onLoaded);
@@ -501,7 +518,7 @@ export function VideoPlayer({
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) {
-      video.play();
+      video.play().catch(() => {});
       audioRef.current?.play().catch(() => {});
     } else {
       video.pause();
@@ -734,9 +751,14 @@ export function VideoPlayer({
     >
       {/* Video */}
       <div className="flex-1 relative" onClick={togglePlay}>
+        {/*
+          No `src` here on purpose — it's assigned imperatively once the
+          info-fetch effect knows the right URL (direct play / HLS /
+          audio-remux). Setting it here too used to race that effect's
+          later video.src reassignment.
+        */}
         <video
           ref={videoRef}
-          src={src}
           poster={posterUrl ?? undefined}
           className="w-full h-full object-contain"
           playsInline
