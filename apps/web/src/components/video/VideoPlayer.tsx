@@ -268,7 +268,6 @@ export function VideoPlayer({
         audioRef.current = null;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaType, mediaId, src]);
 
   // ─── Clear subtitle overlay when disabled ──────────────────────────────────

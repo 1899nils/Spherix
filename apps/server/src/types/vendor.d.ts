@@ -17,7 +17,7 @@ declare module 'node-id3' {
     [key: string]: unknown;
   }
 
-  interface WriteTags extends Tags {}
+  type WriteTags = Tags;
 
   function read(file: string | Buffer): Tags;
   function write(tags: WriteTags, file: string): boolean;

@@ -449,10 +449,17 @@ router.post('/:id/refresh', async (req, res, next) => {
 
     const { channel, episodes } = await fetchAndParseFeed(podcast.feedUrl);
 
-    // Upsert episodes by guid
+    // Upsert episodes by guid, tracking how many are genuinely new (upsert's
+    // return value doesn't tell created vs. updated apart, so check first).
     let newCount = 0;
     for (const ep of episodes) {
-      const result = await prisma.podcastEpisode.upsert({
+      const existing = await prisma.podcastEpisode.findUnique({
+        where: { podcastId_guid: { podcastId: podcast.id, guid: ep.guid } },
+        select: { id: true },
+      });
+      if (!existing) newCount++;
+
+      await prisma.podcastEpisode.upsert({
         where: { podcastId_guid: { podcastId: podcast.id, guid: ep.guid } },
         update: {
           title: ep.title,
@@ -475,7 +482,6 @@ router.post('/:id/refresh', async (req, res, next) => {
           publishedAt: ep.publishedAt,
         },
       });
-      if (result) newCount++;
     }
 
     await prisma.podcast.update({
@@ -489,7 +495,9 @@ router.post('/:id/refresh', async (req, res, next) => {
       },
     });
 
-    res.json({ data: { episodeCount: episodes.length, message: 'Feed aktualisiert' } });
+    res.json({
+      data: { episodeCount: episodes.length, newEpisodeCount: newCount, message: 'Feed aktualisiert' },
+    });
   } catch (error) {
     next(error);
   }

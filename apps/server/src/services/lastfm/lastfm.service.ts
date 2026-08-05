@@ -59,7 +59,7 @@ async function lastfmRequest<T>(
   const finalParams: any = { ...allParams, api_sig: sig };
 
   const url = new URL(LASTFM_ROOT);
-  let fetchOptions: RequestInit = { method: httpMethod };
+  const fetchOptions: RequestInit = { method: httpMethod };
 
   if (httpMethod === 'GET') {
     Object.keys(finalParams).forEach(key => url.searchParams.append(key, finalParams[key]));

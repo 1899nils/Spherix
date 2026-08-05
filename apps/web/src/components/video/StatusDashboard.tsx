@@ -173,28 +173,34 @@ function getStateColor(state: string): string {
 
 export function StatusDashboard() {
   const currentUser = useAuthStore((s) => s.user);
+  const isAdmin = !!currentUser?.isAdmin;
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('activity');
 
-  // Only admins see the dashboard
-  if (!currentUser?.isAdmin) return null;
-
+  // Hooks must run unconditionally on every render (Rules of Hooks) — gating
+  // them behind an early `return null` for non-admins meant this component
+  // called a different number of hooks depending on auth state, which is
+  // exactly the "Rendered fewer/more hooks than expected" crash waiting to
+  // happen once `currentUser` resolves from "not loaded yet" to "admin".
+  // Instead, keep every hook call unconditional and just disable the actual
+  // network requests via `enabled`, then gate rendering at the very end.
   const { data: sessionsData } = useQuery({
     queryKey: ['streaming-sessions'],
     queryFn: () => api.get<SessionsResponse>('/video/sessions'),
+    enabled: isAdmin,
     refetchInterval: 5000,
   });
 
   const { data: historyData } = useQuery({
     queryKey: ['streaming-history'],
     queryFn: () => api.get<HistoryResponse>('/video/sessions/history'),
-    enabled: activeTab === 'history',
+    enabled: isAdmin && activeTab === 'history',
   });
 
   const { data: systemData } = useQuery({
     queryKey: ['streaming-system'],
     queryFn: () => api.get<DetailedSystemStats>('/video/sessions/system'),
-    enabled: activeTab === 'system',
+    enabled: isAdmin && activeTab === 'system',
     refetchInterval: 2000,
   });
 
@@ -327,6 +333,10 @@ export function StatusDashboard() {
       return () => document.removeEventListener('click', handleClick);
     }
   }, [isOpen]);
+
+  // Only admins see the dashboard. Checked last, after every hook above has
+  // already run — see the comment near the top of the component.
+  if (!isAdmin) return null;
 
   return (
     <div className="status-dashboard relative">

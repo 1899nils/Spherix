@@ -398,7 +398,6 @@ router.get('/audio-only/:type/:id', async (req, res, next) => {
 
     const ffmpeg = spawn('ffmpeg', args);
     let headersSentByUs = false;
-    let bytesWritten = 0;
 
     ffmpeg.stdout.on('data', (chunk: Buffer) => {
       if (!headersSentByUs) {
@@ -406,7 +405,6 @@ router.get('/audio-only/:type/:id', async (req, res, next) => {
         res.setHeader('Cache-Control', 'no-cache');
         headersSentByUs = true;
       }
-      bytesWritten += chunk.length;
       res.write(chunk);
     });
 

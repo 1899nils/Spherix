@@ -113,7 +113,7 @@ function startTranscodingProcess(job: TranscodeJob, mediaInfo: MediaInfo, copyVi
   job.process = ffmpeg;
 
   // Parse progress from stderr
-  let duration = mediaInfo.duration || 0;
+  const duration = mediaInfo.duration || 0;
   
   ffmpeg.stderr.on('data', (data) => {
     const output = data.toString();

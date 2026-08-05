@@ -65,7 +65,7 @@ export function useStreaming({ type, id, enabled = true }: UseStreamingOptions):
         if (res.data.status === 'completed') {
           setActualStreamUrl(streamInfo.streamUrl);
         }
-      } catch (err) {
+      } catch (_err) {
         // Job might not exist yet, that's ok
       }
     };

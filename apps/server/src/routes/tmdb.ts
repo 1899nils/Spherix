@@ -47,6 +47,7 @@ router.get('/status', async (req, res) => {
       },
     });
   } catch (error) {
+    logger.error('Failed to load TMDb status', { error });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -75,6 +76,7 @@ router.post('/config', async (req, res) => {
     logger.info('TMDb API key saved');
     res.json({ data: { success: true } });
   } catch (error) {
+    logger.error('Failed to save TMDb API key', { error });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
