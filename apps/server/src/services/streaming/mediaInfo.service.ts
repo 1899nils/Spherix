@@ -233,7 +233,7 @@ export function getTranscodeSettings(
   };
 }
 
-function normalizeVideoCodec(codec: string): string {
+export function normalizeVideoCodec(codec: string): string {
   const map: Record<string, string> = {
     h264: 'h264',
     libx264: 'h264',
@@ -249,7 +249,7 @@ function normalizeVideoCodec(codec: string): string {
   return map[codec.toLowerCase()] || codec.toLowerCase();
 }
 
-function normalizeAudioCodec(codec: string): string {
+export function normalizeAudioCodec(codec: string): string {
   const map: Record<string, string> = {
     aac: 'aac',
     libfdk_aac: 'aac',

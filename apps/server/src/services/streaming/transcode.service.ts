@@ -5,7 +5,11 @@ import { join } from 'node:path';
 import { env } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
 import type { MediaInfo, ClientCapabilities } from './mediaInfo.service.js';
-import { getTranscodeSettings } from './mediaInfo.service.js';
+import {
+  getTranscodeSettings,
+  normalizeAudioCodec,
+  normalizeVideoCodec,
+} from './mediaInfo.service.js';
 
 export interface TranscodeJob {
   id: string;
@@ -18,7 +22,33 @@ export interface TranscodeJob {
   progress: number;
   error?: string;
   process?: ReturnType<typeof spawn>;
+  /** Segment container: fMP4 is required for HEVC to play back via hls.js. */
+  segmentType: 'ts' | 'fmp4';
+  /** Highest segment index the client has actually asked for so far. */
+  lastRequestedSegment: number;
+  /** How far into the media ffmpeg has encoded, in seconds (from its stderr). */
+  encodedSeconds: number;
+  /** True while the ffmpeg process is SIGSTOPped by the throttler. */
+  throttled: boolean;
 }
+
+/** Segment length in seconds. Also the unit the throttler reasons in. */
+const SEGMENT_DURATION = 4;
+
+/**
+ * How far ahead of the client's playback position ffmpeg is allowed to get
+ * before it's paused, and the point at which it's resumed.
+ *
+ * Without this ffmpeg races to convert the *entire* file at maximum speed
+ * the moment playback starts: a 2-hour movie pegs every core (and, on a
+ * NAS with spinning disks, saturates disk I/O) for minutes, which is
+ * exactly what makes playback stutter while it runs. Plex and Jellyfin
+ * both throttle for the same reason — there's no point having 90 minutes
+ * of a movie transcoded ahead of a viewer who is 30 seconds in, and if
+ * they stop watching it was all wasted anyway.
+ */
+const THROTTLE_AHEAD_SECONDS = 180;
+const THROTTLE_RESUME_SECONDS = 120;
 
 // In-memory store for active transcode jobs
 const activeJobs = new Map<string, TranscodeJob>();
@@ -70,6 +100,54 @@ export function findJobForMedia(mediaId: string): TranscodeJob | undefined {
   return best;
 }
 
+export interface TranscodePlan {
+  /** Copy the video stream untouched instead of re-encoding it. */
+  copyVideo: boolean;
+  /** Copy the audio stream untouched instead of re-encoding it. */
+  copyAudio: boolean;
+  /** Segment container to emit. */
+  segmentType: 'ts' | 'fmp4';
+}
+
+/** Audio codecs MPEG-TS can actually carry. fMP4 is far more permissive. */
+const TS_AUDIO_CODECS = new Set(['aac', 'mp3', 'ac3', 'eac3']);
+
+/**
+ * Decide how to package a stream for a given client: what can be copied
+ * (remuxed) untouched, and which segment container to use.
+ *
+ * Copying rather than re-encoding is the whole ballgame for CPU usage —
+ * it's the difference between "repackage the file", which is nearly free,
+ * and "decode and re-encode every frame", which is what actually pegs a
+ * CPU. The common browser case is an MKV whose *streams* are perfectly
+ * playable and only the container isn't; that should cost almost nothing,
+ * and is what other media servers call "direct stream".
+ */
+export function planTranscode(mediaInfo: MediaInfo, clientCaps: ClientCapabilities): TranscodePlan {
+  const srcVideoCodec = mediaInfo.video ? normalizeVideoCodec(mediaInfo.video.codec) : '';
+  const copyVideo = !!srcVideoCodec && clientCaps.videoCodecs.includes(srcVideoCodec);
+
+  // HEVC has to be delivered in fMP4 segments — hls.js can't play HEVC out
+  // of MPEG-TS, so copying an HEVC stream into .ts segments produces a
+  // playlist the browser loads and then can't decode. This (not the codec
+  // itself) is the likeliest reason a copied HEVC stream previously failed
+  // with a bare "could not be decoded" in a browser that does support HEVC.
+  const segmentType: 'ts' | 'fmp4' = copyVideo && srcVideoCodec === 'hevc' ? 'fmp4' : 'ts';
+
+  const defaultAudio = mediaInfo.audio.find((a) => a.default) || mediaInfo.audio[0];
+  const srcAudioCodec = defaultAudio ? normalizeAudioCodec(defaultAudio.codec) : '';
+  // Audio used to be re-encoded to AAC unconditionally, even when the
+  // source track was already AAC/MP3/Opus/FLAC and the client had just told
+  // us it can decode it. The container still constrains this though: FLAC
+  // and Opus, for instance, have no standard MPEG-TS mapping, so copying
+  // one of those into .ts segments would just make ffmpeg fail.
+  const audioFitsContainer = segmentType === 'fmp4' || TS_AUDIO_CODECS.has(srcAudioCodec);
+  const copyAudio =
+    !!srcAudioCodec && clientCaps.audioCodecs.includes(srcAudioCodec) && audioFitsContainer;
+
+  return { copyVideo, copyAudio, segmentType };
+}
+
 /**
  * Start a new transcode job for HLS streaming, reusing an already
  * in-progress one for the same media if there is one.
@@ -103,24 +181,7 @@ export async function startHlsTranscode(
   }
 
   const settings = getTranscodeSettings(mediaInfo, clientCaps);
-
-  // If the video codec is already browser-compatible, copy it instead of
-  // re-encoding. This is much faster and avoids quality loss.
-  // Typical case: MKV with h264 video + DTS audio → copy video, transcode audio only.
-  const VIDEO_COMPAT: Record<string, string> = {
-    h264: 'h264',
-    avc: 'h264',
-    avc1: 'h264',
-    hevc: 'hevc',
-    h265: 'hevc',
-    vp9: 'vp9',
-    vp09: 'vp9',
-    av1: 'av1',
-    av01: 'av1',
-  };
-  const srcVideoCodec = VIDEO_COMPAT[mediaInfo.video?.codec?.toLowerCase() ?? ''] ?? '';
-  const copyVideo =
-    !!mediaInfo.video && !!srcVideoCodec && clientCaps.videoCodecs.includes(srcVideoCodec);
+  const { copyVideo, copyAudio, segmentType } = planTranscode(mediaInfo, clientCaps);
 
   const job: TranscodeJob = {
     id: jobId,
@@ -131,15 +192,20 @@ export async function startHlsTranscode(
     settings,
     status: 'pending',
     progress: 0,
+    segmentType,
+    lastRequestedSegment: 0,
+    encodedSeconds: 0,
+    throttled: false,
   };
 
   activeJobs.set(jobId, job);
 
   // Start transcoding in background
-  startTranscodingProcess(job, mediaInfo, copyVideo);
+  startTranscodingProcess(job, mediaInfo, copyVideo, copyAudio);
 
   logger.info(
-    `Started HLS transcode job ${jobId} for ${mediaType} ${mediaId} (copyVideo=${copyVideo})`,
+    `Started HLS transcode job ${jobId} for ${mediaType} ${mediaId} ` +
+      `(copyVideo=${copyVideo}, copyAudio=${copyAudio}, segments=${segmentType})`,
   );
   return job;
 }
@@ -147,11 +213,17 @@ export async function startHlsTranscode(
 /**
  * Start FFmpeg process for HLS transcoding
  */
-function startTranscodingProcess(job: TranscodeJob, mediaInfo: MediaInfo, copyVideo = false): void {
+function startTranscodingProcess(
+  job: TranscodeJob,
+  mediaInfo: MediaInfo,
+  copyVideo = false,
+  copyAudio = false,
+): void {
   job.status = 'processing';
 
   const outputPath = join(job.outputDir, 'playlist.m3u8');
-  const segmentPath = join(job.outputDir, 'segment_%03d.ts');
+  const ext = job.segmentType === 'fmp4' ? 'm4s' : 'ts';
+  const segmentPath = join(job.outputDir, `segment_%03d.${ext}`);
 
   // Build FFmpeg arguments
   const args = buildFfmpegArgs(
@@ -161,6 +233,8 @@ function startTranscodingProcess(job: TranscodeJob, mediaInfo: MediaInfo, copyVi
     job.settings,
     mediaInfo,
     copyVideo,
+    copyAudio,
+    job.segmentType,
   );
 
   logger.debug(`FFmpeg command: ffmpeg ${args.join(' ')}`);
@@ -179,12 +253,16 @@ function startTranscodingProcess(job: TranscodeJob, mediaInfo: MediaInfo, copyVi
 
     // Parse progress: time=00:05:23.45
     const timeMatch = output.match(/time=(\d{2}):(\d{2}):(\d{2}\.\d{2})/);
-    if (timeMatch && duration > 0) {
+    if (timeMatch) {
       const hours = parseInt(timeMatch[1]);
       const minutes = parseInt(timeMatch[2]);
       const seconds = parseFloat(timeMatch[3]);
       const currentTime = hours * 3600 + minutes * 60 + seconds;
-      job.progress = Math.min(100, Math.round((currentTime / duration) * 100));
+      job.encodedSeconds = currentTime;
+      if (duration > 0) {
+        job.progress = Math.min(100, Math.round((currentTime / duration) * 100));
+      }
+      maybeThrottle(job);
     }
 
     // Check for errors
@@ -217,6 +295,45 @@ function startTranscodingProcess(job: TranscodeJob, mediaInfo: MediaInfo, copyVi
 }
 
 /**
+ * Pause ffmpeg (SIGSTOP) once it's far enough ahead of what the client has
+ * actually played. Resumed by noteSegmentRequested() as the client catches
+ * up. See THROTTLE_AHEAD_SECONDS for why this exists.
+ */
+function maybeThrottle(job: TranscodeJob): void {
+  if (job.throttled || !job.process) return;
+  const clientPos = job.lastRequestedSegment * SEGMENT_DURATION;
+  if (job.encodedSeconds - clientPos > THROTTLE_AHEAD_SECONDS) {
+    job.process.kill('SIGSTOP');
+    job.throttled = true;
+    logger.debug(
+      `Throttled transcode ${job.id} (encoded ${Math.round(job.encodedSeconds)}s, ` +
+        `client at ${Math.round(clientPos)}s)`,
+    );
+  }
+}
+
+/**
+ * Record that the client requested a given segment, resuming a throttled
+ * ffmpeg process when playback has caught up far enough to need more.
+ */
+export function noteSegmentRequested(mediaId: string, segmentNum: number): void {
+  const job = findJobForMedia(mediaId);
+  if (!job) return;
+
+  if (segmentNum > job.lastRequestedSegment) {
+    job.lastRequestedSegment = segmentNum;
+  }
+
+  if (!job.throttled || !job.process) return;
+  const clientPos = job.lastRequestedSegment * SEGMENT_DURATION;
+  if (job.encodedSeconds - clientPos < THROTTLE_RESUME_SECONDS) {
+    job.process.kill('SIGCONT');
+    job.throttled = false;
+    logger.debug(`Resumed transcode ${job.id} (client at ${Math.round(clientPos)}s)`);
+  }
+}
+
+/**
  * Build FFmpeg arguments for HLS transcoding
  */
 function buildFfmpegArgs(
@@ -226,6 +343,8 @@ function buildFfmpegArgs(
   settings: ReturnType<typeof getTranscodeSettings>,
   mediaInfo: MediaInfo,
   copyVideo = false,
+  copyAudio = false,
+  segmentType: 'ts' | 'fmp4' = 'ts',
 ): string[] {
   const args: string[] = [
     '-hide_banner',
@@ -276,14 +395,24 @@ function buildFfmpegArgs(
   }
 
   // Audio codec settings
-  args.push(
-    '-c:a',
-    settings.audioCodec === 'opus' ? 'libopus' : 'aac',
-    '-b:a',
-    settings.audioBitrate.toString(),
-    '-ar',
-    '48000',
-  );
+  if (copyAudio) {
+    // Source audio is something the client already decodes — remux it
+    // untouched instead of burning CPU re-encoding it to the same thing.
+    args.push('-c:a', 'copy');
+  } else {
+    args.push(
+      '-c:a',
+      settings.audioCodec === 'opus' ? 'libopus' : 'aac',
+      '-b:a',
+      settings.audioBitrate.toString(),
+      '-ar',
+      '48000',
+    );
+  }
+
+  // Map video first, then the chosen audio stream — players (and hls.js in
+  // particular) expect video to be stream 0 of the output.
+  args.push('-map', '0:v:0');
 
   // Select best audio stream (prefer default, then highest quality)
   if (mediaInfo.audio.length > 0) {
@@ -291,15 +420,12 @@ function buildFfmpegArgs(
     args.push('-map', `0:a:${mediaInfo.audio.indexOf(defaultAudio)}`);
   }
 
-  // Map video
-  args.push('-map', '0:v:0');
-
   // HLS settings
   args.push(
     '-f',
     'hls',
     '-hls_time',
-    '6', // 6 second segments
+    String(SEGMENT_DURATION),
     '-hls_list_size',
     '0', // Keep all segments
     '-hls_segment_filename',
@@ -320,6 +446,12 @@ function buildFfmpegArgs(
     '-start_number',
     '0',
   );
+
+  if (segmentType === 'fmp4') {
+    // hls.js cannot play HEVC out of MPEG-TS; fMP4 (CMAF) segments are the
+    // only way to deliver a copied HEVC stream it will actually decode.
+    args.push('-hls_segment_type', 'fmp4', '-hls_fmp4_init_filename', 'init.mp4');
+  }
 
   // Output
   args.push(output);
@@ -350,6 +482,8 @@ export function cancelTranscodeJob(jobId: string): boolean {
   const job = activeJobs.get(jobId);
   if (!job || !job.process) return false;
 
+  // Continue a throttled process first — SIGTERM isn't acted on while stopped.
+  if (job.throttled) job.process.kill('SIGCONT');
   job.process.kill('SIGTERM');
   job.status = 'failed';
   job.error = 'Cancelled by user';
@@ -447,6 +581,10 @@ export function stopTranscodeCleanupScheduler(): void {
 export function killAllActiveTranscodes(): void {
   for (const job of activeJobs.values()) {
     if (job.process) {
+      // A SIGSTOPped process doesn't act on SIGTERM until it's running
+      // again, so throttled jobs must be continued first or they'd survive
+      // as orphans.
+      if (job.throttled) job.process.kill('SIGCONT');
       job.process.kill('SIGTERM');
     }
   }

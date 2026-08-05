@@ -10,11 +10,13 @@ import { join } from 'node:path';
 let dataDir: string;
 let cleanupOldTranscodes: (typeof import('./transcode.service.js'))['cleanupOldTranscodes'];
 let getTranscodeDirectory: (typeof import('./transcode.service.js'))['getTranscodeDirectory'];
+let planTranscode: (typeof import('./transcode.service.js'))['planTranscode'];
 
 beforeAll(async () => {
   dataDir = mkdtempSync(join(tmpdir(), 'spherix-transcode-test-'));
   process.env.DATA_DIR = dataDir;
-  ({ cleanupOldTranscodes, getTranscodeDirectory } = await import('./transcode.service.js'));
+  ({ cleanupOldTranscodes, getTranscodeDirectory, planTranscode } =
+    await import('./transcode.service.js'));
 });
 
 afterAll(() => {
@@ -51,5 +53,87 @@ describe('cleanupOldTranscodes', () => {
     await cleanupOldTranscodes(24);
 
     expect(existsSync(unrelated)).toBe(true);
+  });
+});
+
+// ─── planTranscode ────────────────────────────────────────────────────────────
+
+type MediaInfo = Parameters<(typeof import('./transcode.service.js'))['planTranscode']>[0];
+type ClientCaps = Parameters<(typeof import('./transcode.service.js'))['planTranscode']>[1];
+
+function media(videoCodec: string | null, audioCodec: string): MediaInfo {
+  return {
+    container: 'matroska',
+    duration: 3600,
+    size: 1000,
+    video: videoCodec
+      ? {
+          codec: videoCodec,
+          codecLongName: videoCodec,
+          width: 1920,
+          height: 1080,
+          fps: 24,
+          bitrate: 5_000_000,
+          pixFmt: 'yuv420p',
+        }
+      : null,
+    audio: [
+      {
+        index: 1,
+        codec: audioCodec,
+        codecLongName: audioCodec,
+        channels: 2,
+        sampleRate: 48000,
+        bitrate: 128000,
+        default: true,
+      },
+    ],
+    subtitles: [],
+  };
+}
+
+function caps(videoCodecs: string[], audioCodecs: string[]): ClientCaps {
+  return {
+    videoCodecs,
+    audioCodecs,
+    maxResolution: { width: 3840, height: 2160 },
+    maxBitrate: 40_000_000,
+    containerFormats: ['mp4'],
+  };
+}
+
+describe('planTranscode', () => {
+  it('copies both streams when the client supports them (the cheap remux case)', () => {
+    const plan = planTranscode(media('h264', 'aac'), caps(['h264'], ['aac']));
+    expect(plan).toEqual({ copyVideo: true, copyAudio: true, segmentType: 'ts' });
+  });
+
+  it('re-encodes only the audio when just the audio codec is unsupported', () => {
+    const plan = planTranscode(media('h264', 'dts'), caps(['h264'], ['aac']));
+    expect(plan.copyVideo).toBe(true);
+    expect(plan.copyAudio).toBe(false);
+  });
+
+  it('re-encodes the video when the client cannot decode it', () => {
+    const plan = planTranscode(media('hevc', 'aac'), caps(['h264'], ['aac']));
+    expect(plan.copyVideo).toBe(false);
+  });
+
+  it('uses fMP4 segments when copying HEVC, since hls.js cannot play HEVC in MPEG-TS', () => {
+    const plan = planTranscode(media('hevc', 'aac'), caps(['h264', 'hevc'], ['aac']));
+    expect(plan.copyVideo).toBe(true);
+    expect(plan.segmentType).toBe('fmp4');
+  });
+
+  it('does not copy FLAC audio into MPEG-TS, which cannot carry it', () => {
+    const plan = planTranscode(media('h264', 'flac'), caps(['h264'], ['flac']));
+    expect(plan.segmentType).toBe('ts');
+    expect(plan.copyAudio).toBe(false);
+  });
+
+  it('does copy FLAC audio when the segments are fMP4', () => {
+    const plan = planTranscode(media('hevc', 'flac'), caps(['hevc'], ['flac']));
+    expect(plan.segmentType).toBe('fmp4');
+    expect(plan.copyAudio).toBe(true);
   });
 });

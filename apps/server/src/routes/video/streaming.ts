@@ -10,6 +10,7 @@ import {
   getTranscodeJob,
   getHlsPlaylistPath,
   findJobForMedia,
+  noteSegmentRequested,
 } from '../../services/streaming/transcode.service.js';
 import { join } from 'node:path';
 import { createReadStream, existsSync } from 'node:fs';
@@ -241,16 +242,27 @@ router.get('/hls/:type/:id/playlist.m3u8', async (req, res, next) => {
 });
 
 /**
- * GET /api/video/stream/hls/:type/:id/segment_:num.ts
- * Serve HLS segments
+ * GET /api/video/stream/hls/:type/:id/:file
+ * Serve HLS media files: MPEG-TS segments, fMP4 segments, and the fMP4
+ * init segment. (HEVC has to be delivered as fMP4, so a single route
+ * covering all three is simpler than one per container.)
  */
-router.get('/hls/:type/:id/segment_:num.ts', async (req, res, next) => {
+const HLS_FILE_RE = /^(?:init\.mp4|segment_\d+\.(?:ts|m4s))$/;
+
+router.get('/hls/:type/:id/:file', async (req, res, next) => {
   try {
-    const { id, num } = req.params;
+    const { id, file } = req.params;
+
+    // Strict allowlist — `file` lands in a filesystem path below, so it must
+    // never be able to escape the job's output directory.
+    if (!HLS_FILE_RE.test(file)) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
 
     // Look the job up directly instead of re-scanning the whole transcode
     // directory with readdir() on every single segment request (this used
-    // to happen once per ~6s segment for the entire playback session).
+    // to happen once per segment for the entire playback session).
     const job = findJobForMedia(id);
 
     if (!job) {
@@ -258,14 +270,21 @@ router.get('/hls/:type/:id/segment_:num.ts', async (req, res, next) => {
       return;
     }
 
-    const segmentFile = join(job.outputDir, `segment_${num}.ts`);
+    // Let the throttler know how far playback has actually got, so ffmpeg
+    // can be paused/resumed instead of racing to convert the whole file.
+    const segMatch = /^segment_(\d+)\./.exec(file);
+    if (segMatch) {
+      noteSegmentRequested(id, parseInt(segMatch[1], 10));
+    }
+
+    const segmentFile = join(job.outputDir, file);
 
     if (!existsSync(segmentFile)) {
       res.status(404).json({ error: 'Segment not found' });
       return;
     }
 
-    res.setHeader('Content-Type', 'video/mp2t');
+    res.setHeader('Content-Type', file.endsWith('.ts') ? 'video/mp2t' : 'video/mp4');
     res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache segments forever
     createReadStream(segmentFile).pipe(res);
   } catch (error) {
