@@ -9,7 +9,7 @@ import {
   checkTranscodeNeeded,
   getTranscodeJob,
   getHlsPlaylistPath,
-  getTranscodeDirectory,
+  findJobForMedia,
 } from '../../services/streaming/transcode.service.js';
 import { join } from 'node:path';
 import { createReadStream, existsSync } from 'node:fs';
@@ -238,20 +238,17 @@ router.get('/hls/:type/:id/segment_:num.ts', async (req, res, next) => {
   try {
     const { id, num } = req.params;
 
-    // Find active transcode job for this media
-    // In production, you'd want a better way to track this
-    const { readdir } = await import('node:fs/promises');
+    // Look the job up directly instead of re-scanning the whole transcode
+    // directory with readdir() on every single segment request (this used
+    // to happen once per ~6s segment for the entire playback session).
+    const job = findJobForMedia(id);
 
-    const transcodeDir = getTranscodeDirectory();
-    const dirs = await readdir(transcodeDir);
-    const jobDir = dirs.find((d) => d.startsWith(`transcode_${id}_`));
-
-    if (!jobDir) {
+    if (!job) {
       res.status(404).json({ error: 'Transcode job not found' });
       return;
     }
 
-    const segmentFile = join(transcodeDir, jobDir, `segment_${num}.ts`);
+    const segmentFile = join(job.outputDir, `segment_${num}.ts`);
 
     if (!existsSync(segmentFile)) {
       res.status(404).json({ error: 'Segment not found' });

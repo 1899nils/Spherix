@@ -42,25 +42,32 @@ export function getTranscodeDirectory(): string {
 }
 
 /**
- * Find an already pending/processing job for this media, if any.
+ * Find the most recent transcode job for this media regardless of status
+ * (including already-completed ones), keyed off the timestamp embedded in
+ * the job ID (`transcode_<mediaId>_<Date.now()>`).
  *
- * Without this, every request for the same media's HLS playlist — a page
- * reload, or hls.js's own manifest-load retry when the first attempt takes
- * longer than its client-side timeout — started a brand new ffmpeg job from
- * scratch instead of reusing the one already in flight. That guarantees the
- * retry loses the race too: the server's "wait up to 30s for the first
- * segment" logic (see the /hls/.../playlist.m3u8 route) never gets anywhere
- * near 30s of actual progress because each retry resets it back to 0, on a
- * freshly spawned ffmpeg process, while the previous one keeps running
- * uselessly in the background.
+ * Used by the segment-serving route, which previously re-derived the job's
+ * output directory on every single segment request by scanning the entire
+ * transcode directory for a name starting with `transcode_<mediaId>_`
+ * (`readdir()` + `Array.find()`, once per ~6-second segment for the whole
+ * playback session). That's needlessly slow — worse as more old job
+ * directories accumulate — and, if more than one directory happened to
+ * match the prefix (e.g. a previous, not-yet-cleaned-up run for the same
+ * media), ambiguous about which one is actually current. Looking the job
+ * up directly by mediaId is both faster and unambiguous.
  */
-function findActiveJobForMedia(mediaId: string): TranscodeJob | undefined {
+export function findJobForMedia(mediaId: string): TranscodeJob | undefined {
+  let best: TranscodeJob | undefined;
+  let bestTime = -1;
   for (const job of activeJobs.values()) {
-    if (job.mediaId === mediaId && (job.status === 'pending' || job.status === 'processing')) {
-      return job;
+    if (job.mediaId !== mediaId) continue;
+    const time = parseInt(job.id.split('_').pop() || '0', 10);
+    if (time > bestTime) {
+      bestTime = time;
+      best = job;
     }
   }
-  return undefined;
+  return best;
 }
 
 /**
@@ -74,9 +81,17 @@ export async function startHlsTranscode(
   mediaInfo: MediaInfo,
   clientCaps: ClientCapabilities,
 ): Promise<TranscodeJob> {
-  const existing = findActiveJobForMedia(mediaId);
-  if (existing) {
-    logger.debug(`Reusing in-progress transcode job ${existing.id} for media ${mediaId}`);
+  // Reuse an already pending/processing/completed job for this media rather
+  // than always starting a fresh ffmpeg process — covers both the retry
+  // scenario above and a plain page reload after the transcode already
+  // finished (which otherwise re-transcoded the whole thing from scratch
+  // for no reason). Only a 'failed' job is not reused — that should retry
+  // clean.
+  const existing = findJobForMedia(mediaId);
+  if (existing && existing.status !== 'failed') {
+    logger.debug(
+      `Reusing existing transcode job ${existing.id} (status=${existing.status}) for media ${mediaId}`,
+    );
     return existing;
   }
 
