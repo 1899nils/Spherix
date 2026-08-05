@@ -26,18 +26,26 @@ export interface TranscodeJob {
   segmentType: 'ts' | 'fmp4';
   /** Highest segment index the client has actually asked for so far. */
   lastRequestedSegment: number;
+  /** Number of segments ffmpeg has finished writing (parsed from its stderr). */
+  producedSegments: number;
   /** How far into the media ffmpeg has encoded, in seconds (from its stderr). */
   encodedSeconds: number;
   /** True while the ffmpeg process is SIGSTOPped by the throttler. */
   throttled: boolean;
 }
 
-/** Segment length in seconds. Also the unit the throttler reasons in. */
+/**
+ * Target segment length passed to ffmpeg. Note this is only a *target*:
+ * when copying a video stream ffmpeg can only cut on the source's existing
+ * keyframes, so real segments are often noticeably longer (a stream copy of
+ * a typical rip yields ~10s segments from a 4s request). The throttler below
+ * therefore counts segments rather than assuming their duration.
+ */
 const SEGMENT_DURATION = 4;
 
 /**
- * How far ahead of the client's playback position ffmpeg is allowed to get
- * before it's paused, and the point at which it's resumed.
+ * How many segments ahead of the client ffmpeg may get before it's paused,
+ * and the point at which it's resumed.
  *
  * Without this ffmpeg races to convert the *entire* file at maximum speed
  * the moment playback starts: a 2-hour movie pegs every core (and, on a
@@ -46,9 +54,15 @@ const SEGMENT_DURATION = 4;
  * both throttle for the same reason — there's no point having 90 minutes
  * of a movie transcoded ahead of a viewer who is 30 seconds in, and if
  * they stop watching it was all wasted anyway.
+ *
+ * This is deliberately expressed in segments, not seconds: segment length
+ * varies (see SEGMENT_DURATION), and a seconds-based rule that assumed 4s
+ * segments would badly under-estimate how far the client had actually got
+ * on a stream-copy job — leaving ffmpeg paused while playback ran into the
+ * end of the buffer, i.e. causing the very stutter it's meant to prevent.
  */
-const THROTTLE_AHEAD_SECONDS = 180;
-const THROTTLE_RESUME_SECONDS = 120;
+const THROTTLE_LEAD_SEGMENTS = 40;
+const THROTTLE_RESUME_SEGMENTS = 25;
 
 // In-memory store for active transcode jobs
 const activeJobs = new Map<string, TranscodeJob>();
@@ -194,6 +208,7 @@ export async function startHlsTranscode(
     progress: 0,
     segmentType,
     lastRequestedSegment: 0,
+    producedSegments: 0,
     encodedSeconds: 0,
     throttled: false,
   };
@@ -262,8 +277,19 @@ function startTranscodingProcess(
       if (duration > 0) {
         job.progress = Math.min(100, Math.round((currentTime / duration) * 100));
       }
-      maybeThrottle(job);
     }
+
+    // Track finished segments from the muxer's own "Opening ... for writing"
+    // lines. Counting these is what lets the throttler reason in segments
+    // rather than assuming a fixed segment duration.
+    let segMatch: RegExpExecArray | null;
+    const segRe = /segment_(\d+)\.(?:ts|m4s)' for writing/g;
+    while ((segMatch = segRe.exec(output)) !== null) {
+      // ffmpeg logs this when it *opens* a segment, so everything before it
+      // is complete.
+      job.producedSegments = Math.max(job.producedSegments, parseInt(segMatch[1], 10));
+    }
+    maybeThrottle(job);
 
     // Check for errors
     if (output.includes('Error') || output.includes('error')) {
@@ -301,13 +327,12 @@ function startTranscodingProcess(
  */
 function maybeThrottle(job: TranscodeJob): void {
   if (job.throttled || !job.process) return;
-  const clientPos = job.lastRequestedSegment * SEGMENT_DURATION;
-  if (job.encodedSeconds - clientPos > THROTTLE_AHEAD_SECONDS) {
+  if (job.producedSegments - job.lastRequestedSegment > THROTTLE_LEAD_SEGMENTS) {
     job.process.kill('SIGSTOP');
     job.throttled = true;
     logger.debug(
-      `Throttled transcode ${job.id} (encoded ${Math.round(job.encodedSeconds)}s, ` +
-        `client at ${Math.round(clientPos)}s)`,
+      `Throttled transcode ${job.id} (produced ${job.producedSegments} segments, ` +
+        `client at ${job.lastRequestedSegment})`,
     );
   }
 }
@@ -325,11 +350,10 @@ export function noteSegmentRequested(mediaId: string, segmentNum: number): void 
   }
 
   if (!job.throttled || !job.process) return;
-  const clientPos = job.lastRequestedSegment * SEGMENT_DURATION;
-  if (job.encodedSeconds - clientPos < THROTTLE_RESUME_SECONDS) {
+  if (job.producedSegments - job.lastRequestedSegment < THROTTLE_RESUME_SEGMENTS) {
     job.process.kill('SIGCONT');
     job.throttled = false;
-    logger.debug(`Resumed transcode ${job.id} (client at ${Math.round(clientPos)}s)`);
+    logger.debug(`Resumed transcode ${job.id} (client at segment ${job.lastRequestedSegment})`);
   }
 }
 
@@ -349,49 +373,79 @@ function buildFfmpegArgs(
   const args: string[] = [
     '-hide_banner',
     '-y', // Overwrite output files
+    // MKV rips routinely carry missing or non-monotonic timestamps that a
+    // stream copy would otherwise pass straight through into the HLS
+    // segments, where they show up as stutter or desync. Regenerate
+    // presentation timestamps and normalise them to start at zero.
+    '-fflags',
+    '+genpts',
     '-i',
     input,
+    '-avoid_negative_ts',
+    'make_zero',
+    // Never let subtitle streams into the HLS output: text subtitles have
+    // no place in a TS/fMP4 media segment (they're served separately by
+    // the /subtitle route) and image-based ones make ffmpeg fail outright.
+    '-sn',
+    // Big remuxes can outrun the muxer's default queue and abort with
+    // "Too many packets buffered for output stream".
+    '-max_muxing_queue_size',
+    '1024',
   ];
 
   if (copyVideo) {
     // Video is already browser-compatible — copy the stream directly.
     // Avoids re-encoding entirely: faster start, no quality loss.
     args.push('-c:v', 'copy');
+    if (segmentType === 'fmp4') {
+      // fMP4 needs an explicit sample-entry tag for HEVC; without it some
+      // players (and hls.js's codec sniffing) don't recognise the track.
+      args.push('-tag:v', 'hvc1');
+    }
   } else {
-    // Video codec settings
-    const videoCodec = settings.videoCodec === 'hevc' ? 'libx265' : 'libx264';
-    // 'veryfast' was too slow for real-world hardware to produce even the
-    // *first* HLS segment within the client/server wait windows: a live
-    // log showed a copyVideo=false (real re-encode) job for one movie still
-    // running well past the point where a *different*, later-started
-    // copyVideo=true job for another movie had already finished
-    // completely. 'ultrafast' trades some compression efficiency (bigger
-    // segments at the same bitrate target) for substantially faster
-    // encoding — the right tradeoff here, since a stream nobody can start
-    // watching is worse than a slightly larger one.
-    const preset = 'ultrafast';
+    // Always libx264 — see getTranscodeSettings() for why the target is
+    // fixed to H.264 rather than following the client's decode ability.
+    const preset = 'veryfast';
     args.push(
       '-c:v',
-      videoCodec,
+      'libx264',
       '-preset',
       preset,
-      '-b:v',
-      settings.videoBitrate.toString(),
+      // CRF with a bitrate ceiling rather than a hard target bitrate: the
+      // encoder only spends bits where the picture needs them, which is
+      // both faster and better looking than forcing a constant rate.
+      '-crf',
+      '23',
       '-maxrate',
-      Math.round(settings.videoBitrate * 1.5).toString(),
+      settings.videoBitrate.toString(),
       '-bufsize',
       Math.round(settings.videoBitrate * 2).toString(),
-      '-s',
-      `${settings.maxResolution.width}x${settings.maxResolution.height}`,
+      '-profile:v',
+      'high',
       '-pix_fmt',
       'yuv420p', // For browser compatibility
-      '-g',
-      '48', // GOP size for HLS
-      '-keyint_min',
-      '48',
+      // Keyframe every segment so HLS can cut cleanly on segment
+      // boundaries — without this ffmpeg has to wait for the source's own
+      // keyframes, producing irregular segments that stutter on playback.
+      '-force_key_frames',
+      `expr:gte(t,n_forced*${SEGMENT_DURATION})`,
       '-sc_threshold',
       '0',
     );
+
+    // Only scale when the source is actually larger than the client's
+    // ceiling. The previous unconditional `-s WxH` re-scaled every single
+    // frame even when the source already fit — pure wasted CPU, and it
+    // ignored aspect ratio, since maxResolution is just a bounding box.
+    const srcW = mediaInfo.video?.width ?? 0;
+    const srcH = mediaInfo.video?.height ?? 0;
+    const maxW = settings.maxResolution.width;
+    const maxH = settings.maxResolution.height;
+    if (srcW > maxW || srcH > maxH) {
+      // -2 keeps the aspect ratio and rounds to an even dimension, which
+      // yuv420p requires.
+      args.push('-vf', `scale='min(${maxW},iw)':-2`);
+    }
   }
 
   // Audio codec settings

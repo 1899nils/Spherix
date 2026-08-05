@@ -29,41 +29,61 @@ export function detectClientCapabilities(): DetectedClientCapabilities {
   if (cached) return cached;
 
   const video = document.createElement('video');
-  const can = (type: string) => video.canPlayType(type) !== '';
+
+  /**
+   * Probe a codec the way it will actually be delivered.
+   *
+   * Anything the server decides isn't direct-playable is delivered as HLS
+   * through hls.js, which feeds the browser via Media Source Extensions —
+   * and MSE codec support is NOT the same set as `<video src>` support.
+   * Firefox on Windows, for instance, can decode HEVC in a plain file but
+   * does not support it through MSE, so `canPlayType()` says yes while the
+   * stream we'd actually send it fails to decode. Asking
+   * `MediaSource.isTypeSupported()` asks the question we actually care
+   * about; canPlayType() is only the fallback when MSE isn't available at
+   * all (in which case we couldn't use hls.js anyway).
+   */
+  const can = (type: string) => {
+    if (typeof MediaSource !== 'undefined' && typeof MediaSource.isTypeSupported === 'function') {
+      return MediaSource.isTypeSupported(type);
+    }
+    return video.canPlayType(type) !== '';
+  };
 
   const videoCodecs: string[] = [];
   if (can('video/mp4; codecs="avc1.42E01E"')) videoCodecs.push('h264');
-  // canPlayType() is only a heuristic, not a guarantee — a live repro showed
-  // Firefox report "maybe" for the HEVC MIME/codec string and then fail to
-  // actually decode a real HEVC stream ("blob:... konnte nicht dekodiert
-  // werden", an MSE decode error, no network/loading issue at all). We still
-  // report it here (rather than never claiming HEVC support at all) because
-  // VideoPlayer now reacts to a genuine decode failure by reloading through
-  // the transcode path — see its `error` event handling. That gives fast
-  // direct play a chance on browsers where it truly works, while still
-  // recovering automatically where canPlayType() lied.
   if (can('video/mp4; codecs="hev1.1.6.L93.B0"') || can('video/mp4; codecs="hvc1.1.6.L93.B0"')) {
     videoCodecs.push('hevc');
   }
-  if (can('video/webm; codecs="vp9"')) videoCodecs.push('vp9');
+  if (can('video/webm; codecs="vp9"') || can('video/mp4; codecs="vp09.00.10.08"')) {
+    videoCodecs.push('vp9');
+  }
   if (can('video/mp4; codecs="av01.0.05M.08"')) videoCodecs.push('av1');
 
   const audioCodecs: string[] = [];
   if (can('audio/mp4; codecs="mp4a.40.2"')) audioCodecs.push('aac');
-  if (can('audio/mpeg')) audioCodecs.push('mp3');
-  if (can('audio/webm; codecs="opus"') || can('audio/ogg; codecs="opus"')) {
+  if (can('audio/mpeg') || can('audio/mp4; codecs="mp4a.69"')) audioCodecs.push('mp3');
+  if (can('audio/webm; codecs="opus"') || can('audio/mp4; codecs="opus"')) {
     audioCodecs.push('opus');
   }
-  if (can('audio/flac') || can('audio/x-flac')) audioCodecs.push('flac');
+  if (can('audio/mp4; codecs="flac"') || can('audio/flac')) audioCodecs.push('flac');
   if (can('audio/mp4; codecs="ac-3"')) audioCodecs.push('ac3');
   if (can('audio/mp4; codecs="ec-3"')) audioCodecs.push('eac3');
 
+  // Containers govern *direct play* — serving the original file straight to
+  // the <video> element — so these are probed with canPlayType() rather
+  // than through MSE, which never accepts a container like Matroska at all.
+  const canDirect = (type: string) => video.canPlayType(type) !== '';
+
   const containerFormats: string[] = ['mp4', 'm4v'];
-  if (can('video/webm')) containerFormats.push('webm');
-  if (can('video/x-matroska') || can('video/x-matroska; codecs="avc1.42E01E, mp4a.40.2"')) {
+  if (canDirect('video/webm')) containerFormats.push('webm');
+  if (
+    canDirect('video/x-matroska') ||
+    canDirect('video/x-matroska; codecs="avc1.42E01E, mp4a.40.2"')
+  ) {
     containerFormats.push('mkv', 'matroska');
   }
-  if (can('video/quicktime')) containerFormats.push('mov');
+  if (canDirect('video/quicktime')) containerFormats.push('mov');
 
   cached = { videoCodecs, audioCodecs, containerFormats };
   return cached;

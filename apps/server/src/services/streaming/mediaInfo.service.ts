@@ -194,8 +194,17 @@ export function getTranscodeSettings(
   videoBitrate: number;
   audioBitrate: number;
 } {
-  // Use HEVC if client supports it, otherwise H.264
-  const videoCodec = clientCaps.videoCodecs.includes('hevc') ? 'hevc' : 'h264';
+  // Always re-encode to H.264. This only applies when we've already decided
+  // the source video has to be re-encoded at all — and at that point the
+  // goal is "produce watchable output as fast as possible", which means
+  // libx264. Picking HEVC here just because the client can *decode* HEVC
+  // meant encoding with libx265, which is dramatically slower than libx264
+  // at equivalent presets: a live repro had such a job still running long
+  // after a later-started stream-copy job for a different movie had
+  // finished entirely, so the first segment never arrived in time and
+  // playback never started. H.264 is also universally supported, so this
+  // never costs compatibility.
+  const videoCodec = 'h264';
 
   // Use Opus for webm, AAC for mp4
   const audioCodec = 'aac';

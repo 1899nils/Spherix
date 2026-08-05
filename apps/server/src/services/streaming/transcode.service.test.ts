@@ -137,3 +137,16 @@ describe('planTranscode', () => {
     expect(plan.copyAudio).toBe(true);
   });
 });
+
+describe('getTranscodeSettings', () => {
+  it('always re-encodes to H.264, even for a client that can decode HEVC', async () => {
+    // Regression guard: this used to pick HEVC (and therefore libx265)
+    // whenever the *client* could decode HEVC, which made re-encodes so slow
+    // that the first HLS segment never arrived and playback never started.
+    // The encoder target is about how fast we can produce output, not about
+    // what the client could theoretically play.
+    const { getTranscodeSettings } = await import('./mediaInfo.service.js');
+    const settings = getTranscodeSettings(media('hevc', 'aac'), caps(['h264', 'hevc'], ['aac']));
+    expect(settings.videoCodec).toBe('h264');
+  });
+});
