@@ -1,6 +1,7 @@
 {
   "name": "musicserver",
   "private": true,
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev:server": "pnpm --filter @musicserver/server dev",
     "dev:web": "pnpm --filter @musicserver/web dev",
