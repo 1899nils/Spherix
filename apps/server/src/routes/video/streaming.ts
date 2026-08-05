@@ -75,18 +75,29 @@ router.get('/info/:type/:id', async (req, res, next) => {
       // Direct play URL
       streamUrl =
         type === 'movie' ? `/api/video/movies/${id}/stream` : `/api/video/episodes/${id}/stream`;
-    } else if (directPlayCheck.reason?.toLowerCase().includes('audio')) {
-      // Only audio codec is incompatible (video is fine).
-      // Use the audio-remux endpoint: copies video, transcodes audio → AAC.
-      // Much faster than HLS; no manifest wait; client plays it as a normal <video>.
-      const defaultAudioIdx = probeResult.audio.findIndex((a) => a.default);
-      const trackIdx = defaultAudioIdx >= 0 ? defaultAudioIdx : 0;
-      streamUrl = `/api/video/stream/audio/${type}/${id}?track=${trackIdx}`;
     } else {
-      // Video codec or container is incompatible — full HLS transcode needed.
-      // hls.js will request this playlist URL itself and doesn't forward the
-      // X-Client-Capabilities header, so the same detected capabilities are
-      // embedded as a query param — see parseClientCapabilities() for why.
+      // Not directly playable — HLS transcode needed, whether it's just the
+      // audio codec or the video/container that's incompatible.
+      //
+      // This used to special-case "only audio is incompatible" into a
+      // separate /stream/audio/... endpoint that piped raw ffmpeg fMP4
+      // output straight into `video.src` (no manifest, faster start). In
+      // practice that's an unreliable way to get video into a browser:
+      // Firefox in particular would report loadedmetadata (duration/
+      // dimensions known) and then just render a frozen black frame,
+      // because a fragmented-MP4-via-progressive-download stream without
+      // a proper moov box is a much less battle-tested path than HLS.
+      //
+      // startHlsTranscode() already copies the video stream untouched
+      // when the client-reported video codec is compatible (see
+      // `copyVideo` there) and only transcodes audio in that case — so
+      // routing this through HLS instead reuses that same fast path
+      // without the fragile direct-pipe machinery.
+      //
+      // hls.js will request this playlist URL itself and doesn't forward
+      // the X-Client-Capabilities header, so the same detected
+      // capabilities are embedded as a query param — see
+      // parseClientCapabilities() for why.
       const capsParam = encodeURIComponent(JSON.stringify(clientCaps));
       streamUrl = `/api/video/stream/hls/${type}/${id}/playlist.m3u8?caps=${capsParam}`;
     }
