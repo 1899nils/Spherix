@@ -64,6 +64,7 @@ function ScanCard({
   onPathSave,
   isPending,
   isSuccess,
+  error,
   onScan,
 }: {
   icon: React.ReactNode;
@@ -72,6 +73,7 @@ function ScanCard({
   onPathSave: (newPath: string) => Promise<unknown>;
   isPending: boolean;
   isSuccess: boolean;
+  error?: string | null;
   onScan: () => void;
 }) {
   const [localPath, setLocalPath] = useState(path);
@@ -142,7 +144,12 @@ function ScanCard({
       {/* Scan action */}
       <div className="flex items-center justify-between pt-1 border-t border-white/5">
         <div>
-          {isSuccess && (
+          {error && (
+            <p className="text-xs text-red-400 flex items-center gap-1">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" /> Scan fehlgeschlagen: {error}
+            </p>
+          )}
+          {!error && isSuccess && (
             <p className="text-xs text-green-400 flex items-center gap-1">
               <CheckCircle2 className="h-3.5 w-3.5" /> Scan gestartet
             </p>
@@ -1053,6 +1060,7 @@ export function Settings() {
                 onPathSave={(p) => saveSettings.mutateAsync({ musicPath: p })}
                 isPending={scanMusic.isPending}
                 isSuccess={scanMusic.isSuccess}
+                error={scanMusic.error?.message}
                 onScan={() => scanMusic.mutate()}
               />
             </section>
@@ -1311,6 +1319,7 @@ export function Settings() {
                 onPathSave={(p) => saveSettings.mutateAsync({ videoPath: p })}
                 isPending={scanVideo.isPending}
                 isSuccess={scanVideo.isSuccess}
+                error={scanVideo.error?.message}
                 onScan={() => scanVideo.mutate()}
               />
             </section>
@@ -1332,6 +1341,7 @@ export function Settings() {
                 onPathSave={(p) => saveSettings.mutateAsync({ audiobookPath: p })}
                 isPending={scanAudiobooks.isPending}
                 isSuccess={scanAudiobooks.isSuccess}
+                error={scanAudiobooks.error?.message}
                 onScan={() => scanAudiobooks.mutate()}
               />
             </section>

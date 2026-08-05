@@ -89,6 +89,21 @@ export function VideoScanButton() {
         )}
       </Button>
 
+      {/* Trigger failed (e.g. permission denied, network error) — shown until the next attempt */}
+      {scanMutation.isError && !isScanning && (
+        <div className="absolute right-0 top-full mt-2 w-72 bg-red-950/90 backdrop-blur-xl border border-red-500/30 rounded-lg shadow-xl p-3 z-50">
+          <div className="flex items-start gap-2 text-xs text-red-300">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>
+              Scan konnte nicht gestartet werden:{' '}
+              {scanMutation.error instanceof Error
+                ? scanMutation.error.message
+                : 'Unbekannter Fehler'}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Details Dropdown */}
       {showDetails && isScanning && progress && (
         <div className="absolute right-0 top-full mt-2 w-80 bg-black/90 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl p-4 z-50">
