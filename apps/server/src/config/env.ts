@@ -30,6 +30,16 @@ export const env = {
   lastfmApiSecret: process.env.LASTFM_API_SECRET || '',
   omdbApiKey: process.env.OMDB_API_KEY || '',
   publicUrl: process.env.PUBLIC_URL || '',
+  /**
+   * Extra origins (comma-separated) allowed to make credentialed cross-origin
+   * requests, on top of `publicUrl` and the local dev servers. Needed e.g. when
+   * the frontend is reachable under a different hostname than PUBLIC_URL
+   * (custom reverse-proxy setups).
+   */
+  corsOrigins: (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean),
   /** Root for persisted data. Override with DATA_DIR in .env for local dev (e.g. DATA_DIR=./data). */
   dataDir: process.env.DATA_DIR || '/data',
   /** Mount paths for the three media libraries. */

@@ -23,6 +23,19 @@ declare global {
 }
 
 /**
+ * Constant-time string comparison to avoid leaking information about how many
+ * leading characters matched via response-time differences.
+ */
+function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  // timingSafeEqual throws on length mismatch, so compare against a
+  // same-length buffer first — the length check itself is not secret.
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+/**
  * Verify a plain-text password against the stored hash.
  * Supports bcrypt (current) and legacy SHA-256 hashes.
  */
@@ -34,7 +47,7 @@ async function verifyPassword(plainPassword: string, storedHash: string): Promis
 
   // Legacy SHA-256 hash (64-char hex)
   const sha256 = crypto.createHash('sha256').update(plainPassword).digest('hex');
-  return sha256 === storedHash;
+  return safeCompare(sha256, storedHash);
 }
 
 /**
@@ -96,7 +109,7 @@ export async function subsonicAuth(
         .createHash('md5')
         .update(user.passwordHash + salt)
         .digest('hex');
-      authenticated = expectedToken === token;
+      authenticated = safeCompare(expectedToken, token);
     }
   } else {
     sendError(

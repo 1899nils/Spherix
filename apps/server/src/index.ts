@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import session from 'express-session';
 import rateLimit from 'express-rate-limit';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { RedisStore } from 'connect-redis';
 import { env } from './config/env.js';
 import { redis } from './config/redis.js';
@@ -46,12 +47,37 @@ import subsonicRouter from './subsonic/index.js';
 import authRouter, { hashPassword } from './routes/auth.js';
 import mdblistRouter from './routes/mdblist.js';
 import { generateCsrfToken, doubleCsrfProtection } from './middleware/csrf.js';
+import { requireAdmin } from './middleware/requireAdmin.js';
 import { startRatingsScheduler, stopRatingsScheduler } from './services/ratings/ratingsScheduler.js';
 
 const app = express();
 
-// Middleware
-app.use(cors({ origin: true, credentials: true }));
+// ── CORS allowlist ────────────────────────────────────────────────────────────
+// `origin: true` would reflect *any* requesting origin, and combined with
+// `credentials: true` that lets any website make authenticated cross-origin
+// requests against this API (and read the JSON response) using a logged-in
+// user's session cookie. Only allow known origins instead: the configured
+// PUBLIC_URL, explicit CORS_ORIGINS overrides, and the local Vite dev servers.
+const allowedOrigins = new Set(
+  [env.publicUrl, 'http://localhost:5173', 'http://localhost:4173', ...env.corsOrigins].filter(
+    Boolean,
+  ),
+);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // No Origin header means a same-origin browser request or a non-browser
+      // client (curl, another server) — CORS doesn't apply, always allow.
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`Origin "${origin}" is not allowed by CORS`));
+    },
+    credentials: true,
+  }),
+);
 app.use(cookieParser());
 app.use(express.json());
 app.use(
@@ -233,8 +259,12 @@ app.use('/api/audiobooks', audiobooksRouter);
 // ── Statistics ────────────────────────────────────────────────────────────────
 app.use('/api/stats', statsRouter);
 
-// ── Scan trigger routes (admin) ───────────────────────────────────────────────
-app.post('/api/video/scan', async (_req, res, next) => {
+// ── Scan trigger routes (admin only) ──────────────────────────────────────────
+// requireAdmin is mandatory here: without it any logged-in non-admin user
+// could kick off a full library scan (Settings.tsx only shows this button to
+// admins, but that's a UI nicety, not an access boundary — the server must
+// enforce it too).
+app.post('/api/video/scan', requireAdmin, async (_req, res, next) => {
   try {
     const paths = await getMediaPaths(null);
     const jobId = await enqueueVideoScan(paths.video);
@@ -242,7 +272,7 @@ app.post('/api/video/scan', async (_req, res, next) => {
   } catch (error) { next(error); }
 });
 
-app.post('/api/audiobooks/scan', async (_req, res, next) => {
+app.post('/api/audiobooks/scan', requireAdmin, async (_req, res, next) => {
   try {
     const paths = await getMediaPaths(null);
     const jobId = await enqueueAudiobookScan(paths.audiobook);
@@ -278,21 +308,29 @@ async function ensureDefaultUser(): Promise<void> {
     }
   }
 
-  // First-run: create default admin if no users exist
+  // First-run: create default admin if no users exist.
+  // Never fall back to a fixed default password like "admin" — that would be
+  // guessable by anyone who has read the source (or the README). If
+  // ADMIN_PASSWORD isn't set, generate a random one-time password instead and
+  // print it once so it can be copied from the logs.
   const count = await prisma.user.count();
   if (count === 0) {
-    const password = adminPassword || 'admin';
+    const generatedPassword = adminPassword || crypto.randomBytes(12).toString('base64url');
     await prisma.user.create({
       data: {
         email: `${adminUsername}@spherix.local`,
         username: adminUsername,
-        passwordHash: await hashPassword(password),
+        passwordHash: await hashPassword(generatedPassword),
         isAdmin: true,
       },
     });
-    logger.info(`Created default admin user — username: ${adminUsername}, password: ${adminPassword ? '(from ADMIN_PASSWORD env)' : 'admin'}`);
-    if (!adminPassword) {
-      logger.warn('Please change the default admin password after first login!');
+    if (adminPassword) {
+      logger.info(`Created default admin user — username: ${adminUsername}, password: (from ADMIN_PASSWORD env)`);
+    } else {
+      logger.warn(
+        `Created default admin user — username: ${adminUsername}, password: ${generatedPassword} ` +
+          '(randomly generated, shown only this once — copy it now and change it after logging in!)',
+      );
     }
   }
 }

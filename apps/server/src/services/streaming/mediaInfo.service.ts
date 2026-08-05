@@ -1,8 +1,8 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { logger } from '../../config/logger.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export interface MediaInfo {
   container: string;
@@ -48,12 +48,30 @@ export interface ClientCapabilities {
 }
 
 /**
+ * Parse an ffprobe frame-rate fraction string (e.g. "24000/1001" or "25/1")
+ * into a decimal number, without resorting to eval().
+ */
+function parseFrameRate(value: string | undefined | null): number {
+  if (!value) return 0;
+  const [numerator, denominator] = value.split('/');
+  const num = Number(numerator);
+  const den = denominator !== undefined ? Number(denominator) : 1;
+  if (!Number.isFinite(num) || !Number.isFinite(den) || den === 0) return 0;
+  return num / den;
+}
+
+/**
  * Probe media file with ffprobe to get codec information
  */
 export async function probeMedia(filePath: string): Promise<MediaInfo | null> {
   try {
-    const { stdout } = await execAsync(
-      `ffprobe -v quiet -print_format json -show_format -show_streams "${filePath}"`
+    // Use execFile (not exec) with an argument array so the file path is never
+    // interpreted by a shell — a filename containing shell metacharacters
+    // (backticks, `;`, `$()`, ...) must not be able to run arbitrary commands.
+    const { stdout } = await execFileAsync(
+      'ffprobe',
+      ['-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', filePath],
+      { maxBuffer: 10 * 1024 * 1024 },
     );
 
     const data = JSON.parse(stdout);
@@ -74,7 +92,7 @@ export async function probeMedia(filePath: string): Promise<MediaInfo | null> {
             codecLongName: videoStream.codec_long_name,
             width: videoStream.width,
             height: videoStream.height,
-            fps: eval(videoStream.r_frame_rate) || 0, // "24000/1001" -> 23.976
+            fps: parseFrameRate(videoStream.r_frame_rate), // "24000/1001" -> 23.976
             bitrate: parseInt(videoStream.bit_rate) || 0,
             pixFmt: videoStream.pix_fmt,
             profile: videoStream.profile,
