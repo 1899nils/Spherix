@@ -23,14 +23,11 @@ import { saveCoverArt, saveFolderCover } from './cover.service.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const AUDIO_EXTS = new Set([
-  '.m4b', '.m4a', '.mp3', '.flac',
-  '.ogg', '.opus', '.aac', '.wav',
-]);
+const AUDIO_EXTS = new Set(['.m4b', '.m4a', '.mp3', '.flac', '.ogg', '.opus', '.aac', '.wav']);
 
 // Cover image file candidates (looked up in the book directory)
 const COVER_NAMES = ['cover', 'folder', 'front', 'artwork', 'book'];
-const COVER_EXTS  = ['.jpg', '.jpeg', '.png', '.webp'];
+const COVER_EXTS = ['.jpg', '.jpeg', '.png', '.webp'];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -38,8 +35,8 @@ async function listAudioFiles(dir: string): Promise<string[]> {
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
     return entries
-      .filter(e => e.isFile() && AUDIO_EXTS.has(path.extname(e.name).toLowerCase()))
-      .map(e => path.join(dir, e.name))
+      .filter((e) => e.isFile() && AUDIO_EXTS.has(path.extname(e.name).toLowerCase()))
+      .map((e) => path.join(dir, e.name))
       .sort(); // natural order keeps chapters in sequence
   } catch {
     return [];
@@ -49,7 +46,7 @@ async function listAudioFiles(dir: string): Promise<string[]> {
 async function listSubdirs(dir: string): Promise<string[]> {
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
-    return entries.filter(e => e.isDirectory()).map(e => path.join(dir, e.name));
+    return entries.filter((e) => e.isDirectory()).map((e) => path.join(dir, e.name));
   } catch {
     return [];
   }
@@ -61,14 +58,25 @@ async function listSubdirs(dir: string): Promise<string[]> {
  *   "Author - Title (Year)"
  *   "Author, Firstname - Title"
  */
-function parseFolderName(name: string): { author: string | null; title: string; year: number | null } {
+function parseFolderName(name: string): {
+  author: string | null;
+  title: string;
+  year: number | null;
+} {
   const yearMatch = name.match(/\((\d{4})\)/);
-  const year      = yearMatch ? parseInt(yearMatch[1], 10) : null;
-  const cleaned   = name.replace(/\(\d{4}\)/, '').trim().replace(/\s+$/, '');
+  const year = yearMatch ? parseInt(yearMatch[1], 10) : null;
+  const cleaned = name
+    .replace(/\(\d{4}\)/, '')
+    .trim()
+    .replace(/\s+$/, '');
 
   if (cleaned.includes(' - ')) {
-    const dashIdx  = cleaned.indexOf(' - ');
-    return { author: cleaned.slice(0, dashIdx).trim(), title: cleaned.slice(dashIdx + 3).trim(), year };
+    const dashIdx = cleaned.indexOf(' - ');
+    return {
+      author: cleaned.slice(0, dashIdx).trim(),
+      title: cleaned.slice(dashIdx + 3).trim(),
+      year,
+    };
   }
   return { author: null, title: cleaned.trim() || name, year };
 }
@@ -79,9 +87,11 @@ async function findCoverInDir(dir: string): Promise<string | null> {
       try {
         const data = await fs.readFile(path.join(dir, `${name}${ext}`));
         const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
-        const url  = await saveCoverArt([{ data: new Uint8Array(data), format: mime }]);
+        const url = await saveCoverArt([{ data: new Uint8Array(data), format: mime }]);
         if (url) return url;
-      } catch { /* not found */ }
+      } catch {
+        /* not found */
+      }
     }
   }
   return null;
@@ -91,17 +101,17 @@ async function findCoverInDir(dir: string): Promise<string | null> {
  * Read music-metadata tags from a file. Returns partial — all fields optional.
  */
 async function readTags(filePath: string): Promise<{
-  title:    string | null;
-  author:   string | null;
-  year:     number | null;
-  duration: number | null;   // seconds
+  title: string | null;
+  author: string | null;
+  year: number | null;
+  duration: number | null; // seconds
   coverUrl: string | null;
   chapters: Array<{ title: string; startTime: number; endTime?: number }>;
 }> {
   try {
     const meta = await mmParseFile(filePath, { duration: true, skipCovers: false });
-    const c    = meta.common;
-    const f    = meta.format;
+    const c = meta.common;
+    const f = meta.format;
 
     // Embedded cover art
     let coverUrl: string | null = null;
@@ -112,17 +122,22 @@ async function readTags(filePath: string): Promise<{
     if (!coverUrl) coverUrl = await saveFolderCover(filePath);
 
     // Embedded chapters (m4b / MP4 chpl atoms or ID3 CHAP frames)
-    const rawChapters = (meta as unknown as { chapters?: Array<{ title?: string; startTime?: number; endTime?: number }> }).chapters ?? [];
+    const rawChapters =
+      (
+        meta as unknown as {
+          chapters?: Array<{ title?: string; startTime?: number; endTime?: number }>;
+        }
+      ).chapters ?? [];
     const chapters = rawChapters.map((ch, i) => ({
-      title:     ch.title ?? `Chapter ${i + 1}`,
+      title: ch.title ?? `Chapter ${i + 1}`,
       startTime: Math.round(ch.startTime ?? 0),
-      endTime:   ch.endTime != null ? Math.round(ch.endTime) : undefined,
+      endTime: ch.endTime != null ? Math.round(ch.endTime) : undefined,
     }));
 
     return {
-      title:    c.title   ?? c.album ?? null,
-      author:   c.artist  ?? c.albumartist ?? null,
-      year:     c.year    ?? null,
+      title: c.title ?? c.album ?? null,
+      author: c.artist ?? c.albumartist ?? null,
+      year: c.year ?? null,
       duration: f.duration != null ? Math.round(f.duration) : null,
       coverUrl,
       chapters,
@@ -136,26 +151,31 @@ async function readTags(filePath: string): Promise<{
 // ─── Main scanner ─────────────────────────────────────────────────────────────
 
 export interface AudiobookScanProgress {
-  phase:    'discovering' | 'scanning' | 'cleanup' | 'done' | 'error';
-  total:    number;
-  done:     number;
-  books:    number;
+  phase: 'discovering' | 'scanning' | 'cleanup' | 'done' | 'error';
+  total: number;
+  done: number;
+  books: number;
   chapters: number;
-  skipped:  number;
-  errors:   number;
+  skipped: number;
+  errors: number;
   message?: string;
 }
 
 export async function scanAudiobookLibrary(overridePath?: string): Promise<AudiobookScanProgress> {
   const rootPath = overridePath ?? env.audiobookPath;
   const progress: AudiobookScanProgress = {
-    phase: 'discovering', total: 0, done: 0,
-    books: 0, chapters: 0, skipped: 0, errors: 0,
+    phase: 'discovering',
+    total: 0,
+    done: 0,
+    books: 0,
+    chapters: 0,
+    skipped: 0,
+    errors: 0,
   };
 
   if (!fsSync.existsSync(rootPath)) {
     logger.warn(`[AudiobookScanner] AUDIOBOOK_PATH does not exist: ${rootPath}`);
-    progress.phase   = 'done';
+    progress.phase = 'done';
     progress.message = `AUDIOBOOK_PATH (${rootPath}) not found — skipping`;
     return progress;
   }
@@ -179,25 +199,29 @@ export async function scanAudiobookLibrary(overridePath?: string): Promise<Audio
     if (audioFiles.length === 0) return;
 
     const dirName = path.basename(bookDir);
-    const parsed  = parseFolderName(dirName);
-    const author  = authorHint ?? parsed.author;
-    const title   = parsed.title;
-    const year    = parsed.year;
+    const parsed = parseFolderName(dirName);
+    const author = authorHint ?? parsed.author;
+    const title = parsed.title;
+    const year = parsed.year;
 
     // Read tags from the first file (sufficient for metadata)
     const tags = await readTags(audioFiles[0]);
 
-    const finalTitle  = tags.title  ?? title;
+    const finalTitle = tags.title ?? title;
     const finalAuthor = tags.author ?? author;
-    const finalYear   = tags.year   ?? year;
-    const coverUrl    = tags.coverUrl ?? await findCoverInDir(bookDir);
+    const finalYear = tags.year ?? year;
+    const coverUrl = tags.coverUrl ?? (await findCoverInDir(bookDir));
 
     // Deduplicate by title + author
     const existing = await prisma.audiobook.findFirst({
-      where:  { title: finalTitle, ...(finalAuthor ? { author: finalAuthor } : {}) },
+      where: { title: finalTitle, ...(finalAuthor ? { author: finalAuthor } : {}) },
       select: { id: true },
     });
-    if (existing) { processedBookIds.add(existing.id); progress.skipped++; return; }
+    if (existing) {
+      processedBookIds.add(existing.id);
+      progress.skipped++;
+      return;
+    }
 
     // Single-file book
     const isSingleFile = audioFiles.length === 1;
@@ -216,13 +240,13 @@ export async function scanAudiobookLibrary(overridePath?: string): Promise<Audio
 
     const book = await prisma.audiobook.create({
       data: {
-        title:         finalTitle,
-        sortTitle:     finalTitle.toLowerCase(),
-        author:        finalAuthor,
-        year:          finalYear,
-        duration:      totalDuration,
-        coverPath:     coverUrl,
-        filePath:      isSingleFile ? audioFiles[0] : null,
+        title: finalTitle,
+        sortTitle: finalTitle.toLowerCase(),
+        author: finalAuthor,
+        year: finalYear,
+        duration: totalDuration,
+        coverPath: coverUrl,
+        filePath: isSingleFile ? audioFiles[0] : null,
       },
     });
     processedBookIds.add(book.id);
@@ -236,11 +260,11 @@ export async function scanAudiobookLibrary(overridePath?: string): Promise<Audio
         await prisma.audiobookChapter.create({
           data: {
             audiobookId: book.id,
-            number:      i + 1,
-            title:       ch.title,
-            startTime:   ch.startTime,
-            endTime:     ch.endTime ?? null,
-            filePath:    audioFiles[0],
+            number: i + 1,
+            title: ch.title,
+            startTime: ch.startTime,
+            endTime: ch.endTime ?? null,
+            filePath: audioFiles[0],
           },
         });
         progress.chapters++;
@@ -248,8 +272,8 @@ export async function scanAudiobookLibrary(overridePath?: string): Promise<Audio
     } else if (!isSingleFile) {
       // One file per chapter
       for (let i = 0; i < audioFiles.length; i++) {
-        const chFile  = audioFiles[i];
-        const chTags  = await readTags(chFile);
+        const chFile = audioFiles[i];
+        const chTags = await readTags(chFile);
         const chTitle = chTags.title ?? path.basename(chFile, path.extname(chFile));
 
         // Compute cumulative start time from previous chapters
@@ -262,11 +286,11 @@ export async function scanAudiobookLibrary(overridePath?: string): Promise<Audio
         await prisma.audiobookChapter.create({
           data: {
             audiobookId: book.id,
-            number:      i + 1,
-            title:       chTitle,
+            number: i + 1,
+            title: chTitle,
             startTime,
-            endTime:     startTime + (chTags.duration ?? 0) || null,
-            filePath:    chFile,
+            endTime: startTime + (chTags.duration ?? 0) || null,
+            filePath: chFile,
           },
         });
         progress.chapters++;
@@ -280,21 +304,31 @@ export async function scanAudiobookLibrary(overridePath?: string): Promise<Audio
   const rootFiles = await listAudioFiles(rootPath);
   progress.total += rootFiles.length;
   for (const f of rootFiles) {
-    try { await processBookDir(path.dirname(f) + '/__single__' + path.basename(f), null); }
-    catch { /* handled below */ }
+    try {
+      await processBookDir(path.dirname(f) + '/__single__' + path.basename(f), null);
+    } catch {
+      /* handled below */
+    }
   }
 
   // Actually process single files directly
   for (const filePath of rootFiles) {
     try {
-      const existing = await prisma.audiobook.findFirst({ where: { filePath }, select: { id: true } });
-      if (existing) { processedBookIds.add(existing.id); progress.skipped++; continue; }
+      const existing = await prisma.audiobook.findFirst({
+        where: { filePath },
+        select: { id: true },
+      });
+      if (existing) {
+        processedBookIds.add(existing.id);
+        progress.skipped++;
+        continue;
+      }
 
-      const dirName  = path.basename(filePath, path.extname(filePath));
-      const parsed   = parseFolderName(dirName);
-      const tags     = await readTags(filePath);
-      const title    = tags.title  ?? parsed.title;
-      const author   = tags.author ?? parsed.author;
+      const dirName = path.basename(filePath, path.extname(filePath));
+      const parsed = parseFolderName(dirName);
+      const tags = await readTags(filePath);
+      const title = tags.title ?? parsed.title;
+      const author = tags.author ?? parsed.author;
       const coverUrl = tags.coverUrl;
 
       const book = await prisma.audiobook.create({
@@ -302,8 +336,8 @@ export async function scanAudiobookLibrary(overridePath?: string): Promise<Audio
           title,
           sortTitle: title.toLowerCase(),
           author,
-          year:      tags.year ?? parsed.year,
-          duration:  tags.duration,
+          year: tags.year ?? parsed.year,
+          duration: tags.duration,
           coverPath: coverUrl,
           filePath,
         },
@@ -317,10 +351,10 @@ export async function scanAudiobookLibrary(overridePath?: string): Promise<Audio
         await prisma.audiobookChapter.create({
           data: {
             audiobookId: book.id,
-            number:      i + 1,
-            title:       ch.title,
-            startTime:   ch.startTime,
-            endTime:     ch.endTime ?? null,
+            number: i + 1,
+            title: ch.title,
+            startTime: ch.startTime,
+            endTime: ch.endTime ?? null,
             filePath,
           },
         });
@@ -337,20 +371,28 @@ export async function scanAudiobookLibrary(overridePath?: string): Promise<Audio
   const level1Dirs = await listSubdirs(rootPath);
   for (const dir1 of level1Dirs) {
     const audioFiles = await listAudioFiles(dir1);
-    const subDirs    = await listSubdirs(dir1);
+    const subDirs = await listSubdirs(dir1);
 
     if (audioFiles.length > 0 && subDirs.length === 0) {
       // dir1 IS the book folder (Author/Title or just Title layout without nesting)
       progress.total++;
-      try { await processBookDir(dir1, null); }
-      catch (err) { logger.error(`[AudiobookScanner] Error: ${dir1}`, err); progress.errors++; }
+      try {
+        await processBookDir(dir1, null);
+      } catch (err) {
+        logger.error(`[AudiobookScanner] Error: ${dir1}`, err);
+        progress.errors++;
+      }
     } else {
       // dir1 is an Author folder — each subdir is a book
       const authorHint = path.basename(dir1);
       for (const dir2 of subDirs) {
         progress.total++;
-        try { await processBookDir(dir2, authorHint); }
-        catch (err) { logger.error(`[AudiobookScanner] Error: ${dir2}`, err); progress.errors++; }
+        try {
+          await processBookDir(dir2, authorHint);
+        } catch (err) {
+          logger.error(`[AudiobookScanner] Error: ${dir2}`, err);
+          progress.errors++;
+        }
       }
     }
   }
@@ -367,7 +409,7 @@ export async function scanAudiobookLibrary(overridePath?: string): Promise<Audio
     }
   }
 
-  progress.phase   = 'done';
+  progress.phase = 'done';
   progress.message =
     `Scan complete — books: ${progress.books}, chapters: ${progress.chapters}, ` +
     `skipped: ${progress.skipped}, errors: ${progress.errors}`;

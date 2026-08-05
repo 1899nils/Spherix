@@ -53,7 +53,11 @@ export function AudiobooksContinue() {
               title={book.title}
               subtitle={book.author ?? undefined}
               imageUrl={book.coverPath}
-              progress={book.duration && book.listenProgress ? book.listenProgress / book.duration : undefined}
+              progress={
+                book.duration && book.listenProgress
+                  ? book.listenProgress / book.duration
+                  : undefined
+              }
               aspect="square"
               fallbackIcon={<Library className="h-12 w-12" />}
               onClick={() => navigate(`/audiobooks/${book.id}`)}

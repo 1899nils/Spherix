@@ -6,7 +6,10 @@ const router = Router();
 
 // ─── getAlbumList2 (ID3-based album list) ───────────────────────────────────
 
-async function handleGetAlbumList2(req: import('express').Request, res: import('express').Response) {
+async function handleGetAlbumList2(
+  req: import('express').Request,
+  res: import('express').Response,
+) {
   const type = req.query.type as string;
   if (!type) {
     sendError(req, res, SubsonicError.MISSING_PARAMETER, 'Required parameter "type" is missing');
@@ -92,9 +95,7 @@ async function handleGetAlbumList2(req: import('express').Request, res: import('
         artist: { select: { id: true, name: true } },
         _count: { select: { tracks: true } },
         tracks: { select: { duration: true } },
-        ...(userId
-          ? { starredAlbums: { where: { userId }, take: 1 } }
-          : {}),
+        ...(userId ? { starredAlbums: { where: { userId }, take: 1 } } : {}),
       },
     });
   } else {
@@ -107,9 +108,7 @@ async function handleGetAlbumList2(req: import('express').Request, res: import('
         artist: { select: { id: true, name: true } },
         _count: { select: { tracks: true } },
         tracks: { select: { duration: true } },
-        ...(userId
-          ? { starredAlbums: { where: { userId }, take: 1 } }
-          : {}),
+        ...(userId ? { starredAlbums: { where: { userId }, take: 1 } } : {}),
       },
     });
   }
@@ -118,7 +117,8 @@ async function handleGetAlbumList2(req: import('express').Request, res: import('
     albumList2: {
       album: albums.map((al) => {
         const totalDuration = al.tracks.reduce((sum, t) => sum + t.duration, 0);
-        const starred = (al as unknown as { starredAlbums?: { starredAt: Date }[] }).starredAlbums?.[0];
+        const starred = (al as unknown as { starredAlbums?: { starredAt: Date }[] })
+          .starredAlbums?.[0];
         return {
           id: al.id,
           name: al.title,

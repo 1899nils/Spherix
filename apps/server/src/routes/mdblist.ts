@@ -9,7 +9,10 @@ const router: Router = Router();
 router.get('/status', async (req, res) => {
   try {
     const userId = await getUserId(req);
-    if (!userId) { res.json({ data: { configured: false } }); return; }
+    if (!userId) {
+      res.json({ data: { configured: false } });
+      return;
+    }
 
     const settings = await prisma.userSettings.findUnique({
       where: { userId },
@@ -26,7 +29,10 @@ router.get('/status', async (req, res) => {
 router.post('/config', async (req, res) => {
   try {
     const userId = await getUserId(req);
-    if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
     const { apiKey } = req.body as { apiKey?: string };
     if (typeof apiKey !== 'string') {
@@ -35,7 +41,7 @@ router.post('/config', async (req, res) => {
     }
 
     await prisma.userSettings.upsert({
-      where:  { userId },
+      where: { userId },
       update: { mdblistApiKey: apiKey || null },
       create: { userId, mdblistApiKey: apiKey || null },
     });
@@ -50,7 +56,10 @@ router.post('/config', async (req, res) => {
 router.post('/test-config', async (req, res) => {
   try {
     const { apiKey } = req.body as { apiKey?: string };
-    if (!apiKey) { res.status(400).json({ error: 'apiKey is required' }); return; }
+    if (!apiKey) {
+      res.status(400).json({ error: 'apiKey is required' });
+      return;
+    }
 
     const valid = await validateMdblistApiKey(apiKey);
     if (valid) {

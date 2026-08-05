@@ -220,9 +220,7 @@ export function Albums() {
         <div className="flex items-center gap-2 shrink-0">
           {selectMode ? (
             <>
-              <span className="text-sm text-muted-foreground">
-                {selected.size} ausgewählt
-              </span>
+              <span className="text-sm text-muted-foreground">{selected.size} ausgewählt</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -238,7 +236,12 @@ export function Albums() {
               </Button>
             </>
           ) : (
-            <Button variant="outline" size="sm" onClick={enterSelectMode} disabled={albums.length < 2}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={enterSelectMode}
+              disabled={albums.length < 2}
+            >
               <CheckSquare className="h-4 w-4 mr-2" />
               Auswählen
             </Button>

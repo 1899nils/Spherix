@@ -1,7 +1,16 @@
 import { Router } from 'express';
 import { prisma } from '../../config/database.js';
-import { probeMedia, parseClientCapabilities, canDirectPlay } from '../../services/streaming/mediaInfo.service.js';
-import { checkTranscodeNeeded, getTranscodeJob, getHlsPlaylistPath, getTranscodeDirectory } from '../../services/streaming/transcode.service.js';
+import {
+  probeMedia,
+  parseClientCapabilities,
+  canDirectPlay,
+} from '../../services/streaming/mediaInfo.service.js';
+import {
+  checkTranscodeNeeded,
+  getTranscodeJob,
+  getHlsPlaylistPath,
+  getTranscodeDirectory,
+} from '../../services/streaming/transcode.service.js';
 import { join } from 'node:path';
 import { createReadStream, existsSync } from 'node:fs';
 
@@ -64,14 +73,13 @@ router.get('/info/:type/:id', async (req, res, next) => {
 
     if (directPlayCheck.playable) {
       // Direct play URL
-      streamUrl = type === 'movie'
-        ? `/api/video/movies/${id}/stream`
-        : `/api/video/episodes/${id}/stream`;
+      streamUrl =
+        type === 'movie' ? `/api/video/movies/${id}/stream` : `/api/video/episodes/${id}/stream`;
     } else if (directPlayCheck.reason?.toLowerCase().includes('audio')) {
       // Only audio codec is incompatible (video is fine).
       // Use the audio-remux endpoint: copies video, transcodes audio → AAC.
       // Much faster than HLS; no manifest wait; client plays it as a normal <video>.
-      const defaultAudioIdx = probeResult.audio.findIndex(a => a.default);
+      const defaultAudioIdx = probeResult.audio.findIndex((a) => a.default);
       const trackIdx = defaultAudioIdx >= 0 ? defaultAudioIdx : 0;
       streamUrl = `/api/video/stream/audio/${type}/${id}?track=${trackIdx}`;
     } else {
@@ -90,14 +98,14 @@ router.get('/info/:type/:id', async (req, res, next) => {
           container: probeResult.container,
           duration: probeResult.duration,
           video: probeResult.video,
-          audio: probeResult.audio.map(a => ({
+          audio: probeResult.audio.map((a) => ({
             index: a.index,
             codec: a.codec,
             language: a.language,
             channels: a.channels,
             default: a.default,
           })),
-          subtitles: probeResult.subtitles.map(s => ({
+          subtitles: probeResult.subtitles.map((s) => ({
             index: s.index,
             codec: s.codec,
             language: s.language,
@@ -148,15 +156,14 @@ router.get('/hls/:type/:id/playlist.m3u8', async (req, res, next) => {
       id,
       type as 'movie' | 'episode',
       filePath,
-      clientCaps
+      clientCaps,
     );
 
     if (transcodeCheck.directPlay) {
       // Return redirect to direct stream
-      const directUrl = type === 'movie'
-        ? `/api/video/movies/${id}/stream`
-        : `/api/video/episodes/${id}/stream`;
-      
+      const directUrl =
+        type === 'movie' ? `/api/video/movies/${id}/stream` : `/api/video/episodes/${id}/stream`;
+
       res.redirect(directUrl);
       return;
     }
@@ -179,7 +186,7 @@ router.get('/hls/:type/:id/playlist.m3u8', async (req, res, next) => {
         if (playlistPath && existsSync(playlistPath)) {
           break;
         }
-        await new Promise(resolve => setTimeout(resolve, checkInterval));
+        await new Promise((resolve) => setTimeout(resolve, checkInterval));
         waited += checkInterval;
       }
     }
@@ -192,8 +199,8 @@ router.get('/hls/:type/:id/playlist.m3u8', async (req, res, next) => {
     // Serve the playlist
     const playlistPath = getHlsPlaylistPath(job.id);
     if (!playlistPath || !existsSync(playlistPath)) {
-      res.status(503).json({ 
-        error: 'Transcoding in progress', 
+      res.status(503).json({
+        error: 'Transcoding in progress',
         progress: job.progress,
         jobId: job.id,
       });
@@ -203,7 +210,6 @@ router.get('/hls/:type/:id/playlist.m3u8', async (req, res, next) => {
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     res.setHeader('Cache-Control', 'no-cache');
     createReadStream(playlistPath).pipe(res);
-
   } catch (error) {
     next(error);
   }
@@ -216,22 +222,22 @@ router.get('/hls/:type/:id/playlist.m3u8', async (req, res, next) => {
 router.get('/hls/:type/:id/segment_:num.ts', async (req, res, next) => {
   try {
     const { id, num } = req.params;
-    
+
     // Find active transcode job for this media
     // In production, you'd want a better way to track this
     const { readdir } = await import('node:fs/promises');
-    
+
     const transcodeDir = getTranscodeDirectory();
     const dirs = await readdir(transcodeDir);
-    const jobDir = dirs.find(d => d.startsWith(`transcode_${id}_`));
-    
+    const jobDir = dirs.find((d) => d.startsWith(`transcode_${id}_`));
+
     if (!jobDir) {
       res.status(404).json({ error: 'Transcode job not found' });
       return;
     }
 
     const segmentFile = join(transcodeDir, jobDir, `segment_${num}.ts`);
-    
+
     if (!existsSync(segmentFile)) {
       res.status(404).json({ error: 'Segment not found' });
       return;
@@ -240,7 +246,6 @@ router.get('/hls/:type/:id/segment_:num.ts', async (req, res, next) => {
     res.setHeader('Content-Type', 'video/mp2t');
     res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache segments forever
     createReadStream(segmentFile).pipe(res);
-
   } catch (error) {
     next(error);
   }
@@ -281,9 +286,9 @@ router.post('/job/:jobId/cancel', async (req, res, next) => {
   try {
     const { jobId } = req.params;
     const { cancelTranscodeJob } = await import('../../services/streaming/transcode.service.js');
-    
+
     const cancelled = cancelTranscodeJob(jobId);
-    
+
     if (!cancelled) {
       res.status(404).json({ error: 'Job not found or not running' });
       return;
@@ -314,7 +319,10 @@ router.get('/subtitle/:type/:id/:streamIndex', async (req, res, next) => {
       const movie = await prisma.movie.findUnique({ where: { id }, select: { filePath: true } });
       filePath = movie?.filePath ?? null;
     } else if (type === 'episode') {
-      const episode = await prisma.episode.findUnique({ where: { id }, select: { filePath: true } });
+      const episode = await prisma.episode.findUnique({
+        where: { id },
+        select: { filePath: true },
+      });
       filePath = episode?.filePath ?? null;
     } else {
       res.status(400).json({ error: 'Invalid type' });
@@ -328,10 +336,14 @@ router.get('/subtitle/:type/:id/:streamIndex', async (req, res, next) => {
 
     const { spawn } = await import('node:child_process');
     const ffmpeg = spawn('ffmpeg', [
-      '-i', filePath,
-      '-map', `0:${idx}`,
-      '-c:s', 'webvtt',
-      '-f', 'webvtt',
+      '-i',
+      filePath,
+      '-map',
+      `0:${idx}`,
+      '-c:s',
+      'webvtt',
+      '-f',
+      'webvtt',
       'pipe:1',
     ]);
 
@@ -363,15 +375,18 @@ router.get('/subtitle/:type/:id/:streamIndex', async (req, res, next) => {
 router.get('/audio-only/:type/:id', async (req, res, next) => {
   try {
     const { type, id } = req.params;
-    const audioTrack = Math.max(0, parseInt(req.query.track as string || '0', 10));
-    const startSec   = Math.max(0, parseFloat(req.query.start  as string || '0'));
+    const audioTrack = Math.max(0, parseInt((req.query.track as string) || '0', 10));
+    const startSec = Math.max(0, parseFloat((req.query.start as string) || '0'));
 
     let filePath: string | null = null;
     if (type === 'movie') {
       const movie = await prisma.movie.findUnique({ where: { id }, select: { filePath: true } });
       filePath = movie?.filePath ?? null;
     } else if (type === 'episode') {
-      const episode = await prisma.episode.findUnique({ where: { id }, select: { filePath: true } });
+      const episode = await prisma.episode.findUnique({
+        where: { id },
+        select: { filePath: true },
+      });
       filePath = episode?.filePath ?? null;
     } else {
       res.status(400).json({ error: 'Invalid type' });
@@ -386,13 +401,19 @@ router.get('/audio-only/:type/:id', async (req, res, next) => {
     const { spawn } = await import('node:child_process');
     const args = [
       ...(startSec > 0 ? ['-ss', String(startSec)] : []),
-      '-i', filePath,
-      '-vn',                    // no video
-      '-map', `0:a:${audioTrack}`,
-      '-c:a', 'aac',
-      '-b:a', '192k',
-      '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
-      '-f', 'mp4',
+      '-i',
+      filePath,
+      '-vn', // no video
+      '-map',
+      `0:a:${audioTrack}`,
+      '-c:a',
+      'aac',
+      '-b:a',
+      '192k',
+      '-movflags',
+      'frag_keyframe+empty_moov+default_base_moof',
+      '-f',
+      'mp4',
       'pipe:1',
     ];
 
@@ -445,15 +466,18 @@ router.get('/audio-only/:type/:id', async (req, res, next) => {
 router.get('/audio/:type/:id', async (req, res, next) => {
   try {
     const { type, id } = req.params;
-    const audioTrack = Math.max(0, parseInt(req.query.track as string || '0', 10));
-    const startSec   = Math.max(0, parseFloat(req.query.start  as string || '0'));
+    const audioTrack = Math.max(0, parseInt((req.query.track as string) || '0', 10));
+    const startSec = Math.max(0, parseFloat((req.query.start as string) || '0'));
 
     let filePath: string | null = null;
     if (type === 'movie') {
       const movie = await prisma.movie.findUnique({ where: { id }, select: { filePath: true } });
       filePath = movie?.filePath ?? null;
     } else if (type === 'episode') {
-      const episode = await prisma.episode.findUnique({ where: { id }, select: { filePath: true } });
+      const episode = await prisma.episode.findUnique({
+        where: { id },
+        select: { filePath: true },
+      });
       filePath = episode?.filePath ?? null;
     } else {
       res.status(400).json({ error: 'Invalid type' });
@@ -472,14 +496,22 @@ router.get('/audio/:type/:id', async (req, res, next) => {
       // first packet is always at t=0 — required for the browser to accept
       // the fragmented MP4 stream.
       ...(startSec > 0 ? ['-ss', String(startSec), '-avoid_negative_ts', 'make_zero'] : []),
-      '-i', filePath,
-      '-map', '0:v:0',
-      '-map', `0:a:${audioTrack}`,
-      '-c:v', 'copy',
-      '-c:a', 'aac',
-      '-b:a', '192k',
-      '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
-      '-f', 'mp4',
+      '-i',
+      filePath,
+      '-map',
+      '0:v:0',
+      '-map',
+      `0:a:${audioTrack}`,
+      '-c:v',
+      'copy',
+      '-c:a',
+      'aac',
+      '-b:a',
+      '192k',
+      '-movflags',
+      'frag_keyframe+empty_moov+default_base_moof',
+      '-f',
+      'mp4',
       'pipe:1',
     ];
 
@@ -489,7 +521,9 @@ router.get('/audio/:type/:id', async (req, res, next) => {
     const ffmpeg = spawn('ffmpeg', args);
     ffmpeg.stdout.pipe(res);
     ffmpeg.stderr.on('data', () => {});
-    ffmpeg.on('error', (err) => { if (!res.headersSent) next(err); });
+    ffmpeg.on('error', (err) => {
+      if (!res.headersSent) next(err);
+    });
     res.on('close', () => ffmpeg.kill());
   } catch (error) {
     next(error);

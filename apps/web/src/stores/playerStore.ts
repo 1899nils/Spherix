@@ -155,7 +155,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             set({ seek: currentSeek });
 
             // Scrobble condition: > 50% or > 4 minutes (240s)
-            if (!hasScrobbled && currentDuration > 30) { // Track must be > 30s to scrobble
+            if (!hasScrobbled && currentDuration > 30) {
+              // Track must be > 30s to scrobble
               if (currentSeek > currentDuration / 2 || currentSeek > 240) {
                 set({ hasScrobbled: true });
                 fetch('/api/lastfm/scrobble', {
@@ -167,17 +168,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
                     album: track.album?.title,
                     trackId: track.id,
                   }),
-                }).then(async (res) => {
-                  const data = await res.json().catch(() => ({}));
-                  // Only show 'scrobbled' when Last.fm is actually configured and queued
-                  if (data.lastfmEnabled) {
-                    set({ scrobbleActivity: 'scrobbled' });
+                })
+                  .then(async (res) => {
+                    const data = await res.json().catch(() => ({}));
+                    // Only show 'scrobbled' when Last.fm is actually configured and queued
+                    if (data.lastfmEnabled) {
+                      set({ scrobbleActivity: 'scrobbled' });
+                      setTimeout(() => set({ scrobbleActivity: 'idle' }), 4000);
+                    }
+                  })
+                  .catch(() => {
+                    set({ scrobbleActivity: 'error' });
                     setTimeout(() => set({ scrobbleActivity: 'idle' }), 4000);
-                  }
-                }).catch(() => {
-                  set({ scrobbleActivity: 'error' });
-                  setTimeout(() => set({ scrobbleActivity: 'idle' }), 4000);
-                });
+                  });
               }
             }
           }
@@ -473,7 +476,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const { _howl, currentTrack } = get();
     // Cannot seek in live radio streams
     if (currentTrack && 'isRadio' in currentTrack) return;
-    
+
     if (_howl) {
       _howl.seek(seconds);
       set({ seek: seconds });
@@ -565,4 +568,3 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     });
   },
 }));
-

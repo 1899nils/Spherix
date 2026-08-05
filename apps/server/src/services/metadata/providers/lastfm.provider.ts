@@ -56,7 +56,7 @@ function getSignature(params: Record<string, string>, secret: string): string {
 async function lastfmRequest<T>(
   method: string,
   params: Record<string, string>,
-  config: LastfmConfig
+  config: LastfmConfig,
 ): Promise<T> {
   const allParams: Record<string, string> = {
     ...params,
@@ -67,7 +67,7 @@ async function lastfmRequest<T>(
 
   const sig = getSignature(allParams, config.apiSecret);
   const url = new URL(LASTFM_ROOT);
-  
+
   Object.entries({ ...allParams, api_sig: sig }).forEach(([k, v]) => {
     url.searchParams.append(k, v);
   });
@@ -76,7 +76,7 @@ async function lastfmRequest<T>(
     signal: AbortSignal.timeout(10_000),
   });
 
-  const data = await response.json() as { error?: number; message?: string };
+  const data = (await response.json()) as { error?: number; message?: string };
 
   if (!response.ok || data.error) {
     throw new Error(data.message || `Last.fm error ${data.error}`);
@@ -90,7 +90,7 @@ async function lastfmRequest<T>(
  */
 export async function getArtistInfo(
   artistName: string,
-  config: LastfmConfig
+  config: LastfmConfig,
 ): Promise<LastfmArtistInfo | null> {
   const cacheKey = `lastfm:artist:${artistName.toLowerCase()}`;
 
@@ -101,7 +101,7 @@ export async function getArtistInfo(
         const data = await lastfmRequest<{ artist: any }>(
           'artist.getInfo',
           { artist: artistName, autocorrect: '1' },
-          config
+          config,
         );
 
         const artist = data.artist;
@@ -111,11 +111,13 @@ export async function getArtistInfo(
           name: artist.name,
           mbid: artist.mbid,
           url: artist.url,
-          bio: artist.bio ? {
-            summary: artist.bio.summary?.replace(/<a href=".*">.*<\/a>/, '').trim() || '',
-            content: artist.bio.content?.replace(/<a href=".*">.*<\/a>/, '').trim() || '',
-            published: artist.bio.published,
-          } : undefined,
+          bio: artist.bio
+            ? {
+                summary: artist.bio.summary?.replace(/<a href=".*">.*<\/a>/, '').trim() || '',
+                content: artist.bio.content?.replace(/<a href=".*">.*<\/a>/, '').trim() || '',
+                published: artist.bio.published,
+              }
+            : undefined,
           tags: artist.tags?.tag?.map((t: any) => t.name) || [],
           similar: artist.similar?.artist?.map((a: any) => a.name) || [],
           stats: {
@@ -125,14 +127,14 @@ export async function getArtistInfo(
           image: artist.image?.find((img: any) => img.size === 'large')?.['#text'],
         };
       } catch (error) {
-        logger.warn('Last.fm artist info failed', { 
+        logger.warn('Last.fm artist info failed', {
           artist: artistName,
-          error: String(error) 
+          error: String(error),
         });
         return null;
       }
     },
-    CACHE_TTLS.lastfm
+    CACHE_TTLS.lastfm,
   );
 }
 
@@ -142,7 +144,7 @@ export async function getArtistInfo(
 export async function getTrackInfo(
   artistName: string,
   trackName: string,
-  config: LastfmConfig
+  config: LastfmConfig,
 ): Promise<LastfmTrackInfo | null> {
   const cacheKey = `lastfm:track:${artistName.toLowerCase()}:${trackName.toLowerCase()}`;
 
@@ -153,7 +155,7 @@ export async function getTrackInfo(
         const data = await lastfmRequest<{ track: any }>(
           'track.getInfo',
           { artist: artistName, track: trackName, autocorrect: '1' },
-          config
+          config,
         );
 
         const track = data.track;
@@ -167,21 +169,23 @@ export async function getTrackInfo(
           listeners: track.listeners ? parseInt(track.listeners) : undefined,
           playcount: track.playcount ? parseInt(track.playcount) : undefined,
           tags: track.toptags?.tag?.map((t: any) => t.name) || [],
-          wiki: track.wiki ? {
-            summary: track.wiki.summary,
-            content: track.wiki.content,
-          } : undefined,
+          wiki: track.wiki
+            ? {
+                summary: track.wiki.summary,
+                content: track.wiki.content,
+              }
+            : undefined,
         };
       } catch (error) {
-        logger.warn('Last.fm track info failed', { 
+        logger.warn('Last.fm track info failed', {
           artist: artistName,
           track: trackName,
-          error: String(error) 
+          error: String(error),
         });
         return null;
       }
     },
-    CACHE_TTLS.lastfm
+    CACHE_TTLS.lastfm,
   );
 }
 
@@ -191,7 +195,7 @@ export async function getTrackInfo(
 export async function getSimilarArtists(
   artistName: string,
   limit: number = 10,
-  config: LastfmConfig
+  config: LastfmConfig,
 ): Promise<string[]> {
   const cacheKey = `lastfm:similar:${artistName.toLowerCase()}:${limit}`;
 
@@ -202,19 +206,19 @@ export async function getSimilarArtists(
         const data = await lastfmRequest<{ similarartists: { artist: any[] } }>(
           'artist.getSimilar',
           { artist: artistName, limit: String(limit), autocorrect: '1' },
-          config
+          config,
         );
 
         return data.similarartists?.artist?.map((a: any) => a.name) || [];
       } catch (error) {
-        logger.warn('Last.fm similar artists failed', { 
+        logger.warn('Last.fm similar artists failed', {
           artist: artistName,
-          error: String(error) 
+          error: String(error),
         });
         return [];
       }
     },
-    CACHE_TTLS.similarArtists
+    CACHE_TTLS.similarArtists,
   );
 }
 
@@ -223,7 +227,7 @@ export async function getSimilarArtists(
  */
 export async function getArtistTopTags(
   artistName: string,
-  config: LastfmConfig
+  config: LastfmConfig,
 ): Promise<string[]> {
   const cacheKey = `lastfm:toptags:${artistName.toLowerCase()}`;
 
@@ -234,18 +238,18 @@ export async function getArtistTopTags(
         const data = await lastfmRequest<{ toptags: { tag: any[] } }>(
           'artist.getTopTags',
           { artist: artistName, autocorrect: '1' },
-          config
+          config,
         );
 
         return data.toptags?.tag?.slice(0, 5).map((t: any) => t.name) || [];
       } catch (error) {
-        logger.warn('Last.fm top tags failed', { 
+        logger.warn('Last.fm top tags failed', {
           artist: artistName,
-          error: String(error) 
+          error: String(error),
         });
         return [];
       }
     },
-    CACHE_TTLS.lastfm
+    CACHE_TTLS.lastfm,
   );
 }

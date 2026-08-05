@@ -17,8 +17,7 @@ interface AudiobookDetailResponse {
 export function AudiobookDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentBook, chapterIndex, isPlaying, playBook, togglePlay } =
-    useAudiobookPlayerStore();
+  const { currentBook, chapterIndex, isPlaying, playBook, togglePlay } = useAudiobookPlayerStore();
   const [showEditor, setShowEditor] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -50,7 +49,9 @@ export function AudiobookDetail() {
       <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-3">
         <Library className="h-12 w-12 opacity-30" />
         <p>Hörbuch nicht gefunden</p>
-        <Button variant="ghost" onClick={() => navigate('/audiobooks')}>Zurück</Button>
+        <Button variant="ghost" onClick={() => navigate('/audiobooks')}>
+          Zurück
+        </Button>
       </div>
     );
   }
@@ -135,7 +136,10 @@ export function AudiobookDetail() {
           {book.genres && book.genres.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {book.genres.map((g) => (
-                <span key={g.id} className="text-xs px-2 py-1 rounded-full bg-white/10 text-white/70">
+                <span
+                  key={g.id}
+                  className="text-xs px-2 py-1 rounded-full bg-white/10 text-white/70"
+                >
                   {g.name}
                 </span>
               ))}
@@ -160,9 +164,12 @@ export function AudiobookDetail() {
               onClick={() => (isThisBook ? togglePlay() : handlePlay(0))}
             >
               {isThisBook && isPlaying ? (
-                <><Pause className="h-5 w-5 fill-current" /> Pause</>
+                <>
+                  <Pause className="h-5 w-5 fill-current" /> Pause
+                </>
               ) : (
-                <><Play className="h-5 w-5 fill-current" />
+                <>
+                  <Play className="h-5 w-5 fill-current" />
                   {(book.listenProgress ?? 0) > 60 ? 'Weiterhören' : 'Abspielen'}
                 </>
               )}
@@ -188,9 +195,9 @@ export function AudiobookDetail() {
           type="audiobook"
           id={book.id}
           initialData={{
-            title:    book.title,
-            author:   book.author,
-            year:     book.year,
+            title: book.title,
+            author: book.author,
+            year: book.year,
             narrator: book.narrator,
             overview: book.overview,
             duration: book.duration,
@@ -224,14 +231,18 @@ export function AudiobookDetail() {
                       )
                     ) : (
                       <>
-                        <span className="text-xs text-muted-foreground group-hover:hidden">{ch.number}</span>
+                        <span className="text-xs text-muted-foreground group-hover:hidden">
+                          {ch.number}
+                        </span>
                         <Play className="h-4 w-4 hidden group-hover:block fill-current ml-0.5" />
                       </>
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${isActive ? 'text-section-accent' : ''}`}>
+                    <p
+                      className={`text-sm font-medium truncate ${isActive ? 'text-section-accent' : ''}`}
+                    >
                       {ch.title}
                     </p>
                   </div>

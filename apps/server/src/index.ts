@@ -12,9 +12,14 @@ import { connectDatabase, prisma } from './config/database.js';
 import { logger } from './config/logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import {
-  startScanWorker, stopScanWorker,
-  startVideoScanWorker, stopVideoScanWorker, enqueueVideoScan,
-  startAudiobookScanWorker, stopAudiobookScanWorker, enqueueAudiobookScan,
+  startScanWorker,
+  stopScanWorker,
+  startVideoScanWorker,
+  stopVideoScanWorker,
+  enqueueVideoScan,
+  startAudiobookScanWorker,
+  stopAudiobookScanWorker,
+  enqueueAudiobookScan,
 } from './services/scanner/index.js';
 import healthRouter from './routes/health.js';
 import tracksRouter from './routes/tracks.js';
@@ -48,7 +53,10 @@ import authRouter, { hashPassword } from './routes/auth.js';
 import mdblistRouter from './routes/mdblist.js';
 import { generateCsrfToken, doubleCsrfProtection } from './middleware/csrf.js';
 import { requireAdmin } from './middleware/requireAdmin.js';
-import { startRatingsScheduler, stopRatingsScheduler } from './services/ratings/ratingsScheduler.js';
+import {
+  startRatingsScheduler,
+  stopRatingsScheduler,
+} from './services/ratings/ratingsScheduler.js';
 import {
   startTranscodeCleanupScheduler,
   stopTranscodeCleanupScheduler,
@@ -100,10 +108,13 @@ app.use(
 );
 
 // Serve cover art from {dataDir}/covers as /api/covers/:filename
-app.use('/api/covers', express.static(path.join(env.dataDir, 'covers'), {
-  maxAge: '7d',
-  immutable: true,
-}));
+app.use(
+  '/api/covers',
+  express.static(path.join(env.dataDir, 'covers'), {
+    maxAge: '7d',
+    immutable: true,
+  }),
+);
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const loginRateLimit = rateLimit({
@@ -159,32 +170,35 @@ app.use('/api/podcasts', podcastsRouter);
 app.use('/api/podcastindex', podcastIndexRouter);
 
 // ── Video ─────────────────────────────────────────────────────────────────────
-app.use('/api/video/movies',   moviesRouter);
-app.use('/api/video/series',   seriesRouter);
+app.use('/api/video/movies', moviesRouter);
+app.use('/api/video/series', seriesRouter);
 app.use('/api/video/episodes', episodesRouter);
-app.use('/api/video/scan',       videoScanRouter);
-app.use('/api/video/stream',     streamingRouter);
-app.use('/api/video/sessions',    sessionsRouter);
+app.use('/api/video/scan', videoScanRouter);
+app.use('/api/video/stream', streamingRouter);
+app.use('/api/video/sessions', sessionsRouter);
 
 // Video overview endpoints: genres, recently added, continue watching
 app.get('/api/video/genres', async (_req, res, next) => {
   try {
     const genres = await prisma.genre.findMany({
-      where:   { OR: [{ movies: { some: {} } }, { series: { some: {} } }] },
-      select:  {
-        id: true, name: true,
+      where: { OR: [{ movies: { some: {} } }, { series: { some: {} } }] },
+      select: {
+        id: true,
+        name: true,
         _count: { select: { movies: true, series: true } },
       },
       orderBy: { name: 'asc' },
     });
     res.json({
-      data: genres.map(g => ({
-        id:    g.id,
-        name:  g.name,
+      data: genres.map((g) => ({
+        id: g.id,
+        name: g.name,
         count: g._count.movies + g._count.series,
       })),
     });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get('/api/video/recent', async (req, res, next) => {
@@ -192,12 +206,12 @@ app.get('/api/video/recent', async (req, res, next) => {
     const limit = Math.min(50, parseInt(req.query.limit as string) || 20);
     const [movies, series] = await Promise.all([
       prisma.movie.findMany({
-        take:    limit,
+        take: limit,
         orderBy: { addedAt: 'desc' },
         include: { genres: { select: { id: true, name: true } } },
       }),
       prisma.series.findMany({
-        take:    limit,
+        take: limit,
         orderBy: { addedAt: 'desc' },
         include: { genres: { select: { id: true, name: true } } },
       }),
@@ -205,42 +219,54 @@ app.get('/api/video/recent', async (req, res, next) => {
 
     // Merge and sort by addedAt, return top `limit` items
     const combined = [
-      ...movies.map(m => ({ ...m, fileSize: m.fileSize?.toString() ?? null, type: 'movie'  as const })),
-      ...series.map(s => ({                                                   ...s, type: 'series' as const })),
-    ].sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime()).slice(0, limit);
+      ...movies.map((m) => ({
+        ...m,
+        fileSize: m.fileSize?.toString() ?? null,
+        type: 'movie' as const,
+      })),
+      ...series.map((s) => ({ ...s, type: 'series' as const })),
+    ]
+      .sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime())
+      .slice(0, limit);
 
     res.json({ data: combined });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get('/api/video/continue', async (_req, res, next) => {
   try {
     const [movies, episodes] = await Promise.all([
       prisma.movie.findMany({
-        where:   { watchProgress: { gt: 0 }, watched: false },
+        where: { watchProgress: { gt: 0 }, watched: false },
         include: { genres: { select: { id: true, name: true } } },
         orderBy: { updatedAt: 'desc' },
-        take:    20,
+        take: 20,
       }),
       prisma.episode.findMany({
-        where:   { watchProgress: { gt: 0 }, watched: false },
-        include: { season: { include: { series: { select: { id: true, title: true, posterPath: true } } } } },
+        where: { watchProgress: { gt: 0 }, watched: false },
+        include: {
+          season: { include: { series: { select: { id: true, title: true, posterPath: true } } } },
+        },
         orderBy: { addedAt: 'desc' },
-        take:    20,
+        take: 20,
       }),
     ]);
     res.json({
       data: {
-        movies:   movies.map(m => ({ ...m, fileSize: m.fileSize?.toString() ?? null })),
+        movies: movies.map((m) => ({ ...m, fileSize: m.fileSize?.toString() ?? null })),
         episodes,
       },
     });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 // ── Music Videos ───────────────────────────────────────────────────────────────
 app.use('/api/tracks', musicVideoRouter);
-app.use('/api/albums', musicVideoRouter);  // For album-level bulk search
+app.use('/api/albums', musicVideoRouter); // For album-level bulk search
 
 // ── Lyrics ─────────────────────────────────────────────────────────────────────
 app.use('/api/tracks', lyricsRouter);
@@ -274,7 +300,9 @@ app.post('/api/video/scan', requireAdmin, async (_req, res, next) => {
     const paths = await getMediaPaths(null);
     const jobId = await enqueueVideoScan(paths.video);
     res.json({ ok: true, jobId, path: paths.video });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post('/api/audiobooks/scan', requireAdmin, async (_req, res, next) => {
@@ -282,7 +310,9 @@ app.post('/api/audiobooks/scan', requireAdmin, async (_req, res, next) => {
     const paths = await getMediaPaths(null);
     const jobId = await enqueueAudiobookScan(paths.audiobook);
     res.json({ ok: true, jobId, path: paths.audiobook });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Subsonic API (compatible with Subsonic/Airsonic clients)
@@ -307,7 +337,9 @@ async function ensureDefaultUser(): Promise<void> {
         where: { id: existingAdmin.id },
         data: { passwordHash: await hashPassword(adminPassword) },
       });
-      logger.info(`Admin password reset via ADMIN_PASSWORD env var (user: "${existingAdmin.username}")`);
+      logger.info(
+        `Admin password reset via ADMIN_PASSWORD env var (user: "${existingAdmin.username}")`,
+      );
       logger.warn('Remove ADMIN_PASSWORD from your environment after logging in!');
       return;
     }
@@ -330,7 +362,9 @@ async function ensureDefaultUser(): Promise<void> {
       },
     });
     if (adminPassword) {
-      logger.info(`Created default admin user — username: ${adminUsername}, password: (from ADMIN_PASSWORD env)`);
+      logger.info(
+        `Created default admin user — username: ${adminUsername}, password: (from ADMIN_PASSWORD env)`,
+      );
     } else {
       logger.warn(
         `Created default admin user — username: ${adminUsername}, password: ${generatedPassword} ` +

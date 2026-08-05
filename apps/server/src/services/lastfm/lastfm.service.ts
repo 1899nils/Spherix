@@ -39,7 +39,7 @@ async function lastfmRequest<T>(
   method: string,
   params: Record<string, string> = {},
   httpMethod: 'GET' | 'POST' = 'GET',
-  config: LastfmConfig = {}
+  config: LastfmConfig = {},
 ): Promise<T> {
   const apiKey = config.apiKey || env.lastfmApiKey;
   const apiSecret = config.apiSecret || env.lastfmApiSecret;
@@ -62,10 +62,10 @@ async function lastfmRequest<T>(
   const fetchOptions: RequestInit = { method: httpMethod };
 
   if (httpMethod === 'GET') {
-    Object.keys(finalParams).forEach(key => url.searchParams.append(key, finalParams[key]));
+    Object.keys(finalParams).forEach((key) => url.searchParams.append(key, finalParams[key]));
   } else {
     const body = new URLSearchParams();
-    Object.keys(finalParams).forEach(key => body.append(key, finalParams[key]));
+    Object.keys(finalParams).forEach((key) => body.append(key, finalParams[key]));
     fetchOptions.body = body;
   }
 
@@ -88,7 +88,10 @@ export const lastfmService = {
   },
 
   /** Exchange a token for a permanent session key */
-  async getSession(token: string, config: LastfmConfig): Promise<{ sessionKey: string; username: string }> {
+  async getSession(
+    token: string,
+    config: LastfmConfig,
+  ): Promise<{ sessionKey: string; username: string }> {
     const data: any = await lastfmRequest('auth.getSession', { token }, 'GET', config);
     return {
       sessionKey: data.session.key,
@@ -99,7 +102,7 @@ export const lastfmService = {
   /** Verify that API Key and Secret are valid */
   async validateConfig(config: LastfmConfig): Promise<boolean> {
     try {
-      // We use a simple method that requires an API key. 
+      // We use a simple method that requires an API key.
       // If the secret is wrong, the signature check fails.
       await lastfmRequest('artist.search', { artist: 'test', limit: '1' }, 'GET', config);
       return true;
@@ -110,25 +113,44 @@ export const lastfmService = {
   },
 
   /** Update the "Now Playing" status on Last.fm */
-  async updateNowPlaying(sessionKey: string, track: LastfmTrackInfo, config: LastfmConfig): Promise<void> {
-    await lastfmRequest('track.updateNowPlaying', {
-      sk: sessionKey,
-      artist: track.artist,
-      track: track.track,
-      ...(track.album ? { album: track.album } : {}),
-      ...(track.duration ? { duration: String(Math.round(track.duration)) } : {}),
-    }, 'POST', config);
+  async updateNowPlaying(
+    sessionKey: string,
+    track: LastfmTrackInfo,
+    config: LastfmConfig,
+  ): Promise<void> {
+    await lastfmRequest(
+      'track.updateNowPlaying',
+      {
+        sk: sessionKey,
+        artist: track.artist,
+        track: track.track,
+        ...(track.album ? { album: track.album } : {}),
+        ...(track.duration ? { duration: String(Math.round(track.duration)) } : {}),
+      },
+      'POST',
+      config,
+    );
   },
 
   /** Scrobble a track to Last.fm */
-  async scrobble(sessionKey: string, track: LastfmTrackInfo, timestamp: number, config: LastfmConfig): Promise<void> {
-    await lastfmRequest('track.scrobble', {
-      sk: sessionKey,
-      artist: track.artist,
-      track: track.track,
-      timestamp: String(Math.round(timestamp)),
-      ...(track.album ? { album: track.album } : {}),
-    }, 'POST', config);
+  async scrobble(
+    sessionKey: string,
+    track: LastfmTrackInfo,
+    timestamp: number,
+    config: LastfmConfig,
+  ): Promise<void> {
+    await lastfmRequest(
+      'track.scrobble',
+      {
+        sk: sessionKey,
+        artist: track.artist,
+        track: track.track,
+        timestamp: String(Math.round(timestamp)),
+        ...(track.album ? { album: track.album } : {}),
+      },
+      'POST',
+      config,
+    );
   },
 
   /**

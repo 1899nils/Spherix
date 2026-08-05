@@ -50,13 +50,13 @@ router.get('/:id/lyrics', async (req, res, next) => {
         track.title,
         track.artist.name,
         track.album?.title,
-        track.duration
+        track.duration,
       );
     }
 
     if (lyricsResult?.plainLyrics) {
       const formattedLyrics = lrclib.formatLyricsForStorage(lyricsResult);
-      
+
       // Save to database
       await prisma.track.update({
         where: { id: trackId },
@@ -130,7 +130,7 @@ router.post('/albums/:id/lyrics-search', async (req, res, next) => {
           track.title,
           track.artist.name,
           album.title,
-          track.duration
+          track.duration,
         );
       }
 
@@ -153,7 +153,7 @@ router.post('/albums/:id/lyrics-search', async (req, res, next) => {
       }
     }
 
-    const foundCount = results.filter(r => r.found).length;
+    const foundCount = results.filter((r) => r.found).length;
 
     res.json({
       data: {

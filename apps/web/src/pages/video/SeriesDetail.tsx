@@ -6,7 +6,17 @@ import { VideoPlayer } from '@/components/video/VideoPlayer';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { Button } from '@/components/ui/button';
 import { formatRuntime } from '@/lib/utils';
-import { Play, ArrowLeft, Tv, ChevronDown, ChevronRight, Pencil, Link2, AlertCircle, RotateCcw } from 'lucide-react';
+import {
+  Play,
+  ArrowLeft,
+  Tv,
+  ChevronDown,
+  ChevronRight,
+  Pencil,
+  Link2,
+  AlertCircle,
+  RotateCcw,
+} from 'lucide-react';
 import type { SeriesDetail as SeriesDetailType } from '@musicserver/shared';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import { TmdbSearchModal } from '@/components/video/TmdbSearchModal';
@@ -22,8 +32,14 @@ export function SeriesDetail() {
   const queryClient = useQueryClient();
   const { setActiveVideo, isMinimized } = useVideoPlayerStore();
 
-  const [activeEpisode, setActiveEpisode] = useState<{ id: string; title: string; seasonNum: number; episodeNum: number; runtime: number | null } | null>(null);
-  
+  const [activeEpisode, setActiveEpisode] = useState<{
+    id: string;
+    title: string;
+    seasonNum: number;
+    episodeNum: number;
+    runtime: number | null;
+  } | null>(null);
+
   // Show detail view when player is minimized
   const showDetailView = !activeEpisode || isMinimized;
   const [openSeason, setOpenSeason] = useState<number | null>(1);
@@ -64,7 +80,9 @@ export function SeriesDetail() {
       <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-3">
         <Tv className="h-12 w-12 opacity-30" />
         <p>Serie nicht gefunden</p>
-        <Button variant="ghost" onClick={() => navigate('/video/series')}>Zurück</Button>
+        <Button variant="ghost" onClick={() => navigate('/video/series')}>
+          Zurück
+        </Button>
       </div>
     );
   }
@@ -115,21 +133,25 @@ export function SeriesDetail() {
             onProgress={(pos) => progressMutation.mutate({ epId: activeEpisode.id, position: pos })}
             nextEpisode={(() => {
               // Find next episode
-              const currentSeason = series.seasons?.find(s => s.number === activeEpisode.seasonNum);
-              const currentEpIndex = currentSeason?.episodes?.findIndex(e => e.id === activeEpisode.id) ?? -1;
+              const currentSeason = series.seasons?.find(
+                (s) => s.number === activeEpisode.seasonNum,
+              );
+              const currentEpIndex =
+                currentSeason?.episodes?.findIndex((e) => e.id === activeEpisode.id) ?? -1;
               const nextEp = currentSeason?.episodes?.[currentEpIndex + 1];
-              
+
               if (nextEp) {
                 return {
                   title: `S${String(activeEpisode.seasonNum).padStart(2, '0')}E${String(nextEp.number).padStart(2, '0')} · ${nextEp.title}`,
                   thumbnail: series.posterPath || undefined,
-                  onPlay: () => handlePlayEpisode({
-                    id: nextEp.id,
-                    title: nextEp.title,
-                    seasonNum: activeEpisode.seasonNum,
-                    episodeNum: nextEp.number,
-                    runtime: nextEp.runtime ?? null,
-                  }),
+                  onPlay: () =>
+                    handlePlayEpisode({
+                      id: nextEp.id,
+                      title: nextEp.title,
+                      seasonNum: activeEpisode.seasonNum,
+                      episodeNum: nextEp.number,
+                      runtime: nextEp.runtime ?? null,
+                    }),
                 };
               }
               return null;
@@ -145,7 +167,11 @@ export function SeriesDetail() {
           <div className="flex gap-6 items-start">
             <div className="shrink-0 w-40 aspect-[2/3] rounded-xl overflow-hidden bg-white/5 border border-white/10 shadow-xl">
               {series.posterPath ? (
-                <img src={series.posterPath} alt={series.title} className="w-full h-full object-cover" />
+                <img
+                  src={series.posterPath}
+                  alt={series.title}
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-muted-foreground/40">
                   <Tv className="h-12 w-12" />
@@ -167,7 +193,7 @@ export function SeriesDetail() {
                   <Pencil className="h-4 w-4" />
                 </Button>
                 <Button
-                  variant={series.tmdbId ? "ghost" : "default"}
+                  variant={series.tmdbId ? 'ghost' : 'default'}
                   size="icon"
                   className={`h-8 w-8 shrink-0 ${!series.tmdbId ? 'bg-amber-500 hover:bg-amber-600 text-black border-amber-500' : 'text-muted-foreground hover:text-white'}`}
                   onClick={() => setShowTmdbModal(true)}
@@ -186,7 +212,9 @@ export function SeriesDetail() {
                 {series.seasons && (
                   <>
                     <span className="text-white/20">·</span>
-                    <span>{series.seasons.length} Staffel{series.seasons.length !== 1 ? 'n' : ''}</span>
+                    <span>
+                      {series.seasons.length} Staffel{series.seasons.length !== 1 ? 'n' : ''}
+                    </span>
                   </>
                 )}
               </div>
@@ -195,14 +223,19 @@ export function SeriesDetail() {
               {series.genres && series.genres.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {series.genres.map((g) => (
-                    <span key={g.id} className="text-xs px-2 py-1 rounded-full bg-white/10 text-white/70">
+                    <span
+                      key={g.id}
+                      className="text-xs px-2 py-1 rounded-full bg-white/10 text-white/70"
+                    >
                       {g.name}
                     </span>
                   ))}
                 </div>
               )}
               {series.overview ? (
-                <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">{series.overview}</p>
+                <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">
+                  {series.overview}
+                </p>
               ) : (
                 <div className="flex items-start gap-2 text-amber-400/80 text-sm bg-amber-500/10 rounded-lg p-3">
                   <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -215,8 +248,12 @@ export function SeriesDetail() {
                           disabled={refreshMetadataMutation.isPending}
                           className="text-xs mt-0.5 text-amber-400/60 hover:text-amber-400 underline transition-colors flex items-center gap-1"
                         >
-                          <RotateCcw className={`h-3 w-3 ${refreshMetadataMutation.isPending ? 'animate-spin' : ''}`} />
-                          {refreshMetadataMutation.isPending ? 'Wird geladen…' : 'Metadaten von TMDb neu laden'}
+                          <RotateCcw
+                            className={`h-3 w-3 ${refreshMetadataMutation.isPending ? 'animate-spin' : ''}`}
+                          />
+                          {refreshMetadataMutation.isPending
+                            ? 'Wird geladen…'
+                            : 'Metadaten von TMDb neu laden'}
                         </button>
                       </>
                     ) : (
@@ -243,12 +280,15 @@ export function SeriesDetail() {
                   <span className="font-semibold">
                     Staffel {season.number}
                     <span className="ml-2 text-sm text-muted-foreground font-normal">
-                      {season.episodes?.length ?? 0} Folge{(season.episodes?.length ?? 0) !== 1 ? 'n' : ''}
+                      {season.episodes?.length ?? 0} Folge
+                      {(season.episodes?.length ?? 0) !== 1 ? 'n' : ''}
                     </span>
                   </span>
-                  {openSeason === season.number
-                    ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  {openSeason === season.number ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  )}
                 </button>
 
                 {/* Episodes */}
@@ -265,7 +305,9 @@ export function SeriesDetail() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{ep.title}</p>
                           {ep.runtime && (
-                            <p className="text-xs text-muted-foreground">{formatRuntime(ep.runtime)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatRuntime(ep.runtime)}
+                            </p>
                           )}
                         </div>
                         {ep.watched && (
@@ -291,7 +333,10 @@ export function SeriesDetail() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10"
-                          onClick={(e) => { e.stopPropagation(); setEditEpisodeId(ep.id); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditEpisodeId(ep.id);
+                          }}
                           title="Metadaten bearbeiten"
                         >
                           <Pencil className="h-4 w-4" />
@@ -314,43 +359,47 @@ export function SeriesDetail() {
           type="series"
           id={series.id}
           initialData={{
-            title:         series.title,
-            sortTitle:     series.sortTitle,
+            title: series.title,
+            sortTitle: series.sortTitle,
             originalTitle: series.originalTitle,
-            year:          series.year,
-            releaseDate:   series.releaseDate,
-            overview:      series.overview,
-            studio:        series.studio,
-            network:       series.network,
-            fskRating:     series.fskRating,
+            year: series.year,
+            releaseDate: series.releaseDate,
+            overview: series.overview,
+            studio: series.studio,
+            network: series.network,
+            fskRating: series.fskRating,
             contentRating: series.contentRating,
-            posterPath:    series.posterPath,
-            backdropPath:  series.backdropPath,
-            logoPath:      series.logoPath,
-            tmdbId:        series.tmdbId,
-            imdbId:        series.imdbId,
+            posterPath: series.posterPath,
+            backdropPath: series.backdropPath,
+            logoPath: series.logoPath,
+            tmdbId: series.tmdbId,
+            imdbId: series.imdbId,
           }}
         />
       )}
 
       {/* Episode metadata editor */}
-      {editEpisodeId && series && (() => {
-        const ep = series.seasons?.flatMap(s => s.episodes ?? []).find(e => e.id === editEpisodeId);
-        return ep ? (
-          <MediaMetadataEditor
-            isOpen={!!editEpisodeId}
-            onClose={() => setEditEpisodeId(null)}
-            type="episode"
-            id={editEpisodeId}
-            initialData={{
-              title:    ep.title,
-              number:   ep.number,
-              overview: ep.overview,
-              runtime:  ep.runtime,
-            }}
-          />
-        ) : null;
-      })()}
+      {editEpisodeId &&
+        series &&
+        (() => {
+          const ep = series.seasons
+            ?.flatMap((s) => s.episodes ?? [])
+            .find((e) => e.id === editEpisodeId);
+          return ep ? (
+            <MediaMetadataEditor
+              isOpen={!!editEpisodeId}
+              onClose={() => setEditEpisodeId(null)}
+              type="episode"
+              id={editEpisodeId}
+              initialData={{
+                title: ep.title,
+                number: ep.number,
+                overview: ep.overview,
+                runtime: ep.runtime,
+              }}
+            />
+          ) : null;
+        })()}
 
       {/* TMDb Search Modal */}
       {series && (

@@ -62,9 +62,17 @@ export function VideoRecentlyAdded() {
               imageUrl={item.posterPath}
               aspect="poster"
               badge={item.type === 'movie' ? 'Film' : 'Serie'}
-              fallbackIcon={item.type === 'movie' ? <Film className="h-12 w-12" /> : <Tv className="h-12 w-12" />}
+              fallbackIcon={
+                item.type === 'movie' ? (
+                  <Film className="h-12 w-12" />
+                ) : (
+                  <Tv className="h-12 w-12" />
+                )
+              }
               onClick={() =>
-                navigate(item.type === 'movie' ? `/video/movies/${item.id}` : `/video/series/${item.id}`)
+                navigate(
+                  item.type === 'movie' ? `/video/movies/${item.id}` : `/video/series/${item.id}`,
+                )
               }
             />
           ))}

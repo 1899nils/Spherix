@@ -66,7 +66,16 @@ function parseRssFeed(xml: string): { channel: ParsedChannel; episodes: ParsedEp
     doc = xmlParser.parse(xml);
   } catch (e) {
     logger.warn('RSS XML parse error, falling back to empty result:', e);
-    return { channel: { title: 'Unknown Podcast', author: null, description: null, imageUrl: null, websiteUrl: null }, episodes: [] };
+    return {
+      channel: {
+        title: 'Unknown Podcast',
+        author: null,
+        description: null,
+        imageUrl: null,
+        websiteUrl: null,
+      },
+      episodes: [],
+    };
   }
 
   const channel = doc?.rss?.channel ?? doc?.feed ?? {};
@@ -83,7 +92,8 @@ function parseRssFeed(xml: string): { channel: ParsedChannel; episodes: ParsedEp
 
   // Channel metadata
   const title = text(channel.title) ?? 'Unknown Podcast';
-  const author = text(channel['itunes:author']) ?? text(channel.author) ?? text(channel['author']) ?? null;
+  const author =
+    text(channel['itunes:author']) ?? text(channel.author) ?? text(channel['author']) ?? null;
   const description = text(channel['itunes:summary']) ?? text(channel.description) ?? null;
 
   // Link: may be a string, object with #text, or array
@@ -96,13 +106,14 @@ function parseRssFeed(xml: string): { channel: ParsedChannel; episodes: ParsedEp
 
   // Image URL: prefer <itunes:image href="...">, then <image><url>
   const itunesImageNode = channel['itunes:image'];
-  const imageUrl =
-    str(itunesImageNode?.['@_href']) ??
-    text(channel.image?.url) ??
-    null;
+  const imageUrl = str(itunesImageNode?.['@_href']) ?? text(channel.image?.url) ?? null;
 
   // Episodes
-  const rawItems: unknown[] = Array.isArray(channel.item) ? channel.item : channel.item ? [channel.item] : [];
+  const rawItems: unknown[] = Array.isArray(channel.item)
+    ? channel.item
+    : channel.item
+      ? [channel.item]
+      : [];
   const episodes: ParsedEpisode[] = [];
 
   for (const raw of rawItems) {
@@ -112,20 +123,25 @@ function parseRssFeed(xml: string): { channel: ParsedChannel; episodes: ParsedEp
     // Audio URL from <enclosure url="...">
     const enclosure = item.enclosure;
     const audioUrl =
-      str(enclosure?.['@_url']) ??
-      str(Array.isArray(enclosure) ? enclosure[0]?.['@_url'] : null);
+      str(enclosure?.['@_url']) ?? str(Array.isArray(enclosure) ? enclosure[0]?.['@_url'] : null);
     if (!audioUrl) continue;
 
     const rawGuid = text(item.guid) ?? audioUrl;
     const episodeTitle = text(item.title) ?? 'Untitled Episode';
-    const desc = text(item['itunes:summary']) ?? text(item['content:encoded']) ?? text(item.description) ?? null;
+    const desc =
+      text(item['itunes:summary']) ??
+      text(item['content:encoded']) ??
+      text(item.description) ??
+      null;
 
     const epImageNode = item['itunes:image'];
     const epImage = str(epImageNode?.['@_href']) ?? null;
 
     const duration = parseDuration(text(item['itunes:duration']));
 
-    const rawLength = str(enclosure?.['@_length'] ?? (Array.isArray(enclosure) ? enclosure[0]?.['@_length'] : null));
+    const rawLength = str(
+      enclosure?.['@_length'] ?? (Array.isArray(enclosure) ? enclosure[0]?.['@_length'] : null),
+    );
     const fileSizeNum = rawLength ? parseInt(rawLength, 10) : 0;
     const fileSize = fileSizeNum > 0 ? BigInt(fileSizeNum) : null;
 
@@ -147,7 +163,9 @@ function parseRssFeed(xml: string): { channel: ParsedChannel; episodes: ParsedEp
   return { channel: { title, author, description, imageUrl, websiteUrl }, episodes };
 }
 
-async function fetchAndParseFeed(feedUrl: string): Promise<{ channel: ParsedChannel; episodes: ParsedEpisode[] }> {
+async function fetchAndParseFeed(
+  feedUrl: string,
+): Promise<{ channel: ParsedChannel; episodes: ParsedEpisode[] }> {
   const res = await fetch(feedUrl, {
     headers: { 'User-Agent': 'Spherix/1.0 Podcast Client' },
     signal: AbortSignal.timeout(20_000),
@@ -205,40 +223,45 @@ router.get('/search', async (req, res, next) => {
         })
       : null;
 
-    const apiKey    = settings?.podcastIndexApiKey    ?? process.env.PODCASTINDEX_API_KEY ?? '';
+    const apiKey = settings?.podcastIndexApiKey ?? process.env.PODCASTINDEX_API_KEY ?? '';
     const apiSecret = settings?.podcastIndexApiSecret ?? process.env.PODCASTINDEX_API_SECRET ?? '';
 
     if (!apiKey || !apiSecret) {
-      res.status(503).json({ error: 'PodcastIndex API-Key nicht konfiguriert. Bitte in den Einstellungen eintragen.' });
+      res.status(503).json({
+        error: 'PodcastIndex API-Key nicht konfiguriert. Bitte in den Einstellungen eintragen.',
+      });
       return;
     }
 
     const ts = Math.floor(Date.now() / 1000);
-    const hash = crypto.createHash('sha1').update(apiKey + apiSecret + ts).digest('hex');
+    const hash = crypto
+      .createHash('sha1')
+      .update(apiKey + apiSecret + ts)
+      .digest('hex');
 
     const url = `https://api.podcastindex.org/api/1.0/search/byterm?q=${encodeURIComponent(q)}&max=20`;
     const r = await fetch(url, {
       headers: {
-        'User-Agent':    'Spherix/1.0',
-        'X-Auth-Key':    apiKey,
-        'X-Auth-Date':   String(ts),
-        'Authorization': hash,
+        'User-Agent': 'Spherix/1.0',
+        'X-Auth-Key': apiKey,
+        'X-Auth-Date': String(ts),
+        Authorization: hash,
       },
       signal: AbortSignal.timeout(10_000),
     });
     if (!r.ok) throw new Error(`PodcastIndex API error: ${r.status}`);
 
-    const json = await r.json() as { feeds?: Record<string, unknown>[] };
+    const json = (await r.json()) as { feeds?: Record<string, unknown>[] };
 
     const results = (json.feeds ?? []).map((f) => ({
-      collectionId:   f.id,
+      collectionId: f.id,
       collectionName: f.title,
-      artistName:     f.author ?? '',
-      feedUrl:        f.url,
-      artworkUrl600:  f.artwork ?? f.image ?? '',
-      genres:         Object.values((f.categories as Record<string, string>) ?? {}),
-      trackCount:     f.episodeCount ?? 0,
-      country:        '',
+      artistName: f.author ?? '',
+      feedUrl: f.url,
+      artworkUrl600: f.artwork ?? f.image ?? '',
+      genres: Object.values((f.categories as Record<string, string>) ?? {}),
+      trackCount: f.episodeCount ?? 0,
+      country: '',
     }));
 
     res.json({ data: results });
@@ -286,7 +309,10 @@ router.get('/proxy', async (req, res, next) => {
     const pump = async () => {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) { res.end(); break; }
+        if (done) {
+          res.end();
+          break;
+        }
         const canContinue = res.write(value);
         if (!canContinue) {
           await new Promise<void>((resolve) => res.once('drain', resolve));
@@ -317,7 +343,10 @@ router.post('/episodes/:episodeId/progress', async (req, res, next) => {
       where: { id: req.params.episodeId },
       select: { id: true },
     });
-    if (!episode) { res.status(404).json({ error: 'Episode not found' }); return; }
+    if (!episode) {
+      res.status(404).json({ error: 'Episode not found' });
+      return;
+    }
 
     await prisma.podcastEpisode.update({
       where: { id: req.params.episodeId },
@@ -325,7 +354,9 @@ router.post('/episodes/:episodeId/progress', async (req, res, next) => {
     });
 
     res.json({ ok: true });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 /** Get podcast detail with episodes */
@@ -496,7 +527,11 @@ router.post('/:id/refresh', async (req, res, next) => {
     });
 
     res.json({
-      data: { episodeCount: episodes.length, newEpisodeCount: newCount, message: 'Feed aktualisiert' },
+      data: {
+        episodeCount: episodes.length,
+        newEpisodeCount: newCount,
+        message: 'Feed aktualisiert',
+      },
     });
   } catch (error) {
     next(error);

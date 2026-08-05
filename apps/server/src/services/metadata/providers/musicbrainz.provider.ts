@@ -56,17 +56,18 @@ export async function getRecording(recordingId: string): Promise<MBRecording | n
     cacheKey,
     async () => {
       try {
-        const data = await mbFetch<{ recordings?: MBRecording[] }>(
-          'recording',
-          { query: `rid:${recordingId}`, limit: '1', inc: 'url-rels+isrcs' }
-        );
+        const data = await mbFetch<{ recordings?: MBRecording[] }>('recording', {
+          query: `rid:${recordingId}`,
+          limit: '1',
+          inc: 'url-rels+isrcs',
+        });
         return data.recordings?.[0] || null;
       } catch (error) {
         logger.warn('MusicBrainz recording fetch failed', { recordingId, error: String(error) });
         return null;
       }
     },
-    CACHE_TTLS.musicbrainz
+    CACHE_TTLS.musicbrainz,
   );
 }
 
@@ -80,17 +81,18 @@ export async function getRelease(releaseId: string): Promise<MBRelease | null> {
     cacheKey,
     async () => {
       try {
-        const data = await mbFetch<{ releases: MBRelease[] }>(
-          'release',
-          { query: `reid:${releaseId}`, limit: '1', inc: 'artist-credits+labels+media+recordings+tags' }
-        );
+        const data = await mbFetch<{ releases: MBRelease[] }>('release', {
+          query: `reid:${releaseId}`,
+          limit: '1',
+          inc: 'artist-credits+labels+media+recordings+tags',
+        });
         return data.releases?.[0] || null;
       } catch (error) {
         logger.warn('MusicBrainz release fetch failed', { releaseId, error: String(error) });
         return null;
       }
     },
-    CACHE_TTLS.musicbrainz
+    CACHE_TTLS.musicbrainz,
   );
 }
 
@@ -99,7 +101,7 @@ export async function getRelease(releaseId: string): Promise<MBRelease | null> {
  */
 export async function searchVideoRecordings(
   trackTitle: string,
-  artistName: string
+  artistName: string,
 ): Promise<MBRecording[]> {
   const cacheKey = `mb:video:${artistName}:${trackTitle}`;
 
@@ -108,23 +110,26 @@ export async function searchVideoRecordings(
     async () => {
       try {
         const query = `recording:"${trackTitle}" AND artist:"${artistName}"`;
-        const data = await mbFetch<{ recordings?: MBRecording[] }>(
-          'recording',
-          { query, limit: '5', inc: 'url-rels' }
-        );
+        const data = await mbFetch<{ recordings?: MBRecording[] }>('recording', {
+          query,
+          limit: '5',
+          inc: 'url-rels',
+        });
 
         // Filter recordings with video relationships
-        return (data.recordings || []).filter(r => 
-          r.relations?.some(rel => 
-            rel.type?.toLowerCase().includes('video')
-          )
+        return (data.recordings || []).filter((r) =>
+          r.relations?.some((rel) => rel.type?.toLowerCase().includes('video')),
         );
       } catch (error) {
-        logger.warn('MusicBrainz video search failed', { trackTitle, artistName, error: String(error) });
+        logger.warn('MusicBrainz video search failed', {
+          trackTitle,
+          artistName,
+          error: String(error),
+        });
         return [];
       }
     },
-    CACHE_TTLS.musicbrainz
+    CACHE_TTLS.musicbrainz,
   );
 }
 
@@ -146,20 +151,20 @@ export async function getCoverArtUrl(releaseId: string): Promise<string | null> 
     cacheKey,
     async () => {
       try {
-        const data = await caaFetch<{ images?: Array<{ front?: boolean; thumbnails?: { '500'?: string } }> }>(
-          `release/${releaseId}`
-        );
-        
-        const frontImage = data.images?.find(img => img.front);
+        const data = await caaFetch<{
+          images?: Array<{ front?: boolean; thumbnails?: { '500'?: string } }>;
+        }>(`release/${releaseId}`);
+
+        const frontImage = data.images?.find((img) => img.front);
         const url = frontImage?.thumbnails?.['500'];
-        
+
         return url ? ensureHttps(url) : null;
       } catch (error) {
         logger.warn('Cover Art Archive fetch failed', { releaseId, error: String(error) });
         return null;
       }
     },
-    CACHE_TTLS.coverArt
+    CACHE_TTLS.coverArt,
   );
 }
 
@@ -173,17 +178,17 @@ export async function searchArtist(artistName: string): Promise<string | null> {
     cacheKey,
     async () => {
       try {
-        const data = await mbFetch<{ artists?: Array<{ id: string; name: string }> }>(
-          'artist',
-          { query: `artist:"${artistName}"`, limit: '1' }
-        );
+        const data = await mbFetch<{ artists?: Array<{ id: string; name: string }> }>('artist', {
+          query: `artist:"${artistName}"`,
+          limit: '1',
+        });
         return data.artists?.[0]?.id || null;
       } catch (error) {
         logger.warn('MusicBrainz artist search failed', { artistName, error: String(error) });
         return null;
       }
     },
-    CACHE_TTLS.musicbrainz
+    CACHE_TTLS.musicbrainz,
   );
 }
 
@@ -202,15 +207,14 @@ export async function getArtistInfo(artistId: string): Promise<{
     cacheKey,
     async () => {
       try {
-        const data = await mbFetch<{ artists?: Array<{
-          name: string;
-          country?: string;
-          type?: string;
-          tags?: Array<{ name: string }>;
-        }> }>(
-          'artist',
-          { query: `arid:${artistId}`, limit: '1', inc: 'tags' }
-        );
+        const data = await mbFetch<{
+          artists?: Array<{
+            name: string;
+            country?: string;
+            type?: string;
+            tags?: Array<{ name: string }>;
+          }>;
+        }>('artist', { query: `arid:${artistId}`, limit: '1', inc: 'tags' });
 
         const artist = data.artists?.[0];
         if (!artist) return null;
@@ -219,13 +223,13 @@ export async function getArtistInfo(artistId: string): Promise<{
           name: artist.name,
           country: artist.country,
           type: artist.type,
-          tags: artist.tags?.map(t => t.name) || [],
+          tags: artist.tags?.map((t) => t.name) || [],
         };
       } catch (error) {
         logger.warn('MusicBrainz artist info failed', { artistId, error: String(error) });
         return null;
       }
     },
-    CACHE_TTLS.musicbrainz
+    CACHE_TTLS.musicbrainz,
   );
 }

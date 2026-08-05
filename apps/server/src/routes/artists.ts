@@ -1,6 +1,10 @@
 import { Router } from 'express';
 import { prisma } from '../config/database.js';
-import type { ArtistWithRelations, AlbumWithRelations, PaginatedResponse } from '@musicserver/shared';
+import type {
+  ArtistWithRelations,
+  AlbumWithRelations,
+  PaginatedResponse,
+} from '@musicserver/shared';
 
 const router: Router = Router();
 
@@ -33,7 +37,7 @@ router.get('/', async (req, res, next) => {
       prisma.artist.count({ where }),
     ]);
 
-    const data: ArtistWithRelations[] = artists.map((a: typeof artists[number]) => ({
+    const data: ArtistWithRelations[] = artists.map((a: (typeof artists)[number]) => ({
       id: a.id,
       name: a.name,
       sortName: a.sortName,
@@ -88,7 +92,7 @@ router.get('/:id', async (req, res, next) => {
       return;
     }
 
-    const albums: AlbumWithRelations[] = artist.albums.map((a: typeof artist.albums[number]) => ({
+    const albums: AlbumWithRelations[] = artist.albums.map((a: (typeof artist.albums)[number]) => ({
       id: a.id,
       title: a.title,
       artistId: a.artistId,
@@ -107,7 +111,7 @@ router.get('/:id', async (req, res, next) => {
       trackCount: a._count.tracks,
     }));
 
-    const tracks = artist.tracks.map((t: typeof artist.tracks[number]) => ({
+    const tracks = artist.tracks.map((t: (typeof artist.tracks)[number]) => ({
       ...t,
       fileSize: t.fileSize.toString(),
       createdAt: t.createdAt.toISOString(),
@@ -163,7 +167,7 @@ router.post('/:id/fetch-metadata', async (req, res, next) => {
       const url = `https://www.theaudiodb.com/api/v1/json/2/artist-mb.php?i=${encodeURIComponent(artist.musicbrainzId)}`;
       const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
       if (r.ok) {
-        const json = await r.json() as { artists?: AudioDBEntry[] };
+        const json = (await r.json()) as { artists?: AudioDBEntry[] };
         entry = json.artists?.[0] ?? null;
       }
     }
@@ -173,7 +177,7 @@ router.post('/:id/fetch-metadata', async (req, res, next) => {
       const url = `https://www.theaudiodb.com/api/v1/json/2/search.php?s=${encodeURIComponent(artist.name)}`;
       const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
       if (r.ok) {
-        const json = await r.json() as { artists?: AudioDBEntry[] };
+        const json = (await r.json()) as { artists?: AudioDBEntry[] };
         entry = json.artists?.[0] ?? null;
       }
     }

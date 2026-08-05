@@ -12,9 +12,9 @@ interface VideoScanJobData {
 export const videoScanQueue = new Queue<VideoScanJobData>(QUEUE_NAME, {
   connection: { url: env.redisUrl },
   defaultJobOptions: {
-    attempts:         1,
+    attempts: 1,
     removeOnComplete: { count: 10 },
-    removeOnFail:     { count: 20 },
+    removeOnFail: { count: 20 },
   },
 });
 
@@ -31,7 +31,7 @@ export function startVideoScanWorker(): void {
       const rootPath = job.data.rootPath ?? env.videoPath;
       currentJobId = job.id!;
       logger.info(`[VideoScanWorker] Starting video library scan at ${rootPath}`);
-      
+
       // Reset progress at start
       currentProgress = {
         phase: 'discovering',
@@ -42,13 +42,13 @@ export function startVideoScanWorker(): void {
         skipped: 0,
         errors: 0,
       };
-      
+
       const result = await scanVideoLibrary(rootPath);
       currentProgress = result;
       return result;
     },
     {
-      connection:  { url: env.redisUrl },
+      connection: { url: env.redisUrl },
       concurrency: 1,
     },
   );
@@ -87,7 +87,9 @@ export async function enqueueVideoScan(rootPath?: string): Promise<string> {
     return active[0].id!;
   }
   const job = await videoScanQueue.add('scan', { rootPath });
-  logger.info(`[VideoScanQueue] Enqueued video scan job ${job.id} (path: ${rootPath ?? 'default'})`);
+  logger.info(
+    `[VideoScanQueue] Enqueued video scan job ${job.id} (path: ${rootPath ?? 'default'})`,
+  );
   return job.id!;
 }
 
@@ -109,10 +111,10 @@ export async function getVideoScanStatus(): Promise<{
 }> {
   const activeJobs = await videoScanQueue.getJobs(['active']);
   const waitingJobs = await videoScanQueue.getJobs(['waiting']);
-  
+
   const isScanning = activeJobs.length > 0;
   const activeJob = activeJobs[0];
-  
+
   return {
     isScanning,
     progress: currentProgress,
@@ -123,13 +125,15 @@ export async function getVideoScanStatus(): Promise<{
 /**
  * Get scan history (last N completed jobs)
  */
-export async function getVideoScanHistory(limit: number = 5): Promise<{
-  id: string;
-  completedAt: Date | null;
-  result: VideoScanProgress | null;
-}[]> {
+export async function getVideoScanHistory(limit: number = 5): Promise<
+  {
+    id: string;
+    completedAt: Date | null;
+    result: VideoScanProgress | null;
+  }[]
+> {
   const jobs = await videoScanQueue.getJobs(['completed'], 0, limit, true);
-  return jobs.map(job => ({
+  return jobs.map((job) => ({
     id: job.id!,
     completedAt: job.finishedOn ? new Date(job.finishedOn) : null,
     result: job.returnvalue as VideoScanProgress | null,

@@ -68,7 +68,10 @@ function formatSong(track: TrackRow, _userId?: string): SubsonicObj {
 
 // ─── getMusicFolders ────────────────────────────────────────────────────────
 
-async function handleGetMusicFolders(req: import('express').Request, res: import('express').Response) {
+async function handleGetMusicFolders(
+  req: import('express').Request,
+  res: import('express').Response,
+) {
   const libraries = await prisma.library.findMany({ orderBy: { name: 'asc' } });
 
   sendResponse(req, res, {
@@ -112,7 +115,9 @@ async function handleGetIndexes(req: import('express').Request, res: import('exp
   }
 
   const indexes: SubsonicObj[] = [];
-  for (const [letter, artists] of [...indexMap.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+  for (const [letter, artists] of [...indexMap.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  )) {
     indexes.push({
       name: letter,
       artist: artists,
@@ -133,7 +138,10 @@ router.post('/getIndexes', handleGetIndexes);
 
 // ─── getMusicDirectory ──────────────────────────────────────────────────────
 
-async function handleGetMusicDirectory(req: import('express').Request, res: import('express').Response) {
+async function handleGetMusicDirectory(
+  req: import('express').Request,
+  res: import('express').Response,
+) {
   const id = req.query.id as string;
   if (!id) {
     sendError(req, res, SubsonicError.MISSING_PARAMETER, 'Required parameter "id" is missing');
@@ -151,9 +159,7 @@ async function handleGetMusicDirectory(req: import('express').Request, res: impo
         include: {
           artist: { select: { id: true, name: true } },
           album: { select: { id: true, title: true, coverUrl: true } },
-          ...(userId
-            ? { starredTracks: { where: { userId }, take: 1 } }
-            : {}),
+          ...(userId ? { starredTracks: { where: { userId }, take: 1 } } : {}),
         },
         orderBy: [{ discNumber: 'asc' }, { trackNumber: 'asc' }],
       },
@@ -239,9 +245,7 @@ async function handleGetSong(req: import('express').Request, res: import('expres
     include: {
       artist: { select: { id: true, name: true } },
       album: { select: { id: true, title: true, coverUrl: true, year: true, genre: true } },
-      ...(userId
-        ? { starredTracks: { where: { userId }, take: 1 } }
-        : {}),
+      ...(userId ? { starredTracks: { where: { userId }, take: 1 } } : {}),
     },
   });
 
@@ -280,15 +284,11 @@ async function handleGetArtist(req: import('express').Request, res: import('expr
         include: {
           _count: { select: { tracks: true } },
           tracks: { select: { duration: true } },
-          ...(userId
-            ? { starredAlbums: { where: { userId }, take: 1 } }
-            : {}),
+          ...(userId ? { starredAlbums: { where: { userId }, take: 1 } } : {}),
         },
         orderBy: { year: 'desc' },
       },
-      ...(userId
-        ? { starredArtists: { where: { userId }, take: 1 } }
-        : {}),
+      ...(userId ? { starredArtists: { where: { userId }, take: 1 } } : {}),
     },
   });
 
@@ -297,7 +297,8 @@ async function handleGetArtist(req: import('express').Request, res: import('expr
     return;
   }
 
-  const starredArtist = (artist as unknown as { starredArtists?: { starredAt: Date }[] }).starredArtists?.[0];
+  const starredArtist = (artist as unknown as { starredArtists?: { starredAt: Date }[] })
+    .starredArtists?.[0];
 
   sendResponse(req, res, {
     artist: {
@@ -309,7 +310,8 @@ async function handleGetArtist(req: import('express').Request, res: import('expr
       ...(artist.musicbrainzId ? { musicBrainzId: artist.musicbrainzId } : {}),
       album: artist.albums.map((al) => {
         const totalDuration = al.tracks.reduce((sum, t) => sum + t.duration, 0);
-        const starredAlbum = (al as unknown as { starredAlbums?: { starredAt: Date }[] }).starredAlbums?.[0];
+        const starredAlbum = (al as unknown as { starredAlbums?: { starredAt: Date }[] })
+          .starredAlbums?.[0];
         return {
           id: al.id,
           name: al.title,
@@ -350,15 +352,11 @@ async function handleGetAlbum(req: import('express').Request, res: import('expre
         include: {
           artist: { select: { id: true, name: true } },
           album: { select: { id: true, title: true, coverUrl: true } },
-          ...(userId
-            ? { starredTracks: { where: { userId }, take: 1 } }
-            : {}),
+          ...(userId ? { starredTracks: { where: { userId }, take: 1 } } : {}),
         },
         orderBy: [{ discNumber: 'asc' }, { trackNumber: 'asc' }],
       },
-      ...(userId
-        ? { starredAlbums: { where: { userId }, take: 1 } }
-        : {}),
+      ...(userId ? { starredAlbums: { where: { userId }, take: 1 } } : {}),
     },
   });
 
@@ -368,7 +366,8 @@ async function handleGetAlbum(req: import('express').Request, res: import('expre
   }
 
   const totalDuration = album.tracks.reduce((sum, t) => sum + t.duration, 0);
-  const starredAlbum = (album as unknown as { starredAlbums?: { starredAt: Date }[] }).starredAlbums?.[0];
+  const starredAlbum = (album as unknown as { starredAlbums?: { starredAt: Date }[] })
+    .starredAlbums?.[0];
 
   sendResponse(req, res, {
     album: {
@@ -410,9 +409,7 @@ async function handleGetArtists(req: import('express').Request, res: import('exp
       imageUrl: true,
       musicbrainzId: true,
       _count: { select: { albums: true } },
-      ...(userId
-        ? { starredArtists: { where: { userId }, take: 1 } }
-        : {}),
+      ...(userId ? { starredArtists: { where: { userId }, take: 1 } } : {}),
     },
   });
 
@@ -423,7 +420,8 @@ async function handleGetArtists(req: import('express').Request, res: import('exp
 
     if (!indexMap.has(letter)) indexMap.set(letter, []);
 
-    const starred = (artist as unknown as { starredArtists?: { starredAt: Date }[] }).starredArtists?.[0];
+    const starred = (artist as unknown as { starredArtists?: { starredAt: Date }[] })
+      .starredArtists?.[0];
     indexMap.get(letter)!.push({
       id: artist.id,
       name: artist.name,

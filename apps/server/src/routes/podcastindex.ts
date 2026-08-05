@@ -60,7 +60,7 @@ router.post('/config', async (req, res) => {
     }
 
     await prisma.userSettings.upsert({
-      where:  { userId },
+      where: { userId },
       update: updateData,
       create: { userId, ...updateData },
     });
@@ -81,7 +81,7 @@ router.post('/test', async (req, res) => {
         })
       : null;
 
-    const apiKey    = settings?.podcastIndexApiKey    ?? process.env.PODCASTINDEX_API_KEY ?? '';
+    const apiKey = settings?.podcastIndexApiKey ?? process.env.PODCASTINDEX_API_KEY ?? '';
     const apiSecret = settings?.podcastIndexApiSecret ?? process.env.PODCASTINDEX_API_SECRET ?? '';
 
     if (!apiKey || !apiSecret) {
@@ -90,14 +90,17 @@ router.post('/test', async (req, res) => {
     }
 
     const ts = Math.floor(Date.now() / 1000);
-    const hash = crypto.createHash('sha1').update(apiKey + apiSecret + ts).digest('hex');
+    const hash = crypto
+      .createHash('sha1')
+      .update(apiKey + apiSecret + ts)
+      .digest('hex');
 
     const r = await fetch('https://api.podcastindex.org/api/1.0/podcasts/trending?max=1', {
       headers: {
-        'User-Agent':    'Spherix/1.0',
-        'X-Auth-Key':    apiKey,
-        'X-Auth-Date':   String(ts),
-        'Authorization': hash,
+        'User-Agent': 'Spherix/1.0',
+        'X-Auth-Key': apiKey,
+        'X-Auth-Date': String(ts),
+        Authorization: hash,
       },
       signal: AbortSignal.timeout(8_000),
     });

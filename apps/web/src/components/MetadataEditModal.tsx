@@ -38,7 +38,13 @@ const FIELDS: Record<string, FieldConfig[]> = {
   ],
 };
 
-export function MetadataEditModal({ type, id, initialData, onClose, onOpenMusicBrainz }: MetadataEditModalProps) {
+export function MetadataEditModal({
+  type,
+  id,
+  initialData,
+  onClose,
+  onOpenMusicBrainz,
+}: MetadataEditModalProps) {
   const queryClient = useQueryClient();
   const fields = FIELDS[type];
 
@@ -50,12 +56,11 @@ export function MetadataEditModal({ type, id, initialData, onClose, onOpenMusicB
     return data;
   });
 
-  const endpoint = type === 'track' ? `/tracks/${id}` :
-    type === 'album' ? `/albums/${id}` : `/artists/${id}`;
+  const endpoint =
+    type === 'track' ? `/tracks/${id}` : type === 'album' ? `/albums/${id}` : `/artists/${id}`;
 
   const mutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) =>
-      api.patch(endpoint, data),
+    mutationFn: (data: Record<string, unknown>) => api.patch(endpoint, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [type, id] });
       queryClient.invalidateQueries({ queryKey: [`${type}s`] });
@@ -164,9 +169,7 @@ export function MetadataEditModal({ type, id, initialData, onClose, onOpenMusicB
           </div>
 
           {mutation.isError && (
-            <p className="text-sm text-red-500 px-6 pb-4">
-              Fehler: {mutation.error.message}
-            </p>
+            <p className="text-sm text-red-500 px-6 pb-4">Fehler: {mutation.error.message}</p>
           )}
         </form>
       </div>

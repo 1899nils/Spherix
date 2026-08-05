@@ -21,10 +21,7 @@ export interface TagFields {
  * Supports MP3 (ID3v2 via node-id3) and FLAC (Vorbis Comments via flac-metadata).
  * Other formats only update the database (no file tag writing).
  */
-export async function writeTags(
-  filePath: string,
-  tags: TagFields,
-): Promise<void> {
+export async function writeTags(filePath: string, tags: TagFields): Promise<void> {
   const ext = path.extname(filePath).toLowerCase();
 
   switch (ext) {
@@ -35,9 +32,7 @@ export async function writeTags(
       await writeFlacTags(filePath, tags);
       break;
     default:
-      logger.info(
-        `Tag writing not supported for ${ext} files, skipping: ${filePath}`,
-      );
+      logger.info(`Tag writing not supported for ${ext} files, skipping: ${filePath}`);
   }
 }
 
@@ -70,10 +65,7 @@ function writeMp3Tags(filePath: string, tags: TagFields): void {
 
 // ─── FLAC (Vorbis Comments) ────────────────────────────────────────────────
 
-function writeFlacTags(
-  filePath: string,
-  tags: TagFields,
-): Promise<void> {
+function writeFlacTags(filePath: string, tags: TagFields): Promise<void> {
   return new Promise((resolve, reject) => {
     // Read existing Vorbis Comments so we can merge with new tags
     const existingComments: string[] = [];
@@ -92,15 +84,10 @@ function writeFlacTags(
     }
     if (tags.lyrics !== undefined) newFields.set('LYRICS', tags.lyrics);
 
-    const overriddenKeys = new Set(
-      [...newFields.keys()].map((k) => k.toUpperCase()),
-    );
+    const overriddenKeys = new Set([...newFields.keys()].map((k) => k.toUpperCase()));
 
     // Write to a temp file, then rename (atomic-ish)
-    const tmpPath = path.join(
-      os.tmpdir(),
-      `flac-${Date.now()}-${path.basename(filePath)}`,
-    );
+    const tmpPath = path.join(os.tmpdir(), `flac-${Date.now()}-${path.basename(filePath)}`);
 
     const reader = fs.createReadStream(filePath);
     const writer = fs.createWriteStream(tmpPath);
@@ -129,12 +116,11 @@ function writeFlacTags(
           ...existingComments,
           ...[...newFields.entries()].map(([k, v]) => `${k}=${v}`),
         ];
-        const newBlock =
-          flac.data.MetaDataBlockVorbisComment.create(
-            true, // isLast
-            'MusicServer/1.0',
-            allComments,
-          );
+        const newBlock = flac.data.MetaDataBlockVorbisComment.create(
+          true, // isLast
+          'MusicServer/1.0',
+          allComments,
+        );
         this.push(newBlock.publish());
       }
     });
@@ -172,9 +158,7 @@ function writeFlacTags(
  * Parse a raw Vorbis Comment metadata block to extract the comment strings.
  * Layout: [4-byte vendor length][vendor string][4-byte count][comments...]
  */
-function parseVorbisCommentBlock(
-  data: Buffer,
-): { vendor: string; comments: string[] } {
+function parseVorbisCommentBlock(data: Buffer): { vendor: string; comments: string[] } {
   let offset = 0;
   const vendorLen = data.readUInt32LE(offset);
   offset += 4;

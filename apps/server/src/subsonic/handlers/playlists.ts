@@ -19,12 +19,22 @@ function formatPlaylistSong(t: {
   createdAt: Date;
   musicbrainzId: string | null;
   artist: { id: string; name: string } | null;
-  album: { id: string; title: string; coverUrl: string | null; year?: number | null; genre?: string | null } | null;
+  album: {
+    id: string;
+    title: string;
+    coverUrl: string | null;
+    year?: number | null;
+    genre?: string | null;
+  } | null;
 }) {
   const suffix = t.format?.replace('.', '') || 'mp3';
   const mimeMap: Record<string, string> = {
-    mp3: 'audio/mpeg', flac: 'audio/flac', ogg: 'audio/ogg',
-    opus: 'audio/opus', m4a: 'audio/mp4', wav: 'audio/wav',
+    mp3: 'audio/mpeg',
+    flac: 'audio/flac',
+    ogg: 'audio/ogg',
+    opus: 'audio/opus',
+    m4a: 'audio/mp4',
+    wav: 'audio/wav',
   };
   return {
     id: t.id,
@@ -63,10 +73,7 @@ async function handleGetPlaylists(req: import('express').Request, res: import('e
 
   const playlists = await prisma.playlist.findMany({
     where: {
-      OR: [
-        { userId },
-        { isPublic: true },
-      ],
+      OR: [{ userId }, { isPublic: true }],
     },
     include: {
       user: { select: { username: true } },
@@ -164,7 +171,10 @@ router.post('/getPlaylist', handleGetPlaylist);
 
 // ─── createPlaylist ─────────────────────────────────────────────────────────
 
-async function handleCreatePlaylist(req: import('express').Request, res: import('express').Response) {
+async function handleCreatePlaylist(
+  req: import('express').Request,
+  res: import('express').Response,
+) {
   const userId = req.subsonicUser?.id;
   if (!userId) {
     sendError(req, res, SubsonicError.NOT_AUTHORIZED, 'Authentication required');
@@ -244,7 +254,10 @@ router.post('/createPlaylist', handleCreatePlaylist);
 
 // ─── updatePlaylist ─────────────────────────────────────────────────────────
 
-async function handleUpdatePlaylist(req: import('express').Request, res: import('express').Response) {
+async function handleUpdatePlaylist(
+  req: import('express').Request,
+  res: import('express').Response,
+) {
   const userId = req.subsonicUser?.id;
   if (!userId) {
     sendError(req, res, SubsonicError.NOT_AUTHORIZED, 'Authentication required');
@@ -253,7 +266,12 @@ async function handleUpdatePlaylist(req: import('express').Request, res: import(
 
   const playlistId = req.query.playlistId as string;
   if (!playlistId) {
-    sendError(req, res, SubsonicError.MISSING_PARAMETER, 'Required parameter "playlistId" is missing');
+    sendError(
+      req,
+      res,
+      SubsonicError.MISSING_PARAMETER,
+      'Required parameter "playlistId" is missing',
+    );
     return;
   }
 
@@ -337,7 +355,10 @@ router.post('/updatePlaylist', handleUpdatePlaylist);
 
 // ─── deletePlaylist ─────────────────────────────────────────────────────────
 
-async function handleDeletePlaylist(req: import('express').Request, res: import('express').Response) {
+async function handleDeletePlaylist(
+  req: import('express').Request,
+  res: import('express').Response,
+) {
   const userId = req.subsonicUser?.id;
   if (!userId) {
     sendError(req, res, SubsonicError.NOT_AUTHORIZED, 'Authentication required');

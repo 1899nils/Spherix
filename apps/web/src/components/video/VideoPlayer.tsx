@@ -4,8 +4,17 @@ import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { formatDuration } from '@/lib/utils';
 import {
-  Play, Pause, Volume2, VolumeX, Maximize, SkipBack, SkipForward, ChevronDown, Square,
-  Languages, Captions,
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
+  SkipBack,
+  SkipForward,
+  ChevronDown,
+  Square,
+  Languages,
+  Captions,
 } from 'lucide-react';
 
 interface SubtitleCue {
@@ -19,15 +28,20 @@ function parseVtt(vttText: string): SubtitleCue[] {
   const blocks = vttText.split(/\n\n+/);
   for (const block of blocks) {
     const lines = block.trim().split('\n');
-    const timeLine = lines.find(l => l.includes('-->'));
+    const timeLine = lines.find((l) => l.includes('-->'));
     if (!timeLine) continue;
-    const [startStr, endStr] = timeLine.split('-->').map(s => s.trim());
+    const [startStr, endStr] = timeLine.split('-->').map((s) => s.trim());
     const parseTime = (t: string) => {
       const timeOnly = t.split(' ')[0].replace(',', '.');
       const parts = timeOnly.split(':').map(parseFloat);
-      return parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
+      return parts.length === 3
+        ? parts[0] * 3600 + parts[1] * 60 + parts[2]
+        : parts[0] * 60 + parts[1];
     };
-    const text = lines.slice(lines.indexOf(timeLine) + 1).join('\n').trim()
+    const text = lines
+      .slice(lines.indexOf(timeLine) + 1)
+      .join('\n')
+      .trim()
       .replace(/<[^>]+>/g, '');
     if (text) cues.push({ start: parseTime(startStr), end: parseTime(endStr), text });
   }
@@ -74,22 +88,37 @@ interface VideoPlayerProps {
 
 function trackLabel(t: AudioTrackInfo | SubtitleTrackInfo, idx: number): string {
   const lang = t.language ? t.language.toUpperCase() : `Spur ${idx + 1}`;
-  const extra = 'channels' in t
-    ? `${(t as AudioTrackInfo).channels}ch · ${t.codec.toUpperCase()}`
-    : (t as SubtitleTrackInfo).forced ? 'Erzwungen' : t.codec.toUpperCase();
+  const extra =
+    'channels' in t
+      ? `${(t as AudioTrackInfo).channels}ch · ${t.codec.toUpperCase()}`
+      : (t as SubtitleTrackInfo).forced
+        ? 'Erzwungen'
+        : t.codec.toUpperCase();
   const name = 'title' in t && t.title ? ` · ${t.title}` : '';
   return `${lang}${name} (${extra})`;
 }
 
 // Audio codecs the browser can decode natively — no transcoding needed.
 const NATIVE_AUDIO = new Set([
-  'aac', 'mp3', 'opus', 'vorbis', 'flac', 'alac', 'pcm_s16le', 'pcm_s24le',
+  'aac',
+  'mp3',
+  'opus',
+  'vorbis',
+  'flac',
+  'alac',
+  'pcm_s16le',
+  'pcm_s24le',
 ]);
 
 // Image-based subtitle codecs that cannot be converted to WebVTT.
 const IMAGE_SUB_CODECS = new Set([
-  'hdmv_pgs_subtitle', 'pgssub', 'pgs',
-  'dvd_subtitle', 'dvbsub', 'dvb_subtitle', 'vobsub',
+  'hdmv_pgs_subtitle',
+  'pgssub',
+  'pgs',
+  'dvd_subtitle',
+  'dvbsub',
+  'dvb_subtitle',
+  'vobsub',
 ]);
 
 export function VideoPlayer({
@@ -193,16 +222,17 @@ export function VideoPlayer({
     const controller = new AbortController();
 
     fetch(`/api/video/stream/info/${mediaType}/${mediaId}`, { signal: controller.signal })
-      .then(r => r.json())
-      .then(json => {
+      .then((r) => r.json())
+      .then((json) => {
         if (controller.signal.aborted) return;
         const data = json?.data;
         const info = data?.mediaInfo;
         if (!info) return;
 
         const audio: AudioTrackInfo[] = info.audio ?? [];
-        const subs: SubtitleTrackInfo[] = (info.subtitles ?? [])
-          .filter((s: SubtitleTrackInfo) => !IMAGE_SUB_CODECS.has(s.codec.toLowerCase()));
+        const subs: SubtitleTrackInfo[] = (info.subtitles ?? []).filter(
+          (s: SubtitleTrackInfo) => !IMAGE_SUB_CODECS.has(s.codec.toLowerCase()),
+        );
 
         setAudioTracks(audio);
         setSubtitleTracks(subs);
@@ -220,7 +250,10 @@ export function VideoPlayer({
         const directPlay: boolean = data?.directPlay ?? true;
 
         if (!directPlay) {
-          if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+          if (hlsRef.current) {
+            hlsRef.current.destroy();
+            hlsRef.current = null;
+          }
           video.pause();
 
           // ── HLS transcode path (video/container incompatible) ─────────────
@@ -231,11 +264,19 @@ export function VideoPlayer({
               hls.loadSource(streamUrl);
               hls.attachMedia(video);
               hls.once(Hls.Events.MANIFEST_PARSED, () => {
-                video.play().catch(() => { video.muted = true; setIsMuted(true); video.play().catch(() => {}); });
+                video.play().catch(() => {
+                  video.muted = true;
+                  setIsMuted(true);
+                  video.play().catch(() => {});
+                });
               });
             } else {
               video.src = streamUrl;
-              video.play().catch(() => { video.muted = true; setIsMuted(true); video.play().catch(() => {}); });
+              video.play().catch(() => {
+                video.muted = true;
+                setIsMuted(true);
+                video.play().catch(() => {});
+              });
             }
             return;
           }
@@ -251,7 +292,11 @@ export function VideoPlayer({
           console.log('[VideoPlayer] audio remux stream (start=0)', streamUrl);
           video.src = streamUrl;
           video.load();
-          video.play().catch(() => { video.muted = true; setIsMuted(true); video.play().catch(() => {}); });
+          video.play().catch(() => {
+            video.muted = true;
+            setIsMuted(true);
+            video.play().catch(() => {});
+          });
           return;
         }
       })
@@ -319,7 +364,9 @@ export function VideoPlayer({
       onLoaded();
     }
 
-    const onError = () => { setIsLoading(false); };
+    const onError = () => {
+      setIsLoading(false);
+    };
     video.addEventListener('error', onError);
 
     video.muted = false;
@@ -336,7 +383,7 @@ export function VideoPlayer({
       video.removeEventListener('loadedmetadata', onLoaded);
       video.removeEventListener('error', onError);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedPosition, pause, propDuration]);
 
   // ─── Sync playback events ──────────────────────────────────────────────────
@@ -352,7 +399,7 @@ export function VideoPlayer({
       updateProgressRef.current(realTime, durationRef.current);
 
       const iStart = introStartRef.current;
-      const iEnd   = introEndRef.current;
+      const iEnd = introEndRef.current;
       if (iStart != null && iEnd != null) {
         setShowSkipIntro(realTime >= iStart && realTime < iEnd - 5);
       }
@@ -363,7 +410,7 @@ export function VideoPlayer({
       // Subtitle overlay
       const cues = subtitleCuesRef.current;
       if (cues.length > 0) {
-        const active = cues.find(c => realTime >= c.start && realTime <= c.end);
+        const active = cues.find((c) => realTime >= c.start && realTime <= c.end);
         const text = active?.text ?? null;
         if (text !== currentCueRef.current) {
           currentCueRef.current = text;
@@ -372,7 +419,7 @@ export function VideoPlayer({
       }
     };
 
-    const onPlay  = () => {
+    const onPlay = () => {
       setIsPlaying(true);
       resetHideTimer();
       // Only call play() if the audio element is actually paused — calling
@@ -380,28 +427,42 @@ export function VideoPlayer({
       const ael = audioRef.current;
       if (ael && ael.paused && usesSeparateAudio.current) ael.play().catch(() => {});
     };
-    const onPause = () => { setIsPlaying(false); setShowControls(true); audioRef.current?.pause(); };
-    const onEnded = () => { setIsPlaying(false); setShowControls(true); onCompleteRef.current?.(); };
+    const onPause = () => {
+      setIsPlaying(false);
+      setShowControls(true);
+      audioRef.current?.pause();
+    };
+    const onEnded = () => {
+      setIsPlaying(false);
+      setShowControls(true);
+      onCompleteRef.current?.();
+    };
 
     video.addEventListener('timeupdate', onTime);
-    video.addEventListener('play',       onPlay);
-    video.addEventListener('pause',      onPause);
-    video.addEventListener('ended',      onEnded);
+    video.addEventListener('play', onPlay);
+    video.addEventListener('pause', onPause);
+    video.addEventListener('ended', onEnded);
 
     return () => {
       video.removeEventListener('timeupdate', onTime);
-      video.removeEventListener('play',       onPlay);
-      video.removeEventListener('pause',      onPause);
-      video.removeEventListener('ended',      onEnded);
+      video.removeEventListener('play', onPlay);
+      video.removeEventListener('pause', onPause);
+      video.removeEventListener('ended', onEnded);
     };
   }, [resetHideTimer]);
 
   // ─── Cleanup on unmount ────────────────────────────────────────────────────
 
-  useEffect(() => () => {
-    hlsRef.current?.destroy();
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
-  }, []);
+  useEffect(
+    () => () => {
+      hlsRef.current?.destroy();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    },
+    [],
+  );
 
   // ─── Reload separate audio element at a new position ──────────────────────
 
@@ -445,19 +506,22 @@ export function VideoPlayer({
     resetHideTimer();
   };
 
-  const handleSeek = useCallback((seconds: number) => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (audioRemuxBaseUrlRef.current) {
-      // Remux stream: reload ffmpeg from the seek position.
-      resyncVideo(seconds);
-    } else {
-      video.currentTime = Math.max(0, seconds - streamOffsetRef.current);
-    }
-    setSeek(seconds);
-    resyncAudio(seconds);
-    resetHideTimer();
-  }, [resyncAudio, resyncVideo, resetHideTimer]);
+  const handleSeek = useCallback(
+    (seconds: number) => {
+      const video = videoRef.current;
+      if (!video) return;
+      if (audioRemuxBaseUrlRef.current) {
+        // Remux stream: reload ffmpeg from the seek position.
+        resyncVideo(seconds);
+      } else {
+        video.currentTime = Math.max(0, seconds - streamOffsetRef.current);
+      }
+      setSeek(seconds);
+      resyncAudio(seconds);
+      resetHideTimer();
+    },
+    [resyncAudio, resyncVideo, resetHideTimer],
+  );
 
   const skip = (delta: number) => {
     const video = videoRef.current;
@@ -514,10 +578,17 @@ export function VideoPlayer({
 
   const handleStop = useCallback(() => {
     const video = videoRef.current;
-    if (video) { video.pause(); video.currentTime = 0; }
+    if (video) {
+      video.pause();
+      video.currentTime = 0;
+    }
     hlsRef.current?.destroy();
     hlsRef.current = null;
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; audioRef.current = null; }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
     usesSeparateAudio.current = false;
     streamOffsetRef.current = 0;
     stop();
@@ -555,7 +626,10 @@ export function VideoPlayer({
     // Not yet on separate-audio path (track was native) — switch now
     const newTrack = audioTracks[idx];
     if (newTrack && !NATIVE_AUDIO.has(newTrack.codec.toLowerCase())) {
-      if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
       const ael = new Audio();
       ael.volume = isMuted ? 0 : volume;
       ael.muted = isMuted;
@@ -566,7 +640,11 @@ export function VideoPlayer({
       video.muted = true;
     } else {
       // Switching to a native audio track — disable separate audio
-      if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; audioRef.current = null; }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
+      }
       usesSeparateAudio.current = false;
       video.muted = false;
     }
@@ -586,11 +664,11 @@ export function VideoPlayer({
     if (!track) return;
 
     fetch(`/api/video/stream/subtitle/${mediaType}/${mediaId}/${track.index}`)
-      .then(r => {
+      .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.text();
       })
-      .then(vttText => {
+      .then((vttText) => {
         const cues = parseVtt(vttText);
         if (cues.length === 0) {
           console.warn('[VideoPlayer] Subtitle fetch returned empty cues for track', track);
@@ -609,12 +687,29 @@ export function VideoPlayer({
       if (!videoRef.current) return;
       switch (e.key) {
         case ' ':
-        case 'k': e.preventDefault(); togglePlay(); break;
-        case 'ArrowRight': e.preventDefault(); skip(10); break;
-        case 'ArrowLeft':  e.preventDefault(); skip(-10); break;
-        case 'f': e.preventDefault(); toggleFullscreen(); break;
-        case 'm': e.preventDefault(); toggleMute(); break;
-        case 'Escape': handleStop(); break;
+        case 'k':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          skip(10);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          skip(-10);
+          break;
+        case 'f':
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case 'm':
+          e.preventDefault();
+          toggleMute();
+          break;
+        case 'Escape':
+          handleStop();
+          break;
       }
       resetHideTimer();
     };
@@ -664,7 +759,10 @@ export function VideoPlayer({
         {/* Skip Intro */}
         {showSkipIntro && (
           <button
-            onClick={(e) => { e.stopPropagation(); skipIntro(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              skipIntro();
+            }}
             className="absolute bottom-28 right-8 px-6 py-3 bg-white text-black font-semibold rounded hover:bg-white/90"
           >
             Intro überspringen
@@ -686,11 +784,21 @@ export function VideoPlayer({
         )}
 
         {/* Top Bar */}
-        <div className={`absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/80 to-transparent transition-opacity ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-          <button onClick={minimize} className="text-white/80 hover:text-white p-2" title="Minimieren">
+        <div
+          className={`absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/80 to-transparent transition-opacity ${showControls ? 'opacity-100' : 'opacity-0'}`}
+        >
+          <button
+            onClick={minimize}
+            className="text-white/80 hover:text-white p-2"
+            title="Minimieren"
+          >
             <ChevronDown className="h-6 w-6" />
           </button>
-          <button onClick={toggleFullscreen} className="text-white/80 hover:text-white p-2" title="Vollbild">
+          <button
+            onClick={toggleFullscreen}
+            className="text-white/80 hover:text-white p-2"
+            title="Vollbild"
+          >
             <Maximize className="h-6 w-6" />
           </button>
         </div>
@@ -746,9 +854,11 @@ export function VideoPlayer({
               onClick={togglePlay}
               className="flex items-center justify-center w-12 h-12 bg-white text-black rounded-full hover:scale-105 transition-transform mx-1"
             >
-              {isPlaying
-                ? <Pause className="h-6 w-6 fill-current" />
-                : <Play className="h-6 w-6 fill-current ml-0.5" />}
+              {isPlaying ? (
+                <Pause className="h-6 w-6 fill-current" />
+              ) : (
+                <Play className="h-6 w-6 fill-current ml-0.5" />
+              )}
             </button>
 
             <button
@@ -785,12 +895,14 @@ export function VideoPlayer({
 
           {/* Right: Track selectors + Volume */}
           <div className="flex items-center justify-end gap-1">
-
             {/* Audio Track Selector */}
             {audioTracks.length > 1 && (
               <div className="relative">
                 <button
-                  onClick={() => { setShowAudioMenu(v => !v); setShowSubtitleMenu(false); }}
+                  onClick={() => {
+                    setShowAudioMenu((v) => !v);
+                    setShowSubtitleMenu(false);
+                  }}
                   className={`flex items-center justify-center w-9 h-9 rounded hover:bg-white/10 transition-colors ${showAudioMenu ? 'text-white' : 'text-white/60'}`}
                   title="Audiospur"
                 >
@@ -798,14 +910,18 @@ export function VideoPlayer({
                 </button>
                 {showAudioMenu && (
                   <div className="absolute bottom-full right-0 mb-2 bg-[#2a2a2a] border border-white/10 rounded-lg shadow-xl min-w-[200px] py-1 z-10">
-                    <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">Audiospur</p>
+                    <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+                      Audiospur
+                    </p>
                     {audioTracks.map((t, i) => (
                       <button
                         key={t.index}
                         onClick={() => selectAudioTrack(i)}
                         className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition-colors ${selectedAudio === i ? 'text-white' : 'text-white/70'}`}
                       >
-                        <span className={`inline-block w-3 h-3 rounded-full border mr-2 align-middle ${selectedAudio === i ? 'bg-red-500 border-red-500' : 'border-white/30'}`} />
+                        <span
+                          className={`inline-block w-3 h-3 rounded-full border mr-2 align-middle ${selectedAudio === i ? 'bg-red-500 border-red-500' : 'border-white/30'}`}
+                        />
                         {trackLabel(t, i)}
                       </button>
                     ))}
@@ -818,7 +934,10 @@ export function VideoPlayer({
             {subtitleTracks.length > 0 && (
               <div className="relative">
                 <button
-                  onClick={() => { setShowSubtitleMenu(v => !v); setShowAudioMenu(false); }}
+                  onClick={() => {
+                    setShowSubtitleMenu((v) => !v);
+                    setShowAudioMenu(false);
+                  }}
                   className={`flex items-center justify-center w-9 h-9 rounded hover:bg-white/10 transition-colors ${selectedSubtitle !== null ? 'text-white' : showSubtitleMenu ? 'text-white' : 'text-white/60'}`}
                   title="Untertitel"
                 >
@@ -826,12 +945,16 @@ export function VideoPlayer({
                 </button>
                 {showSubtitleMenu && (
                   <div className="absolute bottom-full right-0 mb-2 bg-[#2a2a2a] border border-white/10 rounded-lg shadow-xl min-w-[200px] py-1 z-10">
-                    <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">Untertitel</p>
+                    <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+                      Untertitel
+                    </p>
                     <button
                       onClick={() => selectSubtitleTrack(null)}
                       className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition-colors ${selectedSubtitle === null ? 'text-white' : 'text-white/70'}`}
                     >
-                      <span className={`inline-block w-3 h-3 rounded-full border mr-2 align-middle ${selectedSubtitle === null ? 'bg-red-500 border-red-500' : 'border-white/30'}`} />
+                      <span
+                        className={`inline-block w-3 h-3 rounded-full border mr-2 align-middle ${selectedSubtitle === null ? 'bg-red-500 border-red-500' : 'border-white/30'}`}
+                      />
                       Aus
                     </button>
                     {subtitleTracks.map((s, i) => (
@@ -840,7 +963,9 @@ export function VideoPlayer({
                         onClick={() => selectSubtitleTrack(i)}
                         className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition-colors ${selectedSubtitle === i ? 'text-white' : 'text-white/70'}`}
                       >
-                        <span className={`inline-block w-3 h-3 rounded-full border mr-2 align-middle ${selectedSubtitle === i ? 'bg-red-500 border-red-500' : 'border-white/30'}`} />
+                        <span
+                          className={`inline-block w-3 h-3 rounded-full border mr-2 align-middle ${selectedSubtitle === i ? 'bg-red-500 border-red-500' : 'border-white/30'}`}
+                        />
                         {trackLabel(s, i)}
                       </button>
                     ))}

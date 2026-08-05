@@ -19,7 +19,12 @@ router.get('/status', async (req, res) => {
 
     const settings = await prisma.userSettings.findUnique({
       where: { userId },
-      select: { lastfmUsername: true, lastfmSessionKey: true, lastfmApiKey: true, lastfmApiSecret: true },
+      select: {
+        lastfmUsername: true,
+        lastfmSessionKey: true,
+        lastfmApiKey: true,
+        lastfmApiSecret: true,
+      },
     });
 
     res.json({
@@ -76,7 +81,7 @@ router.get('/auth-url', async (req, res) => {
   try {
     const userId = await getUserId(req);
     const settings = await prisma.userSettings.findUnique({ where: { userId: String(userId) } });
-    
+
     if (!settings?.lastfmApiKey) {
       res.status(400).json({ error: 'Bitte speichere zuerst deinen Last.fm API Key.' });
       return;
@@ -149,10 +154,12 @@ router.post('/now-playing', async (req, res) => {
     const userId = await getUserId(req);
     if (!userId) return res.status(401).end();
 
-    const settings = await prisma.userSettings.findUnique({
-      where: { userId },
-      select: { lastfmSessionKey: true },
-    }).catch(() => null);
+    const settings = await prisma.userSettings
+      .findUnique({
+        where: { userId },
+        select: { lastfmSessionKey: true },
+      })
+      .catch(() => null);
 
     if (settings?.lastfmSessionKey) {
       const { artist, track, album, duration } = req.body;
@@ -178,18 +185,22 @@ router.post('/scrobble', async (req, res) => {
 
     // Record play history in DB when trackId is provided
     if (trackId) {
-      await prisma.playHistory.create({
-        data: { userId, trackId, completed: true },
-      }).catch((err) => {
-        logger.warn('Failed to save play history', { trackId, userId, error: String(err) });
-      });
+      await prisma.playHistory
+        .create({
+          data: { userId, trackId, completed: true },
+        })
+        .catch((err) => {
+          logger.warn('Failed to save play history', { trackId, userId, error: String(err) });
+        });
     }
 
     // Only queue the Last.fm job when the user actually has a session key configured
-    const settings = await prisma.userSettings.findUnique({
-      where: { userId },
-      select: { lastfmSessionKey: true },
-    }).catch(() => null);
+    const settings = await prisma.userSettings
+      .findUnique({
+        where: { userId },
+        select: { lastfmSessionKey: true },
+      })
+      .catch(() => null);
     const lastfmEnabled = !!settings?.lastfmSessionKey;
 
     if (lastfmEnabled) {

@@ -36,7 +36,13 @@ async function getRecentlyPlayed(userId: string) {
       where: { userId, lastPlayedAt: { not: null } },
       orderBy: { lastPlayedAt: 'desc' },
       take: 4,
-      select: { id: true, name: true, coverUrl: true, lastPlayedAt: true, _count: { select: { tracks: true } } },
+      select: {
+        id: true,
+        name: true,
+        coverUrl: true,
+        lastPlayedAt: true,
+        _count: { select: { tracks: true } },
+      },
     }),
     prisma.radioStation.findMany({
       where: { userId },
@@ -47,10 +53,17 @@ async function getRecentlyPlayed(userId: string) {
   ]);
 
   // Deduplicate albums, keep most recent
-  const seenAlbums = new Map<string, {
-    type: 'album'; id: string; title: string; subtitle: string;
-    coverUrl: string | null; playedAt: Date;
-  }>();
+  const seenAlbums = new Map<
+    string,
+    {
+      type: 'album';
+      id: string;
+      title: string;
+      subtitle: string;
+      coverUrl: string | null;
+      playedAt: Date;
+    }
+  >();
   for (const ph of recentHistory) {
     const album = ph.track.album;
     if (album && !seenAlbums.has(album.id)) {
@@ -76,7 +89,7 @@ async function getRecentlyPlayed(userId: string) {
     url?: string; // for radio
   }> = [
     ...Array.from(seenAlbums.values()),
-    ...recentPlaylists.map(p => ({
+    ...recentPlaylists.map((p) => ({
       type: 'playlist' as const,
       id: p.id,
       title: p.name,
@@ -84,7 +97,7 @@ async function getRecentlyPlayed(userId: string) {
       coverUrl: p.coverUrl,
       playedAt: p.lastPlayedAt!,
     })),
-    ...radioStations.map(r => ({
+    ...radioStations.map((r) => ({
       type: 'radio' as const,
       id: r.id,
       title: r.name,
@@ -118,21 +131,32 @@ async function getTopArtists(userId: string) {
       orderBy: { tracks: { _count: 'desc' } },
       take: 8,
     });
-    return artists.map(a => ({ id: a.id, name: a.name, imageUrl: a.imageUrl, playCount: a._count.tracks }));
+    return artists.map((a) => ({
+      id: a.id,
+      name: a.name,
+      imageUrl: a.imageUrl,
+      playCount: a._count.tracks,
+    }));
   }
 
-  const artistMap = new Map<string, { id: string; name: string; imageUrl: string | null; count: number }>();
+  const artistMap = new Map<
+    string,
+    { id: string; name: string; imageUrl: string | null; count: number }
+  >();
   for (const ph of history) {
     const { id, name, imageUrl } = ph.track.artist;
     const existing = artistMap.get(id);
-    if (existing) { existing.count++; }
-    else { artistMap.set(id, { id, name, imageUrl, count: 1 }); }
+    if (existing) {
+      existing.count++;
+    } else {
+      artistMap.set(id, { id, name, imageUrl, count: 1 });
+    }
   }
 
   return Array.from(artistMap.values())
     .sort((a, b) => b.count - a.count)
     .slice(0, 8)
-    .map(a => ({ id: a.id, name: a.name, imageUrl: a.imageUrl, playCount: a.count }));
+    .map((a) => ({ id: a.id, name: a.name, imageUrl: a.imageUrl, playCount: a.count }));
 }
 
 // ─── Auto-generated Playlists (Mixes) ────────────────────────────────────────
@@ -141,8 +165,12 @@ const MIX_COLORS = ['#7c3aed', '#0891b2', '#059669', '#d97706', '#e11d48', '#0ea
 
 async function getAutoPlaylists(userId: string) {
   const mixes: Array<{
-    id: string; name: string; description: string;
-    coverColor: string; coverUrl: string | null; trackIds: string[];
+    id: string;
+    name: string;
+    description: string;
+    coverColor: string;
+    coverUrl: string | null;
+    trackIds: string[];
   }> = [];
 
   const history = await prisma.playHistory.findMany({
@@ -182,8 +210,12 @@ async function getAutoPlaylists(userId: string) {
     for (const ph of history) {
       const { artistId, artist } = ph.track;
       const existing = artistData.get(artistId);
-      if (existing) { existing.count++; existing.heardIds.add(ph.trackId); }
-      else { artistData.set(artistId, { name: artist.name, count: 1, heardIds: new Set([ph.trackId]) }); }
+      if (existing) {
+        existing.count++;
+        existing.heardIds.add(ph.trackId);
+      } else {
+        artistData.set(artistId, { name: artist.name, count: 1, heardIds: new Set([ph.trackId]) });
+      }
     }
 
     const topArtists = Array.from(artistData.entries())
@@ -201,7 +233,7 @@ async function getAutoPlaylists(userId: string) {
       if (allArtistTracks.length < 3) continue;
 
       const heardIds = Array.from(data.heardIds);
-      const unheardIds = allArtistTracks.map(t => t.id).filter(id => !data.heardIds.has(id));
+      const unheardIds = allArtistTracks.map((t) => t.id).filter((id) => !data.heardIds.has(id));
       const mixIds = shuffleArray([
         ...shuffleArray(heardIds).slice(0, 15),
         ...shuffleArray(unheardIds).slice(0, 15),
@@ -237,7 +269,7 @@ async function getAutoPlaylists(userId: string) {
       description: 'Songs, die du noch nicht gehört hast',
       coverColor: '#0891b2',
       coverUrl: null,
-      trackIds: shuffleArray(unplayedTracks.map(t => t.id)),
+      trackIds: shuffleArray(unplayedTracks.map((t) => t.id)),
     });
   }
 
@@ -253,7 +285,7 @@ async function getForYouPlaylists(userId: string) {
     orderBy: [{ isPinned: 'desc' }, { lastPlayedAt: 'desc' }, { createdAt: 'desc' }],
     take: 8,
   });
-  return playlists.map(p => ({
+  return playlists.map((p) => ({
     id: p.id,
     name: p.name,
     coverUrl: p.coverUrl,
@@ -270,7 +302,7 @@ async function getNewAdditions() {
     orderBy: { createdAt: 'desc' },
     take: 12,
   });
-  return albums.map(a => ({
+  return albums.map((a) => ({
     id: a.id,
     title: a.title,
     artist: a.artist.name,
@@ -306,8 +338,8 @@ async function getNewPodcastEpisodes() {
 
   // One latest episode per podcast, sorted by publishedAt
   return podcasts
-    .flatMap(p =>
-      p.episodes.map(ep => ({
+    .flatMap((p) =>
+      p.episodes.map((ep) => ({
         episodeId: ep.id,
         episodeTitle: ep.title,
         episodeDescription: ep.description,
@@ -320,9 +352,7 @@ async function getNewPodcastEpisodes() {
         podcastImageUrl: p.imageUrl,
       })),
     )
-    .sort((a, b) =>
-      (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0),
-    )
+    .sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0))
     .slice(0, 10);
 }
 
@@ -331,24 +361,41 @@ async function getNewPodcastEpisodes() {
 router.get('/summary', async (req, res) => {
   try {
     const userId = await getUserId(req);
-    if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { username: true },
     });
 
-    const [recentlyPlayed, topArtists, autoPlaylists, forYouPlaylists, newAdditions, newPodcastEpisodes] =
-      await Promise.all([
-        getRecentlyPlayed(userId),
-        getTopArtists(userId),
-        getAutoPlaylists(userId),
-        getForYouPlaylists(userId),
-        getNewAdditions(),
-        getNewPodcastEpisodes(),
-      ]);
+    const [
+      recentlyPlayed,
+      topArtists,
+      autoPlaylists,
+      forYouPlaylists,
+      newAdditions,
+      newPodcastEpisodes,
+    ] = await Promise.all([
+      getRecentlyPlayed(userId),
+      getTopArtists(userId),
+      getAutoPlaylists(userId),
+      getForYouPlaylists(userId),
+      getNewAdditions(),
+      getNewPodcastEpisodes(),
+    ]);
 
-    res.json({ username: user?.username ?? '', recentlyPlayed, topArtists, autoPlaylists, forYouPlaylists, newAdditions, newPodcastEpisodes });
+    res.json({
+      username: user?.username ?? '',
+      recentlyPlayed,
+      topArtists,
+      autoPlaylists,
+      forYouPlaylists,
+      newAdditions,
+      newPodcastEpisodes,
+    });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -372,11 +419,11 @@ router.post('/resolve-tracks', async (req, res) => {
     });
 
     // Preserve requested order
-    const map = new Map(tracks.map(t => [t.id, t]));
+    const map = new Map(tracks.map((t) => [t.id, t]));
     const ordered = trackIds
-      .map(id => map.get(id))
+      .map((id) => map.get(id))
       .filter((t): t is NonNullable<typeof t> => t != null)
-      .map(t => ({ ...t, fileSize: t.fileSize.toString() }));
+      .map((t) => ({ ...t, fileSize: t.fileSize.toString() }));
 
     res.json({ data: ordered });
   } catch (err) {

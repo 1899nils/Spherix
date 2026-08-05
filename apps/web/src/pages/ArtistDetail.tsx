@@ -6,8 +6,26 @@ import { Button } from '@/components/ui/button';
 import { formatDuration } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
 import { MetadataEditModal } from '@/components/MetadataEditModal';
-import type { ArtistDetail as ArtistDetailType, ApiResponse, AlbumWithRelations, TrackWithRelations } from '@musicserver/shared';
-import { Play, Pause, Disc3, Mic2, Pencil, Download, Music, ChevronDown, ChevronUp, Video, ListMusic, Loader2 } from 'lucide-react';
+import type {
+  ArtistDetail as ArtistDetailType,
+  ApiResponse,
+  AlbumWithRelations,
+  TrackWithRelations,
+} from '@musicserver/shared';
+import {
+  Play,
+  Pause,
+  Disc3,
+  Mic2,
+  Pencil,
+  Download,
+  Music,
+  ChevronDown,
+  ChevronUp,
+  Video,
+  ListMusic,
+  Loader2,
+} from 'lucide-react';
 
 type DiscographyFilter = 'all' | 'album' | 'single_ep';
 
@@ -26,10 +44,7 @@ function releaseTypeLabel(type: string | null): string {
 
 function DiscographyCard({ album }: { album: AlbumWithRelations }) {
   return (
-    <Link
-      to={`/music/albums/${album.id}`}
-      className="group flex-shrink-0 w-40 flex flex-col"
-    >
+    <Link to={`/music/albums/${album.id}`} className="group flex-shrink-0 w-40 flex flex-col">
       <div className="aspect-square rounded-md overflow-hidden bg-[#282828] mb-3">
         {album.coverUrl ? (
           <img
@@ -51,12 +66,13 @@ function DiscographyCard({ album }: { album: AlbumWithRelations }) {
   );
 }
 
-function PlaylistCard({ playlist }: { playlist: { id: string; name: string; coverUrl: string | null; _count: { tracks: number } } }) {
+function PlaylistCard({
+  playlist,
+}: {
+  playlist: { id: string; name: string; coverUrl: string | null; _count: { tracks: number } };
+}) {
   return (
-    <Link
-      to={`/music/playlists/${playlist.id}`}
-      className="group flex-shrink-0 w-40 flex flex-col"
-    >
+    <Link to={`/music/playlists/${playlist.id}`} className="group flex-shrink-0 w-40 flex flex-col">
       <div className="aspect-square rounded-md overflow-hidden bg-[#282828] mb-3">
         {playlist.coverUrl ? (
           <img
@@ -103,9 +119,17 @@ function MusicVideoCard({
         style={{ aspectRatio: '16/9' }}
       >
         {thumb ? (
-          <img src={thumb} alt={track.title} className="h-full w-full object-cover group-hover:brightness-75 transition" />
+          <img
+            src={thumb}
+            alt={track.title}
+            className="h-full w-full object-cover group-hover:brightness-75 transition"
+          />
         ) : track.album?.coverUrl ? (
-          <img src={track.album.coverUrl} alt={track.title} className="h-full w-full object-cover group-hover:brightness-75 transition" />
+          <img
+            src={track.album.coverUrl}
+            alt={track.title}
+            className="h-full w-full object-cover group-hover:brightness-75 transition"
+          />
         ) : (
           <div className="h-full w-full flex items-center justify-center text-[#b3b3b3]">
             <Video className="h-8 w-8" />
@@ -113,11 +137,13 @@ function MusicVideoCard({
         )}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
           <div className="h-10 w-10 rounded-full bg-black/60 flex items-center justify-center">
-            {isLocal
-              ? <Play className="h-5 w-5 text-white fill-white" />
-              : isPending
-                ? <Loader2 className="h-5 w-5 text-white animate-spin" />
-                : <Download className="h-5 w-5 text-white" />}
+            {isLocal ? (
+              <Play className="h-5 w-5 text-white fill-white" />
+            ) : isPending ? (
+              <Loader2 className="h-5 w-5 text-white animate-spin" />
+            ) : (
+              <Download className="h-5 w-5 text-white" />
+            )}
           </div>
         </div>
       </button>
@@ -125,7 +151,9 @@ function MusicVideoCard({
       {/* Title row */}
       <div className="flex items-center gap-1 min-w-0">
         {track.explicit && (
-          <span className="flex-shrink-0 inline-flex items-center justify-center h-3.5 px-1 text-[9px] font-bold bg-[#ffffff1a] text-[#b3b3b3] rounded">E</span>
+          <span className="flex-shrink-0 inline-flex items-center justify-center h-3.5 px-1 text-[9px] font-bold bg-[#ffffff1a] text-[#b3b3b3] rounded">
+            E
+          </span>
         )}
         <p className="text-sm text-white font-medium truncate">{track.title}</p>
       </div>
@@ -145,9 +173,7 @@ function MusicVideoCard({
           <Download className="h-3 w-3" /> Herunterladen
         </button>
       )}
-      {error && (
-        <p className="mt-1 text-xs text-red-400 break-words">{error}</p>
-      )}
+      {error && <p className="mt-1 text-xs text-red-400 break-words">{error}</p>}
     </div>
   );
 }
@@ -163,7 +189,19 @@ export function ArtistDetail() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['artist', id],
-    queryFn: () => api.get<ApiResponse<ArtistDetailType & { playlists: { id: string; name: string; coverUrl: string | null; _count: { tracks: number } }[] }>>(`/artists/${id}`),
+    queryFn: () =>
+      api.get<
+        ApiResponse<
+          ArtistDetailType & {
+            playlists: {
+              id: string;
+              name: string;
+              coverUrl: string | null;
+              _count: { tracks: number };
+            }[];
+          }
+        >
+      >(`/artists/${id}`),
     enabled: !!id,
   });
 
@@ -181,28 +219,48 @@ export function ArtistDetail() {
   const downloadVideoMutation = useMutation({
     mutationFn: (trackId: string) => api.post(`/tracks/${trackId}/musicvideo/download`, {}),
     onMutate: (trackId) => {
-      setDownloadingTrackIds(prev => new Set(prev).add(trackId));
-      setVideoDownloadErrors(prev => { const e = { ...prev }; delete e[trackId]; return e; });
+      setDownloadingTrackIds((prev) => new Set(prev).add(trackId));
+      setVideoDownloadErrors((prev) => {
+        const e = { ...prev };
+        delete e[trackId];
+        return e;
+      });
     },
     onError: (err: Error, trackId) => {
-      setDownloadingTrackIds(prev => { const s = new Set(prev); s.delete(trackId); return s; });
-      setVideoDownloadErrors(prev => ({ ...prev, [trackId]: err.message }));
+      setDownloadingTrackIds((prev) => {
+        const s = new Set(prev);
+        s.delete(trackId);
+        return s;
+      });
+      setVideoDownloadErrors((prev) => ({ ...prev, [trackId]: err.message }));
     },
     onSuccess: (_data, trackId) => {
       let attempts = 0;
       const interval = setInterval(async () => {
         attempts++;
         try {
-          const res = await api.get<{ data: { source: string } }>(`/tracks/${trackId}/musicvideo/status`);
+          const res = await api.get<{ data: { source: string } }>(
+            `/tracks/${trackId}/musicvideo/status`,
+          );
           if (res.data.source !== 'downloading') {
             clearInterval(interval);
-            setDownloadingTrackIds(prev => { const s = new Set(prev); s.delete(trackId); return s; });
+            setDownloadingTrackIds((prev) => {
+              const s = new Set(prev);
+              s.delete(trackId);
+              return s;
+            });
             queryClient.invalidateQueries({ queryKey: ['artist', id] });
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         if (attempts >= 120) {
           clearInterval(interval);
-          setDownloadingTrackIds(prev => { const s = new Set(prev); s.delete(trackId); return s; });
+          setDownloadingTrackIds((prev) => {
+            const s = new Set(prev);
+            s.delete(trackId);
+            return s;
+          });
           queryClient.invalidateQueries({ queryKey: ['artist', id] });
         }
       }, 5000);
@@ -218,14 +276,24 @@ export function ArtistDetail() {
 
   const albums = artist.albums ?? [];
   const tracks = artist.tracks ?? [];
-  const playlists = (artist as typeof artist & { playlists?: { id: string; name: string; coverUrl: string | null; _count: { tracks: number } }[] }).playlists ?? [];
+  const playlists =
+    (
+      artist as typeof artist & {
+        playlists?: {
+          id: string;
+          name: string;
+          coverUrl: string | null;
+          _count: { tracks: number };
+        }[];
+      }
+    ).playlists ?? [];
 
   // Top tracks: first 10 (later: by playCount)
   const topTracks = tracks.slice(0, 10);
   const visibleTracks = tracksExpanded ? topTracks : topTracks.slice(0, 5);
 
   // Discography filter
-  const filteredAlbums = albums.filter(a => {
+  const filteredAlbums = albums.filter((a) => {
     if (discoFilter === 'all') return true;
     const t = (a.releaseType ?? 'album').toLowerCase();
     if (discoFilter === 'album') return t === 'album' || t === 'lp';
@@ -233,16 +301,16 @@ export function ArtistDetail() {
   });
 
   // Tracks with music video
-  const videoTracks = tracks.filter(t => t.musicVideoUrl);
+  const videoTracks = tracks.filter((t) => t.musicVideoUrl);
 
   // Active video track for player
-  const videoTrack = videoTracks.find(t => t.id === videoTrackId);
+  const videoTrack = videoTracks.find((t) => t.id === videoTrackId);
 
   const handlePlayAll = () => {
     if (tracks.length > 0) playTrack(tracks[0], tracks);
   };
 
-  const isArtistPlaying = currentTrack && tracks.some(t => t.id === currentTrack.id) && isPlaying;
+  const isArtistPlaying = currentTrack && tracks.some((t) => t.id === currentTrack.id) && isPlaying;
 
   // Bio line count check
   const bioLines = (artist.biography ?? '').split('\n');
@@ -255,7 +323,10 @@ export function ArtistDetail() {
         {artist.imageUrl && (
           <div
             className="absolute inset-0 bg-cover bg-center scale-110"
-            style={{ backgroundImage: `url(${artist.imageUrl})`, filter: 'blur(40px) brightness(0.35)' }}
+            style={{
+              backgroundImage: `url(${artist.imageUrl})`,
+              filter: 'blur(40px) brightness(0.35)',
+            }}
           />
         )}
         {!artist.imageUrl && (
@@ -273,10 +344,15 @@ export function ArtistDetail() {
             )}
           </div>
           <div className="space-y-2 min-w-0 pb-1">
-            <p className="text-xs uppercase tracking-widest text-white/70 font-semibold">Künstler</p>
-            <h1 className="text-5xl font-black truncate text-white drop-shadow-lg leading-tight">{artist.name}</h1>
+            <p className="text-xs uppercase tracking-widest text-white/70 font-semibold">
+              Künstler
+            </p>
+            <h1 className="text-5xl font-black truncate text-white drop-shadow-lg leading-tight">
+              {artist.name}
+            </h1>
             <p className="text-sm text-white/60">
-              {artist.albumCount} {artist.albumCount === 1 ? 'Album' : 'Alben'} &middot; {artist.trackCount} Tracks
+              {artist.albumCount} {artist.albumCount === 1 ? 'Album' : 'Alben'} &middot;{' '}
+              {artist.trackCount} Tracks
             </p>
           </div>
         </div>
@@ -285,8 +361,16 @@ export function ArtistDetail() {
       {/* ── Action Bar (unverändert) ─────────────────────────── */}
       <div className="flex items-center gap-3 px-6 py-5">
         {tracks.length > 0 && (
-          <Button size="lg" className="rounded-full px-8" onClick={isArtistPlaying ? togglePlay : handlePlayAll}>
-            {isArtistPlaying ? <Pause className="h-5 w-5 mr-2" /> : <Play className="h-5 w-5 mr-2" />}
+          <Button
+            size="lg"
+            className="rounded-full px-8"
+            onClick={isArtistPlaying ? togglePlay : handlePlayAll}
+          >
+            {isArtistPlaying ? (
+              <Pause className="h-5 w-5 mr-2" />
+            ) : (
+              <Play className="h-5 w-5 mr-2" />
+            )}
             {isArtistPlaying ? 'Pause' : 'Abspielen'}
           </Button>
         )}
@@ -294,16 +378,24 @@ export function ArtistDetail() {
           <Pencil className="h-4 w-4 mr-1.5" />
           Bearbeiten
         </Button>
-        <Button variant="outline" size="sm" onClick={() => fetchMetaMutation.mutate()} disabled={fetchMetaMutation.isPending}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fetchMetaMutation.mutate()}
+          disabled={fetchMetaMutation.isPending}
+        >
           <Download className="h-4 w-4 mr-1.5" />
           {fetchMetaMutation.isPending ? 'Lade...' : 'Metadaten abrufen'}
         </Button>
-        {fetchMetaMutation.isError && <span className="text-xs text-red-500">{(fetchMetaMutation.error as Error).message}</span>}
-        {fetchMetaMutation.isSuccess && <span className="text-xs text-green-500">Metadaten aktualisiert</span>}
+        {fetchMetaMutation.isError && (
+          <span className="text-xs text-red-500">{(fetchMetaMutation.error as Error).message}</span>
+        )}
+        {fetchMetaMutation.isSuccess && (
+          <span className="text-xs text-green-500">Metadaten aktualisiert</span>
+        )}
       </div>
 
       <div className="px-6 space-y-10 pb-8">
-
         {/* ── Beliebte Titel ──────────────────────────────────── */}
         {topTracks.length > 0 && (
           <section>
@@ -319,33 +411,59 @@ export function ArtistDetail() {
                   >
                     <span className="text-[#b3b3b3] text-right select-none">
                       <span className="group-hover:hidden">
-                        {isCurrent && isPlaying
-                          ? <Music className="h-4 w-4 text-[#dc2626] mx-auto" />
-                          : <span className={isCurrent ? 'text-[#dc2626]' : ''}>{index + 1}</span>}
+                        {isCurrent && isPlaying ? (
+                          <Music className="h-4 w-4 text-[#dc2626] mx-auto" />
+                        ) : (
+                          <span className={isCurrent ? 'text-[#dc2626]' : ''}>{index + 1}</span>
+                        )}
                       </span>
                       <Play className="h-4 w-4 hidden group-hover:block text-white mx-auto" />
                     </span>
                     {/* Album cover */}
                     <div className="h-10 w-10 rounded overflow-hidden bg-[#282828] flex-shrink-0">
-                      {track.album?.coverUrl
-                        ? <img src={track.album.coverUrl} alt="" className="h-full w-full object-cover" />
-                        : <div className="h-full w-full flex items-center justify-center"><Music className="h-4 w-4 text-[#b3b3b3]" /></div>}
+                      {track.album?.coverUrl ? (
+                        <img
+                          src={track.album.coverUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center">
+                          <Music className="h-4 w-4 text-[#b3b3b3]" />
+                        </div>
+                      )}
                     </div>
                     <div className="min-w-0">
-                      <p className={`truncate font-medium ${isCurrent ? 'text-[#dc2626]' : 'text-white'}`}>{track.title}</p>
-                      {track.album && <p className="text-xs text-[#b3b3b3] truncate">{track.album.title}</p>}
+                      <p
+                        className={`truncate font-medium ${isCurrent ? 'text-[#dc2626]' : 'text-white'}`}
+                      >
+                        {track.title}
+                      </p>
+                      {track.album && (
+                        <p className="text-xs text-[#b3b3b3] truncate">{track.album.title}</p>
+                      )}
                     </div>
-                    <span className="text-[#b3b3b3] tabular-nums text-xs">{formatDuration(track.duration)}</span>
+                    <span className="text-[#b3b3b3] tabular-nums text-xs">
+                      {formatDuration(track.duration)}
+                    </span>
                   </div>
                 );
               })}
             </div>
             {topTracks.length > 5 && (
               <button
-                onClick={() => setTracksExpanded(v => !v)}
+                onClick={() => setTracksExpanded((v) => !v)}
                 className="mt-3 flex items-center gap-1.5 text-sm text-[#b3b3b3] hover:text-white transition-colors font-semibold"
               >
-                {tracksExpanded ? <><ChevronUp className="h-4 w-4" /> Weniger anzeigen</> : <><ChevronDown className="h-4 w-4" /> Mehr anzeigen</>}
+                {tracksExpanded ? (
+                  <>
+                    <ChevronUp className="h-4 w-4" /> Weniger anzeigen
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-4 w-4" /> Mehr anzeigen
+                  </>
+                )}
               </button>
             )}
           </section>
@@ -356,13 +474,22 @@ export function ArtistDetail() {
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold text-white">Diskografie</h2>
-              <Link to={`/music/artists/${id}/discography`} className="text-sm text-[#b3b3b3] hover:text-white font-semibold transition-colors">
+              <Link
+                to={`/music/artists/${id}/discography`}
+                className="text-sm text-[#b3b3b3] hover:text-white font-semibold transition-colors"
+              >
                 Alle anzeigen
               </Link>
             </div>
             {/* Filter tabs */}
             <div className="flex gap-2 mb-4">
-              {([['all', 'Beliebte Veröffentlichungen'], ['album', 'Alben'], ['single_ep', 'Singles und EPs']] as [DiscographyFilter, string][]).map(([val, label]) => (
+              {(
+                [
+                  ['all', 'Beliebte Veröffentlichungen'],
+                  ['album', 'Alben'],
+                  ['single_ep', 'Singles und EPs'],
+                ] as [DiscographyFilter, string][]
+              ).map(([val, label]) => (
                 <button
                   key={val}
                   onClick={() => setDiscoFilter(val)}
@@ -378,7 +505,7 @@ export function ArtistDetail() {
             </div>
             {/* Horizontal scroll */}
             <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide">
-              {filteredAlbums.map(album => (
+              {filteredAlbums.map((album) => (
                 <DiscographyCard key={album.id} album={album} />
               ))}
               {filteredAlbums.length === 0 && (
@@ -395,7 +522,7 @@ export function ArtistDetail() {
               <h2 className="text-2xl font-bold text-white">Mit {artist.name}</h2>
             </div>
             <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide">
-              {playlists.map(pl => (
+              {playlists.map((pl) => (
                 <PlaylistCard key={pl.id} playlist={pl} />
               ))}
             </div>
@@ -409,7 +536,7 @@ export function ArtistDetail() {
               <h2 className="text-2xl font-bold text-white">Musikvideos</h2>
             </div>
             <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide">
-              {videoTracks.map(track => (
+              {videoTracks.map((track) => (
                 <MusicVideoCard
                   key={track.id}
                   track={track}
@@ -443,10 +570,18 @@ export function ArtistDetail() {
                 </p>
                 {bioNeedsCollapse && (
                   <button
-                    onClick={() => setBioExpanded(v => !v)}
+                    onClick={() => setBioExpanded((v) => !v)}
                     className="mt-2 flex items-center gap-1 text-sm text-white hover:text-[#b3b3b3] transition-colors font-semibold"
                   >
-                    {bioExpanded ? <><ChevronUp className="h-4 w-4" /> Weniger</> : <><ChevronDown className="h-4 w-4" /> Mehr anzeigen</>}
+                    {bioExpanded ? (
+                      <>
+                        <ChevronUp className="h-4 w-4" /> Weniger
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4" /> Mehr anzeigen
+                      </>
+                    )}
                   </button>
                 )}
               </div>
@@ -471,7 +606,10 @@ export function ArtistDetail() {
                 ✕
               </button>
             </div>
-            <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ paddingTop: '56.25%' }}>
+            <div
+              className="relative w-full bg-black rounded-lg overflow-hidden"
+              style={{ paddingTop: '56.25%' }}
+            >
               <video
                 key={videoTrack.id}
                 className="absolute inset-0 w-full h-full"

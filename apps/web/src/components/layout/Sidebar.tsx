@@ -40,25 +40,28 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-type NavSection = { title: string; items: { to: string; icon: React.ElementType; label: string }[] };
+type NavSection = {
+  title: string;
+  items: { to: string; icon: React.ElementType; label: string }[];
+};
 
 const MUSIC_NAV: NavSection[] = [
   {
     title: 'Entdecken',
     items: [
-      { to: '/music/browse',         icon: LayoutGrid, label: 'Entdecken' },
-      { to: '/music/radio',          icon: Radio,      label: 'Radio' },
-      { to: '/music/podcasts',       icon: Headphones, label: 'Podcasts' },
-      { to: '/music/recently-added', icon: Clock,      label: 'Zuletzt gehört' },
-      { to: '/music/watchlist',      icon: Bookmark,   label: 'Merkliste' },
+      { to: '/music/browse', icon: LayoutGrid, label: 'Entdecken' },
+      { to: '/music/radio', icon: Radio, label: 'Radio' },
+      { to: '/music/podcasts', icon: Headphones, label: 'Podcasts' },
+      { to: '/music/recently-added', icon: Clock, label: 'Zuletzt gehört' },
+      { to: '/music/watchlist', icon: Bookmark, label: 'Merkliste' },
     ],
   },
   {
     title: 'Mediathek',
     items: [
-      { to: '/music/artists', icon: Mic2,  label: 'Künstler' },
-      { to: '/music/albums',  icon: Disc3, label: 'Alben' },
-      { to: '/music/songs',   icon: Music, label: 'Titel' },
+      { to: '/music/artists', icon: Mic2, label: 'Künstler' },
+      { to: '/music/albums', icon: Disc3, label: 'Alben' },
+      { to: '/music/songs', icon: Music, label: 'Titel' },
     ],
   },
 ];
@@ -67,24 +70,24 @@ const VIDEO_NAV: NavSection[] = [
   {
     title: 'Mediathek',
     items: [
-      { to: '/video/recently-added', icon: Clock,       label: 'Zuletzt hinzugefügt' },
-      { to: '/video/movies',         icon: Film,        label: 'Filme' },
-      { to: '/video/series',         icon: Tv,          label: 'Serien' },
-      { to: '/video/continue',       icon: MonitorPlay, label: 'Weiterschauen' },
+      { to: '/video/recently-added', icon: Clock, label: 'Zuletzt hinzugefügt' },
+      { to: '/video/movies', icon: Film, label: 'Filme' },
+      { to: '/video/series', icon: Tv, label: 'Serien' },
+      { to: '/video/continue', icon: MonitorPlay, label: 'Weiterschauen' },
     ],
   },
   {
     title: 'Entdecken',
     items: [
-      { to: '/video/browse',  icon: LayoutGrid, label: 'Entdecken' },
-      { to: '/video/genres',  icon: Tag,        label: 'Genres' },
+      { to: '/video/browse', icon: LayoutGrid, label: 'Entdecken' },
+      { to: '/video/genres', icon: Tag, label: 'Genres' },
     ],
   },
   {
     title: 'Sammlungen',
     items: [
-      { to: '/video/watchlist',  icon: Bookmark, label: 'Watchlist' },
-      { to: '/video/favorites',  icon: Heart,    label: 'Favoriten' },
+      { to: '/video/watchlist', icon: Bookmark, label: 'Watchlist' },
+      { to: '/video/favorites', icon: Heart, label: 'Favoriten' },
     ],
   },
 ];
@@ -93,24 +96,24 @@ const AUDIOBOOK_NAV: NavSection[] = [
   {
     title: 'Mediathek',
     items: [
-      { to: '/audiobooks/recent',   icon: Clock,    label: 'Zuletzt gehört' },
-      { to: '/audiobooks',          icon: Library,  label: 'Alle Hörbücher' },
-      { to: '/audiobooks/authors',  icon: Users,    label: 'Autoren' },
-      { to: '/audiobooks/continue', icon: Play,     label: 'Weiterhören' },
+      { to: '/audiobooks/recent', icon: Clock, label: 'Zuletzt gehört' },
+      { to: '/audiobooks', icon: Library, label: 'Alle Hörbücher' },
+      { to: '/audiobooks/authors', icon: Users, label: 'Autoren' },
+      { to: '/audiobooks/continue', icon: Play, label: 'Weiterhören' },
     ],
   },
   {
     title: 'Entdecken',
     items: [
-      { to: '/audiobooks/browse',  icon: LayoutGrid, label: 'Entdecken' },
-      { to: '/audiobooks/genres',  icon: Tag,        label: 'Genres' },
+      { to: '/audiobooks/browse', icon: LayoutGrid, label: 'Entdecken' },
+      { to: '/audiobooks/genres', icon: Tag, label: 'Genres' },
     ],
   },
   {
     title: 'Sammlungen',
     items: [
       { to: '/audiobooks/bookmarks', icon: Bookmark, label: 'Lesezeichen' },
-      { to: '/audiobooks/favorites', icon: Heart,    label: 'Favoriten' },
+      { to: '/audiobooks/favorites', icon: Heart, label: 'Favoriten' },
     ],
   },
 ];
@@ -156,9 +159,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           alt="Spherix"
           className="h-8 w-8 shrink-0 object-contain"
         />
-        {!collapsed && (
-          <span className="font-bold text-xl tracking-tight text-white">Spherix</span>
-        )}
+        {!collapsed && <span className="font-bold text-xl tracking-tight text-white">Spherix</span>}
       </div>
 
       {/* Section Switcher */}
@@ -225,7 +226,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   className={({ isActive }) =>
                     cn(
                       'group flex items-center gap-3 rounded-md px-3 py-1.5 text-[13px] font-medium transition-all duration-200',
-                      isActive ? 'nav-active' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200',
+                      isActive
+                        ? 'nav-active'
+                        : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200',
                       collapsed && 'justify-center px-0 h-10 w-10 mx-auto',
                     )
                   }
@@ -242,7 +245,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         className={({ isActive }) =>
                           cn(
                             'flex-1 flex items-center gap-3 rounded-md px-3 py-1.5 text-[13px] font-medium transition-all truncate',
-                            isActive ? 'nav-active' : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300',
+                            isActive
+                              ? 'nav-active'
+                              : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300',
                           )
                         }
                       >

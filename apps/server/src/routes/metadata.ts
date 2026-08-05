@@ -90,8 +90,8 @@ router.post('/batch-enrich', async (req, res, next) => {
 
     const summary = {
       total: results.length,
-      enriched: results.filter(r => r.enriched).length,
-      errors: results.filter(r => r.errors.length > 0).length,
+      enriched: results.filter((r) => r.enriched).length,
+      errors: results.filter((r) => r.errors.length > 0).length,
     };
 
     res.json({
@@ -135,14 +135,16 @@ router.get('/stats', async (_req, res, next) => {
           total: totalAlbums,
           withMusicBrainz: albumsWithMb,
           withCoverArt: albumsWithCover,
-          musicBrainzPercentage: totalAlbums > 0 ? Math.round((albumsWithMb / totalAlbums) * 100) : 0,
+          musicBrainzPercentage:
+            totalAlbums > 0 ? Math.round((albumsWithMb / totalAlbums) * 100) : 0,
         },
         tracks: {
           total: totalTracks,
           withLyrics: tracksWithLyrics,
           withMusicVideo: tracksWithVideo,
           withMusicBrainz: tracksWithMb,
-          lyricsPercentage: totalTracks > 0 ? Math.round((tracksWithLyrics / totalTracks) * 100) : 0,
+          lyricsPercentage:
+            totalTracks > 0 ? Math.round((tracksWithLyrics / totalTracks) * 100) : 0,
           videoPercentage: totalTracks > 0 ? Math.round((tracksWithVideo / totalTracks) * 100) : 0,
         },
       },

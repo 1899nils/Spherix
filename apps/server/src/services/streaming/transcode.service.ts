@@ -49,7 +49,7 @@ export async function startHlsTranscode(
   mediaType: 'movie' | 'episode',
   inputPath: string,
   mediaInfo: MediaInfo,
-  clientCaps: ClientCapabilities
+  clientCaps: ClientCapabilities,
 ): Promise<TranscodeJob> {
   const jobId = generateJobId(mediaId);
   const outputDir = join(getTranscodeDirectory(), jobId);
@@ -64,13 +64,19 @@ export async function startHlsTranscode(
   // re-encoding. This is much faster and avoids quality loss.
   // Typical case: MKV with h264 video + DTS audio → copy video, transcode audio only.
   const VIDEO_COMPAT: Record<string, string> = {
-    h264: 'h264', avc: 'h264', avc1: 'h264',
-    hevc: 'hevc', h265: 'hevc',
-    vp9: 'vp9', 'vp09': 'vp9',
-    av1: 'av1', 'av01': 'av1',
+    h264: 'h264',
+    avc: 'h264',
+    avc1: 'h264',
+    hevc: 'hevc',
+    h265: 'hevc',
+    vp9: 'vp9',
+    vp09: 'vp9',
+    av1: 'av1',
+    av01: 'av1',
   };
   const srcVideoCodec = VIDEO_COMPAT[mediaInfo.video?.codec?.toLowerCase() ?? ''] ?? '';
-  const copyVideo = !!mediaInfo.video && !!srcVideoCodec && clientCaps.videoCodecs.includes(srcVideoCodec);
+  const copyVideo =
+    !!mediaInfo.video && !!srcVideoCodec && clientCaps.videoCodecs.includes(srcVideoCodec);
 
   const job: TranscodeJob = {
     id: jobId,
@@ -88,7 +94,9 @@ export async function startHlsTranscode(
   // Start transcoding in background
   startTranscodingProcess(job, mediaInfo, copyVideo);
 
-  logger.info(`Started HLS transcode job ${jobId} for ${mediaType} ${mediaId} (copyVideo=${copyVideo})`);
+  logger.info(
+    `Started HLS transcode job ${jobId} for ${mediaType} ${mediaId} (copyVideo=${copyVideo})`,
+  );
   return job;
 }
 
@@ -102,7 +110,14 @@ function startTranscodingProcess(job: TranscodeJob, mediaInfo: MediaInfo, copyVi
   const segmentPath = join(job.outputDir, 'segment_%03d.ts');
 
   // Build FFmpeg arguments
-  const args = buildFfmpegArgs(job.inputPath, outputPath, segmentPath, job.settings, mediaInfo, copyVideo);
+  const args = buildFfmpegArgs(
+    job.inputPath,
+    outputPath,
+    segmentPath,
+    job.settings,
+    mediaInfo,
+    copyVideo,
+  );
 
   logger.debug(`FFmpeg command: ffmpeg ${args.join(' ')}`);
 
@@ -114,10 +129,10 @@ function startTranscodingProcess(job: TranscodeJob, mediaInfo: MediaInfo, copyVi
 
   // Parse progress from stderr
   const duration = mediaInfo.duration || 0;
-  
+
   ffmpeg.stderr.on('data', (data) => {
     const output = data.toString();
-    
+
     // Parse progress: time=00:05:23.45
     const timeMatch = output.match(/time=(\d{2}):(\d{2}):(\d{2}\.\d{2})/);
     if (timeMatch && duration > 0) {
@@ -144,7 +159,7 @@ function startTranscodingProcess(job: TranscodeJob, mediaInfo: MediaInfo, copyVi
       job.error = `FFmpeg exited with code ${code}`;
       logger.error(`Transcode job ${job.id} failed with code ${code}`);
     }
-    
+
     // Clean up process reference
     job.process = undefined;
   });
@@ -166,12 +181,13 @@ function buildFfmpegArgs(
   segmentPattern: string,
   settings: ReturnType<typeof getTranscodeSettings>,
   mediaInfo: MediaInfo,
-  copyVideo = false
+  copyVideo = false,
 ): string[] {
   const args: string[] = [
     '-hide_banner',
     '-y', // Overwrite output files
-    '-i', input,
+    '-i',
+    input,
   ];
 
   if (copyVideo) {
@@ -183,29 +199,42 @@ function buildFfmpegArgs(
     const videoCodec = settings.videoCodec === 'hevc' ? 'libx265' : 'libx264';
     const preset = 'veryfast'; // Balance between speed and quality
     args.push(
-      '-c:v', videoCodec,
-      '-preset', preset,
-      '-b:v', settings.videoBitrate.toString(),
-      '-maxrate', Math.round(settings.videoBitrate * 1.5).toString(),
-      '-bufsize', Math.round(settings.videoBitrate * 2).toString(),
-      '-s', `${settings.maxResolution.width}x${settings.maxResolution.height}`,
-      '-pix_fmt', 'yuv420p', // For browser compatibility
-      '-g', '48', // GOP size for HLS
-      '-keyint_min', '48',
-      '-sc_threshold', '0',
+      '-c:v',
+      videoCodec,
+      '-preset',
+      preset,
+      '-b:v',
+      settings.videoBitrate.toString(),
+      '-maxrate',
+      Math.round(settings.videoBitrate * 1.5).toString(),
+      '-bufsize',
+      Math.round(settings.videoBitrate * 2).toString(),
+      '-s',
+      `${settings.maxResolution.width}x${settings.maxResolution.height}`,
+      '-pix_fmt',
+      'yuv420p', // For browser compatibility
+      '-g',
+      '48', // GOP size for HLS
+      '-keyint_min',
+      '48',
+      '-sc_threshold',
+      '0',
     );
   }
 
   // Audio codec settings
   args.push(
-    '-c:a', settings.audioCodec === 'opus' ? 'libopus' : 'aac',
-    '-b:a', settings.audioBitrate.toString(),
-    '-ar', '48000',
+    '-c:a',
+    settings.audioCodec === 'opus' ? 'libopus' : 'aac',
+    '-b:a',
+    settings.audioBitrate.toString(),
+    '-ar',
+    '48000',
   );
 
   // Select best audio stream (prefer default, then highest quality)
   if (mediaInfo.audio.length > 0) {
-    const defaultAudio = mediaInfo.audio.find(a => a.default) || mediaInfo.audio[0];
+    const defaultAudio = mediaInfo.audio.find((a) => a.default) || mediaInfo.audio[0];
     args.push('-map', `0:a:${mediaInfo.audio.indexOf(defaultAudio)}`);
   }
 
@@ -214,12 +243,18 @@ function buildFfmpegArgs(
 
   // HLS settings
   args.push(
-    '-f', 'hls',
-    '-hls_time', '6', // 6 second segments
-    '-hls_list_size', '0', // Keep all segments
-    '-hls_segment_filename', segmentPattern,
-    '-hls_playlist_type', 'vod',
-    '-start_number', '0',
+    '-f',
+    'hls',
+    '-hls_time',
+    '6', // 6 second segments
+    '-hls_list_size',
+    '0', // Keep all segments
+    '-hls_segment_filename',
+    segmentPattern,
+    '-hls_playlist_type',
+    'vod',
+    '-start_number',
+    '0',
   );
 
   // Output
@@ -254,7 +289,7 @@ export function cancelTranscodeJob(jobId: string): boolean {
   job.process.kill('SIGTERM');
   job.status = 'failed';
   job.error = 'Cancelled by user';
-  
+
   logger.info(`Cancelled transcode job ${jobId}`);
   return true;
 }
@@ -360,28 +395,28 @@ export async function checkTranscodeNeeded(
   mediaId: string,
   mediaType: 'movie' | 'episode',
   filePath: string,
-  clientCaps: ClientCapabilities
+  clientCaps: ClientCapabilities,
 ): Promise<{
   directPlay: boolean;
   transcodeJob?: TranscodeJob;
   reason?: string;
 }> {
   const { probeMedia, canDirectPlay } = await import('./mediaInfo.service.js');
-  
+
   const mediaInfo = await probeMedia(filePath);
   if (!mediaInfo) {
     return { directPlay: false, reason: 'Failed to probe media' };
   }
 
   const directPlayCheck = canDirectPlay(mediaInfo, clientCaps);
-  
+
   if (directPlayCheck.playable) {
     return { directPlay: true };
   }
 
   // Start transcode
   const job = await startHlsTranscode(mediaId, mediaType, filePath, mediaInfo, clientCaps);
-  
+
   return {
     directPlay: false,
     transcodeJob: job,

@@ -39,10 +39,7 @@ function cacheKey(path: string, params: Record<string, string>): string {
  *  - Rate limiting (max 1 req/sec)
  *  - Redis response caching (24h TTL)
  */
-export async function mbFetch<T>(
-  path: string,
-  params: Record<string, string> = {},
-): Promise<T> {
+export async function mbFetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
   const key = cacheKey(path, params);
 
   // Check cache first
@@ -74,9 +71,7 @@ export async function mbFetch<T>(
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(
-      `MusicBrainz API error: ${res.status} ${res.statusText} — ${body}`,
-    );
+    throw new Error(`MusicBrainz API error: ${res.status} ${res.statusText} — ${body}`);
   }
 
   const data = (await res.json()) as T;
@@ -149,7 +144,11 @@ export async function caaFetch<T>(path: string): Promise<T> {
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       // Only retry on timeout or network errors
-      if (err instanceof Error && !err.message.includes('timeout') && !err.message.includes('fetch failed')) {
+      if (
+        err instanceof Error &&
+        !err.message.includes('timeout') &&
+        !err.message.includes('fetch failed')
+      ) {
         throw err;
       }
     }

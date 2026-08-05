@@ -19,7 +19,7 @@ function normalise(s: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') // strip diacritics
     .toLowerCase()
-    .replace(/[^\w\s]/g, '')         // remove punctuation
+    .replace(/[^\w\s]/g, '') // remove punctuation
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -37,9 +37,7 @@ function levenshtein(a: string, b: string): number {
     dp[0] = i;
     for (let j = 1; j <= n; j++) {
       const tmp = dp[j];
-      dp[j] = a[i - 1] === b[j - 1]
-        ? prev
-        : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
       prev = tmp;
     }
   }
@@ -64,9 +62,7 @@ function similarity(a: string, b: string): number {
  */
 function creditedArtistName(release: MBRelease): string {
   if (!release['artist-credit']?.length) return '';
-  return release['artist-credit']
-    .map((c) => c.name + (c.joinphrase || ''))
-    .join('');
+  return release['artist-credit'].map((c) => c.name + (c.joinphrase || '')).join('');
 }
 
 /**

@@ -11,25 +11,25 @@ const execFileAsync = promisify(execFile);
 
 export interface ProbeResult {
   /** Video codec identifier, e.g. "h264", "hevc", "av1" */
-  codec:      string | null;
+  codec: string | null;
   /** WIDTHxHEIGHT string, e.g. "1920x1080" */
   resolution: string | null;
   /** Duration in whole minutes (rounded) */
-  runtime:    number | null;
+  runtime: number | null;
   /** File size in bytes */
-  fileSize:   bigint;
+  fileSize: bigint;
 }
 
 interface FfprobeStream {
   codec_type?: string;
   codec_name?: string;
-  width?:      number;
-  height?:     number;
+  width?: number;
+  height?: number;
 }
 
 interface FfprobeOutput {
   streams?: FfprobeStream[];
-  format?:  { duration?: string; size?: string };
+  format?: { duration?: string; size?: string };
 }
 
 /**
@@ -43,27 +43,22 @@ export async function probeVideo(filePath: string): Promise<ProbeResult> {
   try {
     const { stdout } = await execFileAsync(
       'ffprobe',
-      [
-        '-v',            'quiet',
-        '-print_format', 'json',
-        '-show_streams',
-        '-show_format',
-        filePath,
-      ],
+      ['-v', 'quiet', '-print_format', 'json', '-show_streams', '-show_format', filePath],
       { maxBuffer: 2 * 1024 * 1024 },
     );
 
     const data = JSON.parse(stdout) as FfprobeOutput;
 
-    const videoStream = data.streams?.find(s => s.codec_type === 'video');
+    const videoStream = data.streams?.find((s) => s.codec_type === 'video');
     const durationSec = parseFloat(data.format?.duration ?? '0');
 
     return {
-      codec:      videoStream?.codec_name ?? null,
-      resolution: (videoStream?.width && videoStream?.height)
-                    ? `${videoStream.width}x${videoStream.height}`
-                    : null,
-      runtime:    durationSec > 0 ? Math.round(durationSec / 60) : null,
+      codec: videoStream?.codec_name ?? null,
+      resolution:
+        videoStream?.width && videoStream?.height
+          ? `${videoStream.width}x${videoStream.height}`
+          : null,
+      runtime: durationSec > 0 ? Math.round(durationSec / 60) : null,
       fileSize,
     };
   } catch (err) {

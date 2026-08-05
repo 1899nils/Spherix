@@ -95,9 +95,7 @@ function pickThumbnailUrl(img: CAAResponse['images'][number]): string {
  * Get the front cover art URL for a release from the Cover Art Archive.
  * Returns the URL string or null if no cover art exists.
  */
-export async function getCoverArtUrl(
-  releaseMbid: string,
-): Promise<string | null> {
+export async function getCoverArtUrl(releaseMbid: string): Promise<string | null> {
   try {
     const data = await caaFetch<CAAResponse>(`release/${releaseMbid}`);
     const front = data.images.find((img) => img.front);

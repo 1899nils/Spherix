@@ -76,16 +76,18 @@ export function createSessionId(userId: string, mediaId: string): string {
 /**
  * Register a new streaming session
  */
-export function registerSession(session: Omit<StreamSession, 'id' | 'startedAt' | 'lastActivity'>): string {
+export function registerSession(
+  session: Omit<StreamSession, 'id' | 'startedAt' | 'lastActivity'>,
+): string {
   const id = createSessionId(session.userId, session.mediaId);
-  
+
   activeSessions.set(id, {
     ...session,
     id,
     startedAt: new Date(),
     lastActivity: new Date(),
   });
-  
+
   logger.info(`New streaming session: ${id} - ${session.mediaTitle} on ${session.device}`);
   return id;
 }
@@ -96,7 +98,7 @@ export function registerSession(session: Omit<StreamSession, 'id' | 'startedAt' 
 export function updateSession(sessionId: string, updates: Partial<StreamSession>): boolean {
   const session = activeSessions.get(sessionId);
   if (!session) return false;
-  
+
   Object.assign(session, updates, { lastActivity: new Date() });
   return true;
 }
@@ -107,7 +109,7 @@ export function updateSession(sessionId: string, updates: Partial<StreamSession>
 export function endSession(sessionId: string): boolean {
   const session = activeSessions.get(sessionId);
   if (!session) return false;
-  
+
   // Add to history
   const historyItem: SessionHistoryItem = {
     id: sessionId,
@@ -120,12 +122,12 @@ export function endSession(sessionId: string): boolean {
     duration: session.position,
     decision: session.transcodeInfo?.videoDecision === 'transcode' ? 'transcode' : 'direct',
   };
-  
+
   sessionHistory.unshift(historyItem);
   if (sessionHistory.length > MAX_HISTORY) {
     sessionHistory.pop();
   }
-  
+
   logger.info(`Ending streaming session: ${sessionId}`);
   activeSessions.delete(sessionId);
   return true;
@@ -145,9 +147,9 @@ export function addTranscodeQueue(item: Omit<TranscodeQueueItem, 'startedAt'>): 
  * Update transcode queue item
  */
 export function updateTranscodeQueue(id: string, updates: Partial<TranscodeQueueItem>): boolean {
-  const item = transcodeQueue.find(q => q.id === id);
+  const item = transcodeQueue.find((q) => q.id === id);
   if (!item) return false;
-  
+
   Object.assign(item, updates);
   return true;
 }
@@ -158,7 +160,7 @@ export function updateTranscodeQueue(id: string, updates: Partial<TranscodeQueue
 export function getActiveSessions(): StreamSession[] {
   const now = Date.now();
   const sessions: StreamSession[] = [];
-  
+
   for (const [id, session] of activeSessions.entries()) {
     // Remove stale sessions (no activity for 5 minutes)
     if (now - session.lastActivity.getTime() > 5 * 60 * 1000) {
@@ -167,7 +169,7 @@ export function getActiveSessions(): StreamSession[] {
     }
     sessions.push(session);
   }
-  
+
   return sessions;
 }
 
@@ -181,9 +183,9 @@ router.get('/', async (_req, res) => {
       Promise.resolve(getActiveSessions()),
       getSystemStats().catch(() => null),
     ]);
-    
+
     // Enhance with transcode progress if applicable
-    const enhancedSessions = sessions.map(session => {
+    const enhancedSessions = sessions.map((session) => {
       if (session.transcodeInfo?.transcodeJobId) {
         const job = getTranscodeJob(session.transcodeInfo.transcodeJobId);
         if (job) {
@@ -196,33 +198,37 @@ router.get('/', async (_req, res) => {
       }
       return session;
     });
-    
+
     // Get transcode queue
-    const activeQueue = transcodeQueue.filter(q => q.status === 'pending' || q.status === 'processing');
-    
-    res.json({ 
+    const activeQueue = transcodeQueue.filter(
+      (q) => q.status === 'pending' || q.status === 'processing',
+    );
+
+    res.json({
       data: {
         sessions: enhancedSessions,
         count: enhancedSessions.length,
-        system: systemStats ? {
-          cpu: {
-            load: systemStats.cpu.load,
-            cores: systemStats.cpu.cores,
-          },
-          memory: {
-            used: formatBytes(systemStats.memory.used),
-            total: formatBytes(systemStats.memory.total),
-            percentage: systemStats.memory.percentage,
-          },
-          uptime: formatUptime(systemStats.uptime),
-        } : null,
-        transcodeQueue: activeQueue.map(q => ({
+        system: systemStats
+          ? {
+              cpu: {
+                load: systemStats.cpu.load,
+                cores: systemStats.cpu.cores,
+              },
+              memory: {
+                used: formatBytes(systemStats.memory.used),
+                total: formatBytes(systemStats.memory.total),
+                percentage: systemStats.memory.percentage,
+              },
+              uptime: formatUptime(systemStats.uptime),
+            }
+          : null,
+        transcodeQueue: activeQueue.map((q) => ({
           id: q.id,
           mediaTitle: q.mediaTitle,
           status: q.status,
           progress: q.progress,
         })),
-      }
+      },
     });
   } catch (error) {
     logger.error('Failed to get sessions', { error });
@@ -237,24 +243,29 @@ router.get('/', async (_req, res) => {
 router.get('/stats', async (_req, res) => {
   try {
     const sessions = getActiveSessions();
-    
+
     const stats = {
       totalSessions: sessions.length,
-      directPlayCount: sessions.filter(s => 
-        s.transcodeInfo?.videoDecision === 'direct' && 
-        s.transcodeInfo?.audioDecision === 'direct'
+      directPlayCount: sessions.filter(
+        (s) =>
+          s.transcodeInfo?.videoDecision === 'direct' &&
+          s.transcodeInfo?.audioDecision === 'direct',
       ).length,
-      transcodeCount: sessions.filter(s => 
-        s.transcodeInfo?.videoDecision === 'transcode' || 
-        s.transcodeInfo?.audioDecision === 'transcode'
+      transcodeCount: sessions.filter(
+        (s) =>
+          s.transcodeInfo?.videoDecision === 'transcode' ||
+          s.transcodeInfo?.audioDecision === 'transcode',
       ).length,
       totalBandwidth: sessions.reduce((sum, s) => sum + (s.transcodeInfo?.bandwidth || 0), 0),
-      byDevice: sessions.reduce((acc, s) => {
-        acc[s.device] = (acc[s.device] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>),
+      byDevice: sessions.reduce(
+        (acc, s) => {
+          acc[s.device] = (acc[s.device] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>,
+      ),
     };
-    
+
     res.json({ data: stats });
   } catch (error) {
     logger.error('Failed to get session stats', { error });
@@ -270,12 +281,12 @@ router.get('/history', async (req, res) => {
   try {
     const limit = Math.min(50, parseInt(req.query.limit as string) || 20);
     const history = sessionHistory.slice(0, limit);
-    
-    res.json({ 
+
+    res.json({
       data: {
         history,
         total: sessionHistory.length,
-      }
+      },
     });
   } catch (error) {
     logger.error('Failed to get session history', { error });
@@ -290,7 +301,7 @@ router.get('/history', async (req, res) => {
 router.get('/system', async (_req, res) => {
   try {
     const stats = await getSystemStats();
-    
+
     res.json({
       data: {
         cpu: {
@@ -315,7 +326,7 @@ router.get('/system', async (_req, res) => {
           txSec: formatBytes(stats.network.txSec) + '/s',
         },
         uptime: formatUptime(stats.uptime),
-      }
+      },
     });
   } catch (error) {
     logger.error('Failed to get system stats', { error });
@@ -330,15 +341,15 @@ router.get('/system', async (_req, res) => {
 router.post('/:id/kill', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // TODO: Add admin check
     const success = endSession(id);
-    
+
     if (!success) {
       res.status(404).json({ error: 'Session not found' });
       return;
     }
-    
+
     res.json({ data: { success: true } });
   } catch (error) {
     logger.error(`Failed to kill session ${req.params.id}`, { error });

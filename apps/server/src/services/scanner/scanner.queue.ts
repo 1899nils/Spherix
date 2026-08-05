@@ -64,9 +64,7 @@ export function startScanWorker(): void {
 export async function enqueueScan(libraryId: string): Promise<string> {
   // Prevent duplicate scans for the same library
   const activeJobs = await scanQueue.getJobs(['active', 'waiting']);
-  const duplicate = activeJobs.find(
-    (j) => j.data.libraryId === libraryId,
-  );
+  const duplicate = activeJobs.find((j) => j.data.libraryId === libraryId);
   if (duplicate) {
     logger.info(`Scan already queued for library ${libraryId}, skipping`);
     return duplicate.id!;

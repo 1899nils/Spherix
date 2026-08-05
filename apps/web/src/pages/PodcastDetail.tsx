@@ -4,8 +4,21 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { usePlayerStore, type PodcastEpisodePlayerItem } from '@/stores/playerStore';
-import type { PodcastDetail as PodcastDetailType, PodcastEpisode, ApiResponse } from '@musicserver/shared';
-import { Play, Pause, RefreshCw, Trash2, Loader2, CalendarDays, Clock, PlusCircle } from 'lucide-react';
+import type {
+  PodcastDetail as PodcastDetailType,
+  PodcastEpisode,
+  ApiResponse,
+} from '@musicserver/shared';
+import {
+  Play,
+  Pause,
+  RefreshCw,
+  Trash2,
+  Loader2,
+  CalendarDays,
+  Clock,
+  PlusCircle,
+} from 'lucide-react';
 
 const PAGE_SIZE = 10;
 
@@ -28,7 +41,11 @@ function formatRemaining(progress: number, duration: number): string {
 
 function formatDate(iso: string | null): string {
   if (!iso) return '';
-  return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 export function PodcastDetail() {
@@ -43,7 +60,8 @@ export function PodcastDetail() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['podcast', id],
-    queryFn: () => api.get<ApiResponse<PodcastDetailType>>(`/podcasts/${id}?limit=${PAGE_SIZE}&offset=0`),
+    queryFn: () =>
+      api.get<ApiResponse<PodcastDetailType>>(`/podcasts/${id}?limit=${PAGE_SIZE}&offset=0`),
     enabled: !!id,
   });
 
@@ -125,7 +143,10 @@ export function PodcastDetail() {
         {podcast.imageUrl && (
           <div
             className="absolute inset-0 bg-cover bg-center scale-110"
-            style={{ backgroundImage: `url(${podcast.imageUrl})`, filter: 'blur(40px) brightness(0.3)' }}
+            style={{
+              backgroundImage: `url(${podcast.imageUrl})`,
+              filter: 'blur(40px) brightness(0.3)',
+            }}
           />
         )}
         {!podcast.imageUrl && (
@@ -136,7 +157,11 @@ export function PodcastDetail() {
         <div className="relative z-10 flex items-end gap-6 px-6 pb-6 w-full">
           <div className="h-48 w-48 rounded-xl overflow-hidden bg-black/30 shrink-0 shadow-2xl border border-white/10">
             {podcast.imageUrl ? (
-              <img src={podcast.imageUrl} alt={podcast.title} className="h-full w-full object-contain" />
+              <img
+                src={podcast.imageUrl}
+                alt={podcast.title}
+                className="h-full w-full object-contain"
+              />
             ) : (
               <div className="h-full w-full flex items-center justify-center text-5xl">🎙️</div>
             )}
@@ -144,10 +169,10 @@ export function PodcastDetail() {
 
           <div className="space-y-1.5 min-w-0 pb-1">
             <p className="text-xs uppercase tracking-widest text-white/60 font-semibold">Podcast</p>
-            <h1 className="text-4xl font-black truncate text-white drop-shadow-lg">{podcast.title}</h1>
-            {podcast.author && (
-              <p className="text-sm text-white/60">{podcast.author}</p>
-            )}
+            <h1 className="text-4xl font-black truncate text-white drop-shadow-lg">
+              {podcast.title}
+            </h1>
+            {podcast.author && <p className="text-sm text-white/60">{podcast.author}</p>}
             <p className="text-sm text-white/50">
               {podcast.episodeCount} {podcast.episodeCount === 1 ? 'Episode' : 'Episoden'}
             </p>
@@ -163,9 +188,11 @@ export function PodcastDetail() {
           onClick={() => refreshMutation.mutate()}
           disabled={refreshMutation.isPending}
         >
-          {refreshMutation.isPending
-            ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-            : <RefreshCw className="h-4 w-4 mr-1.5" />}
+          {refreshMutation.isPending ? (
+            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-1.5" />
+          )}
           Aktualisieren
         </Button>
 
@@ -202,9 +229,7 @@ export function PodcastDetail() {
         <section>
           <h2 className="text-xl font-semibold mb-4">
             Alle Folgen
-            <span className="text-sm font-normal text-muted-foreground ml-2">
-              ({episodeCount})
-            </span>
+            <span className="text-sm font-normal text-muted-foreground ml-2">({episodeCount})</span>
           </h2>
 
           {episodes.length === 0 ? (
@@ -213,7 +238,8 @@ export function PodcastDetail() {
             <div className="divide-y divide-border">
               {episodes.map((ep) => {
                 const isCurrent = currentEpId === ep.id;
-                const hasProgress = ep.listenProgress != null && ep.listenProgress > 0 && ep.duration != null;
+                const hasProgress =
+                  ep.listenProgress != null && ep.listenProgress > 0 && ep.duration != null;
                 const progressPct = hasProgress
                   ? Math.min(100, ((ep.listenProgress ?? 0) / ep.duration!) * 100)
                   : 0;
@@ -232,13 +258,17 @@ export function PodcastDetail() {
                       {thumb ? (
                         <img src={thumb} alt={ep.title} className="h-full w-full object-contain" />
                       ) : (
-                        <div className="h-full w-full flex items-center justify-center text-2xl">🎙️</div>
+                        <div className="h-full w-full flex items-center justify-center text-2xl">
+                          🎙️
+                        </div>
                       )}
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0 space-y-1">
-                      <p className={`text-sm font-semibold leading-snug line-clamp-1 ${isCurrent ? 'text-primary' : ''}`}>
+                      <p
+                        className={`text-sm font-semibold leading-snug line-clamp-1 ${isCurrent ? 'text-primary' : ''}`}
+                      >
                         {ep.title}
                       </p>
                       <p className="text-xs text-muted-foreground font-medium">{podcast.title}</p>
@@ -279,7 +309,10 @@ export function PodcastDetail() {
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex items-center gap-1 shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      className="flex items-center gap-1 shrink-0 pt-0.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Button
                         variant="ghost"
                         size="icon"
@@ -316,9 +349,7 @@ export function PodcastDetail() {
                 disabled={isFetchingMore}
                 className="min-w-[220px]"
               >
-                {isFetchingMore ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : null}
+                {isFetchingMore ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                 {isFetchingMore
                   ? 'Lade...'
                   : `${remaining} weitere ${remaining === 1 ? 'Folge' : 'Folgen'} anzeigen`}

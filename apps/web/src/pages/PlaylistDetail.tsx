@@ -6,9 +6,17 @@ import { formatDuration } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import type { PlaylistWithTracks, PlaylistTrack, ApiResponse } from '@musicserver/shared';
-import { 
-  Play, Pause, Disc3, Pencil, Clock, Heart, MoreHorizontal, 
-  Shuffle, Plus, X
+import {
+  Play,
+  Pause,
+  Disc3,
+  Pencil,
+  Clock,
+  Heart,
+  MoreHorizontal,
+  Shuffle,
+  Plus,
+  X,
 } from 'lucide-react';
 
 // Shuffle array helper
@@ -29,7 +37,7 @@ function formatRelativeTime(dateString: string): string {
   const diffMins = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  
+
   if (diffMins < 60) {
     return `vor ${diffMins} Min`;
   } else if (diffHours < 24) {
@@ -45,26 +53,21 @@ export function PlaylistDetail() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [editTrackId, setEditTrackId] = useState<string | null>(null);
 
-
   const { data: playlistData, isLoading } = useQuery({
     queryKey: ['playlist', id],
     queryFn: () => api.get<ApiResponse<PlaylistWithTracks>>(`/playlists/${id}`),
     enabled: !!id,
   });
 
-  const { 
-    playTrack, 
-    currentTrack, 
-    isPlaying, 
-    togglePlay, 
-    isShuffled, 
-    toggleShuffle 
-  } = usePlayerStore();
+  const { playTrack, currentTrack, isPlaying, togglePlay, isShuffled, toggleShuffle } =
+    usePlayerStore();
 
   const playlist = playlistData?.data;
 
   // Get dominant color from first track's album cover
-  const [bgGradient, setBgGradient] = useState<string>('linear-gradient(to bottom, #525252 0%, #121212 100%)');
+  const [bgGradient, setBgGradient] = useState<string>(
+    'linear-gradient(to bottom, #525252 0%, #121212 100%)',
+  );
 
   useEffect(() => {
     if (playlist?.tracks?.[0]?.album?.coverUrl) {
@@ -80,7 +83,9 @@ export function PlaylistDetail() {
           ctx.drawImage(img, 0, 0, 100, 100);
           const imageData = ctx.getImageData(0, 0, 100, 100);
           const data = imageData.data;
-          let r = 0, g = 0, b = 0;
+          let r = 0,
+            g = 0,
+            b = 0;
           let count = 0;
           for (let i = 0; i < data.length; i += 40) {
             r += data[i];
@@ -88,10 +93,12 @@ export function PlaylistDetail() {
             b += data[i + 2];
             count++;
           }
-          r = Math.floor(r / count * 0.7);
-          g = Math.floor(g / count * 0.7);
-          b = Math.floor(b / count * 0.7);
-          setBgGradient(`linear-gradient(to bottom, rgb(${r},${g},${b}) 0%, rgb(${r},${g},${b}) 20%, #121212 65%, #121212 100%)`);
+          r = Math.floor((r / count) * 0.7);
+          g = Math.floor((g / count) * 0.7);
+          b = Math.floor((b / count) * 0.7);
+          setBgGradient(
+            `linear-gradient(to bottom, rgb(${r},${g},${b}) 0%, rgb(${r},${g},${b}) 20%, #121212 65%, #121212 100%)`,
+          );
         } catch {
           setBgGradient('linear-gradient(to bottom, #525252 0%, #121212 100%)');
         }
@@ -127,25 +134,22 @@ export function PlaylistDetail() {
     playTrack(track, tracks);
   };
 
-  const isCurrentPlaylistPlaying = currentTrack && tracks.some((t) => t.id === currentTrack.id) && isPlaying;
-
-
+  const isCurrentPlaylistPlaying =
+    currentTrack && tracks.some((t) => t.id === currentTrack.id) && isPlaying;
 
   return (
     <div className="min-h-screen -mx-6">
       {/* Header with Gradient */}
-      <div 
-        className="relative transition-all duration-700"
-        style={{ background: bgGradient }}
-      >
+      <div className="relative transition-all duration-700" style={{ background: bgGradient }}>
         {/* Gradient overlay */}
-        <div 
+        <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(to bottom, transparent 0%, transparent 40%, rgba(18, 18, 18, 0.3) 60%, rgba(18, 18, 18, 0.8) 85%, rgba(18, 18, 18, 1) 100%)'
+            background:
+              'linear-gradient(to bottom, transparent 0%, transparent 40%, rgba(18, 18, 18, 0.3) 60%, rgba(18, 18, 18, 0.8) 85%, rgba(18, 18, 18, 1) 100%)',
           }}
         />
-        
+
         <div className="relative flex flex-col md:flex-row gap-6 md:gap-8 px-6 md:px-8 py-6 md:py-8 pb-8">
           {/* Cover */}
           <div className="h-48 w-48 md:h-56 md:w-56 lg:h-64 lg:w-64 rounded-md overflow-hidden bg-[#282828] shrink-0 shadow-2xl mx-auto md:mx-0">
@@ -170,17 +174,17 @@ export function PlaylistDetail() {
 
           {/* Info */}
           <div className="flex flex-col justify-end gap-3 min-w-0 text-center md:text-left">
-            <p className="text-xs uppercase tracking-wider text-white/80 font-medium">
-              Playlist
-            </p>
+            <p className="text-xs uppercase tracking-wider text-white/80 font-medium">Playlist</p>
             <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold leading-tight line-clamp-2 text-white">
               {playlist.name}
             </h1>
-            
+
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-sm text-white/90">
               <span className="font-bold text-white">Spherix</span>
               <span className="hidden sm:inline">•</span>
-              <span>{playlist.trackCount} {playlist.trackCount === 1 ? 'Song' : 'Songs'}</span>
+              <span>
+                {playlist.trackCount} {playlist.trackCount === 1 ? 'Song' : 'Songs'}
+              </span>
               {totalMins > 0 && (
                 <>
                   <span className="hidden sm:inline">•</span>
@@ -193,7 +197,7 @@ export function PlaylistDetail() {
       </div>
 
       {/* Action Bar */}
-      <div 
+      <div
         className="relative flex items-center gap-4 px-6 md:px-8 py-6 -mt-4 w-full"
         style={{ background: 'linear-gradient(to bottom, transparent 0%, #121212 100%)' }}
       >
@@ -214,9 +218,7 @@ export function PlaylistDetail() {
           onClick={toggleShuffle}
           title={isShuffled ? 'Zufallswiedergabe aus' : 'Zufallswiedergabe an'}
           className={`h-10 w-10 flex items-center justify-center transition-all ${
-            isShuffled 
-              ? 'text-[#dc2626]' 
-              : 'text-[#b3b3b3] hover:text-white hover:scale-105'
+            isShuffled ? 'text-[#dc2626]' : 'text-[#b3b3b3] hover:text-white hover:scale-105'
           }`}
         >
           <Shuffle className="h-6 w-6" />
@@ -238,10 +240,7 @@ export function PlaylistDetail() {
 
           {showMoreMenu && (
             <>
-              <div 
-                className="fixed inset-0 z-40" 
-                onClick={() => setShowMoreMenu(false)} 
-              />
+              <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
               <div className="absolute top-full left-0 mt-1 w-64 bg-[#282828] rounded-md shadow-xl py-1 z-50">
                 <button
                   onClick={() => {
@@ -309,13 +308,11 @@ export function PlaylistDetail() {
                 {/* Track Number / Cover / Play Icon */}
                 <span className="w-8 text-center text-[#b3b3b3] flex items-center justify-center">
                   <span className={`group-hover:hidden ${isCurrent ? 'text-[#dc2626]' : ''}`}>
-                    {isCurrent && isPlaying ? (
-                      <span className="text-[#dc2626]">♪</span>
-                    ) : (
-                      index + 1
-                    )}
+                    {isCurrent && isPlaying ? <span className="text-[#dc2626]">♪</span> : index + 1}
                   </span>
-                  <Play className={`h-4 w-4 hidden group-hover:block ${isCurrent ? 'text-[#dc2626]' : 'text-white'}`} />
+                  <Play
+                    className={`h-4 w-4 hidden group-hover:block ${isCurrent ? 'text-[#dc2626]' : 'text-white'}`}
+                  />
                 </span>
 
                 {/* Title & Artist */}
@@ -323,9 +320,9 @@ export function PlaylistDetail() {
                   {/* Album Cover */}
                   <div className="h-10 w-10 rounded overflow-hidden bg-[#282828] shrink-0">
                     {track.album?.coverUrl ? (
-                      <img 
-                        src={track.album.coverUrl} 
-                        alt="" 
+                      <img
+                        src={track.album.coverUrl}
+                        alt=""
                         className="h-full w-full object-cover"
                       />
                     ) : (
@@ -335,7 +332,9 @@ export function PlaylistDetail() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className={`truncate font-normal ${isCurrent ? 'text-[#dc2626]' : 'text-white'}`}>
+                    <p
+                      className={`truncate font-normal ${isCurrent ? 'text-[#dc2626]' : 'text-white'}`}
+                    >
                       {track.title}
                     </p>
                     <Link
@@ -350,7 +349,7 @@ export function PlaylistDetail() {
 
                 {/* Album */}
                 <div className="hidden md:block min-w-0">
-                  <Link 
+                  <Link
                     to={`/music/albums/${track.album?.id}`}
                     onClick={(e) => e.stopPropagation()}
                     className="text-[#b3b3b3] hover:text-white hover:underline truncate block"
@@ -406,22 +405,24 @@ export function PlaylistDetail() {
           id={editTrackId}
           initialData={(() => {
             const track = tracks.find((t) => t.id === editTrackId);
-            return track ? {
-              title: track.title,
-              artistName: track.artist.name,
-              trackNumber: track.trackNumber,
-              discNumber: track.discNumber,
-              lyrics: track.lyrics,
-              explicit: track.explicit,
-              format: track.format,
-              bitrate: track.bitrate,
-              sampleRate: track.sampleRate,
-              channels: track.channels,
-              duration: track.duration,
-              fileSize: track.fileSize,
-              filePath: track.filePath,
-              musicbrainzId: track.musicbrainzId,
-            } : {};
+            return track
+              ? {
+                  title: track.title,
+                  artistName: track.artist.name,
+                  trackNumber: track.trackNumber,
+                  discNumber: track.discNumber,
+                  lyrics: track.lyrics,
+                  explicit: track.explicit,
+                  format: track.format,
+                  bitrate: track.bitrate,
+                  sampleRate: track.sampleRate,
+                  channels: track.channels,
+                  duration: track.duration,
+                  fileSize: track.fileSize,
+                  filePath: track.filePath,
+                  musicbrainzId: track.musicbrainzId,
+                }
+              : {};
           })()}
         />
       )}

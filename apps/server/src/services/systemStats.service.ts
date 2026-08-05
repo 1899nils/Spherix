@@ -46,7 +46,7 @@ export async function getSystemStats(): Promise<SystemStats> {
     const cpuLoad = os.loadavg()[0]; // 1 minute load average
     const cpuCount = os.cpus().length;
     const cpuPercentage = Math.min(100, Math.round((cpuLoad / cpuCount) * 100));
-    
+
     // Update CPU history
     cpuLoadHistory.push(cpuPercentage);
     if (cpuLoadHistory.length > MAX_HISTORY) {
@@ -137,7 +137,7 @@ export function formatUptime(seconds: number): string {
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
-  
+
   if (days > 0) return `${days}d ${hours}h ${mins}m`;
   if (hours > 0) return `${hours}h ${mins}m`;
   return `${mins}m`;

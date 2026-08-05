@@ -42,7 +42,10 @@ export async function validateApiKey(apiKey: string): Promise<void> {
   await tmdbFetch<unknown>('/configuration', apiKey);
 }
 
-export async function fetchGenreMap(type: 'movie' | 'tv', apiKey: string): Promise<Map<number, string>> {
+export async function fetchGenreMap(
+  type: 'movie' | 'tv',
+  apiKey: string,
+): Promise<Map<number, string>> {
   const cacheKey = `${type}:${apiKey}`;
   if (genreCache.has(cacheKey)) return genreCache.get(cacheKey)!;
 
@@ -223,10 +226,7 @@ export async function searchSeriesMultiple(
 }
 
 /** Fetch detailed info for a specific movie by TMDB ID */
-export async function getMovieDetails(
-  tmdbId: number,
-  apiKey: string,
-): Promise<TmdbResult | null> {
+export async function getMovieDetails(tmdbId: number, apiKey: string): Promise<TmdbResult | null> {
   const data = await tmdbFetch<{
     id: number;
     overview: string;
@@ -273,10 +273,10 @@ export interface TmdbMovieEnriched extends TmdbResult {
   originalTitle: string | null;
   releaseDate: string | null;
   tagline: string | null;
-  contentRating: string | null;   // US certification: "PG-13", "R", "G", etc.
-  fskRating: string | null;       // German FSK certification: "FSK 12", "FSK 16", etc.
-  studio: string | null;          // Primary production company
-  logoPath: string | null;        // Logo image URL
+  contentRating: string | null; // US certification: "PG-13", "R", "G", etc.
+  fskRating: string | null; // German FSK certification: "FSK 12", "FSK 16", etc.
+  studio: string | null; // Primary production company
+  logoPath: string | null; // Logo image URL
   productionCompanies: string[];
   cast: TmdbCastMember[];
   crew: TmdbCrewMember[];
@@ -329,38 +329,30 @@ export async function getMovieEnrichedDetails(
         profile_path: string | null;
       }[];
     };
-  }>(
-    `/movie/${tmdbId}?append_to_response=release_dates,credits,images&language=de-DE`,
-    apiKey,
-  );
+  }>(`/movie/${tmdbId}?append_to_response=release_dates,credits,images&language=de-DE`, apiKey);
 
   if (!data) return null;
 
   // Extract US content rating (theatrical release = type 3)
   const usRelease = data.release_dates?.results?.find((r) => r.iso_3166_1 === 'US');
   const certification =
-    usRelease?.release_dates
-      ?.filter((rd) => rd.certification)
-      ?.sort((a, b) => a.type - b.type)
-      ?.[0]?.certification ?? null;
+    usRelease?.release_dates?.filter((rd) => rd.certification)?.sort((a, b) => a.type - b.type)?.[0]
+      ?.certification ?? null;
 
   // Extract German FSK rating
   const deRelease = data.release_dates?.results?.find((r) => r.iso_3166_1 === 'DE');
-  const deRawCert = deRelease?.release_dates
-    ?.filter((rd) => rd.certification)
-    ?.sort((a, b) => a.type - b.type)
-    ?.[0]?.certification ?? null;
+  const deRawCert =
+    deRelease?.release_dates?.filter((rd) => rd.certification)?.sort((a, b) => a.type - b.type)?.[0]
+      ?.certification ?? null;
   const fskRating = normalizeFsk(deRawCert);
 
-  const cast: TmdbCastMember[] = (data.credits?.cast ?? [])
-    .slice(0, 20)
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      character: c.character,
-      profilePath: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null,
-      order: c.order,
-    }));
+  const cast: TmdbCastMember[] = (data.credits?.cast ?? []).slice(0, 20).map((c) => ({
+    id: c.id,
+    name: c.name,
+    character: c.character,
+    profilePath: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null,
+    order: c.order,
+  }));
 
   const crew: TmdbCrewMember[] = (data.credits?.crew ?? [])
     .filter((c) => ['Director', 'Screenplay', 'Writer', 'Story', 'Producer'].includes(c.job))
@@ -374,7 +366,9 @@ export async function getMovieEnrichedDetails(
 
   // Pick best logo: prefer English, then any, pick highest vote_average
   const logos = data.images?.logos ?? [];
-  const enLogo = logos.filter((l) => l.iso_639_1 === 'en').sort((a, b) => b.vote_average - a.vote_average)[0];
+  const enLogo = logos
+    .filter((l) => l.iso_639_1 === 'en')
+    .sort((a, b) => b.vote_average - a.vote_average)[0];
   const bestLogo = enLogo ?? logos.sort((a, b) => b.vote_average - a.vote_average)[0];
   const logoPath = bestLogo ? `https://image.tmdb.org/t/p/w500${bestLogo.file_path}` : null;
 
@@ -446,10 +440,7 @@ export async function getMovieCredits(
 }
 
 /** Fetch detailed info for a specific series by TMDB ID */
-export async function getSeriesDetails(
-  tmdbId: number,
-  apiKey: string,
-): Promise<TmdbResult | null> {
+export async function getSeriesDetails(tmdbId: number, apiKey: string): Promise<TmdbResult | null> {
   const data = await tmdbFetch<{
     id: number;
     overview: string;
@@ -479,8 +470,8 @@ export interface TmdbSeriesEnriched extends TmdbResult {
   releaseDate: string | null;
   fskRating: string | null;
   contentRating: string | null;
-  studio: string | null;        // Primary production company
-  network: string | null;       // Primary broadcast network (Netflix, HBO, …)
+  studio: string | null; // Primary production company
+  network: string | null; // Primary broadcast network (Netflix, HBO, …)
   logoPath: string | null;
 }
 
@@ -508,9 +499,13 @@ export async function getSeriesEnrichedDetails(
       networks: { id: number; name: string; logo_path: string | null }[];
     }>(`/tv/${tmdbId}?language=de-DE`, apiKey),
     tmdbFetch<{ imdb_id?: string | null }>(`/tv/${tmdbId}/external_ids`, apiKey),
-    tmdbFetch<{ results: { iso_3166_1: string; rating: string }[] }>(`/tv/${tmdbId}/content_ratings`, apiKey),
+    tmdbFetch<{ results: { iso_3166_1: string; rating: string }[] }>(
+      `/tv/${tmdbId}/content_ratings`,
+      apiKey,
+    ),
     tmdbFetch<{ logos: { file_path: string; iso_639_1: string | null; vote_average: number }[] }>(
-      `/tv/${tmdbId}/images`, apiKey,
+      `/tv/${tmdbId}/images`,
+      apiKey,
     ),
   ]);
 
@@ -520,7 +515,9 @@ export async function getSeriesEnrichedDetails(
   const usRating = contentRatings?.results?.find((r) => r.iso_3166_1 === 'US')?.rating ?? null;
 
   const logos = images?.logos ?? [];
-  const enLogo = logos.filter((l) => l.iso_639_1 === 'en').sort((a, b) => b.vote_average - a.vote_average)[0];
+  const enLogo = logos
+    .filter((l) => l.iso_639_1 === 'en')
+    .sort((a, b) => b.vote_average - a.vote_average)[0];
   const bestLogo = enLogo ?? logos.sort((a, b) => b.vote_average - a.vote_average)[0];
 
   return {
@@ -549,7 +546,10 @@ export async function getSeriesExternalData(
 ): Promise<{ imdbId: string | null; fskRating: string | null }> {
   const [externalIds, contentRatings] = await Promise.all([
     tmdbFetch<{ imdb_id?: string | null }>(`/tv/${tmdbId}/external_ids`, apiKey),
-    tmdbFetch<{ results: { iso_3166_1: string; rating: string }[] }>(`/tv/${tmdbId}/content_ratings`, apiKey),
+    tmdbFetch<{ results: { iso_3166_1: string; rating: string }[] }>(
+      `/tv/${tmdbId}/content_ratings`,
+      apiKey,
+    ),
   ]);
 
   const deRating = contentRatings?.results?.find((r) => r.iso_3166_1 === 'DE')?.rating ?? null;

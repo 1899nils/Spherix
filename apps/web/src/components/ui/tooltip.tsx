@@ -21,7 +21,9 @@ export function Tooltip({ content, children, side = 'top' }: TooltipProps) {
         <div
           className={cn(
             'absolute z-50 px-2 py-1 text-xs rounded bg-foreground text-background whitespace-nowrap pointer-events-none',
-            side === 'top' ? 'bottom-full mb-1.5 left-1/2 -translate-x-1/2' : 'top-full mt-1.5 left-1/2 -translate-x-1/2',
+            side === 'top'
+              ? 'bottom-full mb-1.5 left-1/2 -translate-x-1/2'
+              : 'top-full mt-1.5 left-1/2 -translate-x-1/2',
           )}
         >
           {content}

@@ -7,7 +7,14 @@ import { scannerEvents, type ScanProgress } from './scanner.events.js';
 import { autoMatchAlbum } from '../musicbrainz/auto-match.service.js';
 
 const AUDIO_EXTENSIONS = new Set([
-  '.mp3', '.flac', '.ogg', '.opus', '.m4a', '.aac', '.wav', '.aiff',
+  '.mp3',
+  '.flac',
+  '.ogg',
+  '.opus',
+  '.m4a',
+  '.aac',
+  '.wav',
+  '.aiff',
 ]);
 
 /**
@@ -45,10 +52,7 @@ async function discoverAudioFiles(dirPath: string): Promise<string[]> {
 /**
  * Finds or creates an artist by name. Returns the artist ID.
  */
-async function upsertArtist(
-  name: string,
-  musicbrainzId: string | null,
-): Promise<string> {
+async function upsertArtist(name: string, musicbrainzId: string | null): Promise<string> {
   // Try to find by MusicBrainz ID first if available
   if (musicbrainzId) {
     const existing = await prisma.artist.findUnique({
@@ -193,10 +197,7 @@ export async function scanLibrary(libraryId: string): Promise<ScanProgress> {
       scannedFilePaths.add(filePath);
 
       // Upsert artist
-      const artistId = await upsertArtist(
-        meta.artistName,
-        meta.musicbrainzArtistId,
-      );
+      const artistId = await upsertArtist(meta.artistName, meta.musicbrainzArtistId);
 
       // Upsert album if present
       let albumId: string | null = null;
@@ -322,7 +323,9 @@ export async function scanLibrary(libraryId: string): Promise<ScanProgress> {
   progress.matchedAlbums = 0;
   progress.autoLinkedAlbums = 0;
   scannerEvents.emitProgress(progress);
-  logger.info(`MusicBrainz phase: ${albumsToMatch.length} albums (matching unlinked, validating covers for linked)`);
+  logger.info(
+    `MusicBrainz phase: ${albumsToMatch.length} albums (matching unlinked, validating covers for linked)`,
+  );
 
   for (const album of albumsToMatch) {
     try {
@@ -337,7 +340,9 @@ export async function scanLibrary(libraryId: string): Promise<ScanProgress> {
     scannerEvents.emitProgress(progress);
   }
 
-  logger.info(`Auto-matching complete: ${progress.autoLinkedAlbums} of ${albumsToMatch.length} albums linked`);
+  logger.info(
+    `Auto-matching complete: ${progress.autoLinkedAlbums} of ${albumsToMatch.length} albums linked`,
+  );
 
   // Update library lastScannedAt
   await prisma.library.update({

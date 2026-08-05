@@ -19,7 +19,9 @@ export function AuthorDetail() {
   const { data, isLoading } = useQuery({
     queryKey: ['audiobooks-by-author', decodedName],
     queryFn: () =>
-      api.get<AudiobooksResponse>(`/audiobooks?author=${encodeURIComponent(decodedName)}&pageSize=100`),
+      api.get<AudiobooksResponse>(
+        `/audiobooks?author=${encodeURIComponent(decodedName)}&pageSize=100`,
+      ),
     enabled: !!decodedName,
   });
 
@@ -58,7 +60,11 @@ export function AuthorDetail() {
               title={book.title}
               year={book.year}
               imageUrl={book.coverPath}
-              progress={book.duration && book.listenProgress ? book.listenProgress / book.duration : undefined}
+              progress={
+                book.duration && book.listenProgress
+                  ? book.listenProgress / book.duration
+                  : undefined
+              }
               aspect="square"
               fallbackIcon={<Library className="h-12 w-12" />}
               onClick={() => navigate(`/audiobooks/${book.id}`)}

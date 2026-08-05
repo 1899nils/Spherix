@@ -16,7 +16,7 @@ export interface Track {
   lyrics: string | null;
   explicit: boolean;
   missing: boolean;
-  
+
   // Music Video fields
   musicVideoUrl: string | null;
   musicVideoSource: string | null;
@@ -26,5 +26,11 @@ export interface Track {
 
 export interface TrackWithRelations extends Track {
   artist: { id: string; name: string };
-  album: { id: string; title: string; coverUrl: string | null; year: number | null; label: string | null } | null;
+  album: {
+    id: string;
+    title: string;
+    coverUrl: string | null;
+    year: number | null;
+    label: string | null;
+  } | null;
 }

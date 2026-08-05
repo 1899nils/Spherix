@@ -26,10 +26,7 @@ export interface OmdbRatings {
  * Returns all-null if the API key is missing, the IMDb ID is unknown,
  * or the OMDb request fails — so callers can treat this as best-effort.
  */
-export async function fetchOmdbRatings(
-  imdbId: string,
-  apiKey: string,
-): Promise<OmdbRatings> {
+export async function fetchOmdbRatings(imdbId: string, apiKey: string): Promise<OmdbRatings> {
   const empty: OmdbRatings = {
     imdbRating: null,
     rottenTomatoesScore: null,
@@ -55,13 +52,11 @@ export async function fetchOmdbRatings(
     const imdbRating = parseFloat(data.imdbRating ?? '') || null;
 
     const metacriticScore =
-      data.Metascore && data.Metascore !== 'N/A'
-        ? parseInt(data.Metascore, 10) || null
-        : null;
+      data.Metascore && data.Metascore !== 'N/A' ? parseInt(data.Metascore, 10) || null : null;
 
     const rtEntry = data.Ratings?.find((r) => r.Source === 'Rotten Tomatoes');
     const rottenTomatoesScore = rtEntry
-      ? parseInt(rtEntry.Value, 10) || null   // "75%" → 75
+      ? parseInt(rtEntry.Value, 10) || null // "75%" → 75
       : null;
 
     return { imdbRating, rottenTomatoesScore, metacriticScore };

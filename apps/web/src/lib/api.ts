@@ -38,8 +38,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   // If the CSRF token has expired, refresh and retry once
   if (res.status === 403) {
-    const body = await res.json().catch(() => ({})) as { error?: string };
-    if (body?.error?.toLowerCase().includes('csrf') || body?.error?.toLowerCase().includes('invalid')) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    if (
+      body?.error?.toLowerCase().includes('csrf') ||
+      body?.error?.toLowerCase().includes('invalid')
+    ) {
       csrfToken = null;
       headers['x-csrf-token'] = await getCsrfToken();
       const retry = await fetch(`${API_BASE}${path}`, {
@@ -48,7 +51,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
         headers,
       });
       if (!retry.ok) {
-        const retryError = await retry.json().catch(() => ({ error: 'Request failed' })) as { error?: string };
+        const retryError = (await retry.json().catch(() => ({ error: 'Request failed' }))) as {
+          error?: string;
+        };
         throw new Error(retryError.error || `HTTP ${retry.status}`);
       }
       return retry.json() as Promise<T>;
@@ -57,7 +62,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: 'Request failed' })) as { error?: string };
+    const error = (await res.json().catch(() => ({ error: 'Request failed' }))) as {
+      error?: string;
+    };
     throw new Error(error.error || `HTTP ${res.status}`);
   }
 

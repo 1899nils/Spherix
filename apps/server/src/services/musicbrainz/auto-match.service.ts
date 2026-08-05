@@ -57,8 +57,7 @@ export async function autoMatchAlbum(albumId: string): Promise<AutoMatchResult> 
   if (album.musicbrainzId) {
     // Already linked — check whether cover art is present AND the file exists on disk.
     // Re-download from the Cover Art Archive if either condition is not met.
-    const needsCover =
-      !album.coverUrl || !(await coverFileExists(album.coverUrl));
+    const needsCover = !album.coverUrl || !(await coverFileExists(album.coverUrl));
 
     if (needsCover) {
       const remoteUrl = await getCoverArtUrl(album.musicbrainzId);
@@ -188,7 +187,12 @@ export async function autoMatchAlbum(albumId: string): Promise<AutoMatchResult> 
   });
 
   // Match and update tracks by disc + track position
-  const nfoTracks: Array<{ position: number; discNumber: number | null; title: string; musicbrainzId: string }> = [];
+  const nfoTracks: Array<{
+    position: number;
+    discNumber: number | null;
+    title: string;
+    musicbrainzId: string;
+  }> = [];
   for (const mbTrack of mbTracks) {
     const localTrack =
       album.tracks.find(
@@ -245,7 +249,9 @@ export async function autoMatchAlbum(albumId: string): Promise<AutoMatchResult> 
         tracks: nfoTracks,
       });
     } catch (err) {
-      logger.warn(`Auto-match: failed to write album.nfo for album ${album.id}`, { error: String(err) });
+      logger.warn(`Auto-match: failed to write album.nfo for album ${album.id}`, {
+        error: String(err),
+      });
     }
   }
 

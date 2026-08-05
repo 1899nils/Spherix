@@ -15,8 +15,7 @@ router.get('/', async (req, res, next) => {
     const skip = (page - 1) * pageSize;
     const sort = (req.query.sort as string) || 'title';
 
-    const orderBy =
-      sort === 'newest' ? { createdAt: 'desc' as const } : { title: 'asc' as const };
+    const orderBy = sort === 'newest' ? { createdAt: 'desc' as const } : { title: 'asc' as const };
 
     const [tracks, total] = await Promise.all([
       prisma.track.findMany({

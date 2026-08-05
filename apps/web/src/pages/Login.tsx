@@ -87,9 +87,7 @@ export function Login() {
           </form>
         </div>
 
-        <p className="text-center text-xs text-white/20 mt-6">
-          Standard: admin / admin
-        </p>
+        <p className="text-center text-xs text-white/20 mt-6">Standard: admin / admin</p>
       </div>
     </div>
   );

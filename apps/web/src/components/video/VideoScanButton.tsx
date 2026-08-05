@@ -2,15 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { 
-  RefreshCw, 
-  Loader2, 
-  CheckCircle2, 
-  AlertCircle,
-  Film,
-  Tv,
-  XCircle
-} from 'lucide-react';
+import { RefreshCw, Loader2, CheckCircle2, AlertCircle, Film, Tv, XCircle } from 'lucide-react';
 import type { VideoScanProgress } from '@musicserver/shared';
 
 interface ScanStatusResponse {
@@ -48,7 +40,7 @@ export function VideoScanButton() {
 
   const getProgressText = () => {
     if (!progress) return 'Wird gestartet...';
-    
+
     switch (progress.phase) {
       case 'discovering':
         return `Dateien werden gesucht... (${progress.total} gefunden)`;
@@ -76,7 +68,7 @@ export function VideoScanButton() {
         variant="ghost"
         size="sm"
         className="gap-2 text-muted-foreground hover:text-white"
-        onClick={() => isScanning ? setShowDetails(!showDetails) : scanMutation.mutate()}
+        onClick={() => (isScanning ? setShowDetails(!showDetails) : scanMutation.mutate())}
         disabled={scanMutation.isPending}
       >
         {isScanning ? (
@@ -102,7 +94,7 @@ export function VideoScanButton() {
         <div className="absolute right-0 top-full mt-2 w-80 bg-black/90 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl p-4 z-50">
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-medium text-sm">Scan-Status</h4>
-            <button 
+            <button
               onClick={() => setShowDetails(false)}
               className="text-muted-foreground hover:text-white"
             >
@@ -118,7 +110,7 @@ export function VideoScanButton() {
                 <span>{getProgressPercent()}%</span>
               </div>
               <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-section-accent transition-all duration-300"
                   style={{ width: `${getProgressPercent()}%` }}
                 />
@@ -162,15 +154,14 @@ export function UnmatchedBadge({ type }: { type: 'movies' | 'series' }) {
   const { data } = useQuery({
     queryKey: ['unmatched-count', type],
     queryFn: async () => {
-      const endpoint = type === 'movies' 
-        ? '/video/movies/unmatched/count' 
-        : '/video/series/unmatched/count';
+      const endpoint =
+        type === 'movies' ? '/video/movies/unmatched/count' : '/video/series/unmatched/count';
       return api.get<{ data: { count: number } }>(endpoint);
     },
   });
 
   const count = data?.data?.count ?? 0;
-  
+
   if (count === 0) return null;
 
   return (

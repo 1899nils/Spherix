@@ -14,16 +14,16 @@ import path from 'node:path';
 import type { Request, Response } from 'express';
 
 export const VIDEO_MIME: Record<string, string> = {
-  '.mp4':  'video/mp4',
-  '.m4v':  'video/mp4',
+  '.mp4': 'video/mp4',
+  '.m4v': 'video/mp4',
   '.webm': 'video/webm',
-  '.mkv':  'video/x-matroska',
-  '.avi':  'video/x-msvideo',
-  '.mov':  'video/quicktime',
-  '.wmv':  'video/x-ms-wmv',
-  '.ts':   'video/mp2t',
-  '.ogv':  'video/ogg',
-  '.3gp':  'video/3gpp',
+  '.mkv': 'video/x-matroska',
+  '.avi': 'video/x-msvideo',
+  '.mov': 'video/quicktime',
+  '.wmv': 'video/x-ms-wmv',
+  '.ts': 'video/mp2t',
+  '.ogv': 'video/ogg',
+  '.3gp': 'video/3gpp',
 };
 
 /**
@@ -49,8 +49,8 @@ export function streamFile(
     return;
   }
 
-  const fileSize    = stat.size;
-  const ext         = path.extname(filePath).toLowerCase();
+  const fileSize = stat.size;
+  const ext = path.extname(filePath).toLowerCase();
   const contentType = mimeTypes[ext] ?? 'application/octet-stream';
 
   // Weak ETag: mtime (base-36) + size (base-36)
@@ -62,12 +62,12 @@ export function streamFile(
     return;
   }
 
-  res.setHeader('Content-Type',   contentType);
-  res.setHeader('Accept-Ranges',  'bytes');
-  res.setHeader('ETag',           etag);
-  res.setHeader('Last-Modified',  stat.mtime.toUTCString());
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('ETag', etag);
+  res.setHeader('Last-Modified', stat.mtime.toUTCString());
   // 1 hour client cache, must revalidate after expiry
-  res.setHeader('Cache-Control',  'public, max-age=3600, must-revalidate');
+  res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
 
   const rangeHeader = req.headers.range;
 
@@ -86,7 +86,7 @@ export function streamFile(
   }
 
   const startStr = match[1];
-  const endStr   = match[2];
+  const endStr = match[2];
 
   // Suffix range: bytes=-N means last N bytes
   let start: number;
@@ -95,10 +95,10 @@ export function streamFile(
   if (!startStr && endStr) {
     // Suffix range: "bytes=-500" → last 500 bytes
     start = Math.max(0, fileSize - parseInt(endStr, 10));
-    end   = fileSize - 1;
+    end = fileSize - 1;
   } else {
     start = startStr ? parseInt(startStr, 10) : 0;
-    end   = endStr   ? parseInt(endStr,   10) : fileSize - 1;
+    end = endStr ? parseInt(endStr, 10) : fileSize - 1;
   }
 
   // Clamp end to last byte
@@ -112,7 +112,7 @@ export function streamFile(
   const chunkSize = end - start + 1;
 
   res.writeHead(206, {
-    'Content-Range':  `bytes ${start}-${end}/${fileSize}`,
+    'Content-Range': `bytes ${start}-${end}/${fileSize}`,
     'Content-Length': chunkSize,
   });
 

@@ -7,16 +7,31 @@ import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { Button } from '@/components/ui/button';
 import { formatRuntime } from '@/lib/utils';
 import {
-  Play, ArrowLeft, Film, Check, Pencil, Link2, AlertCircle,
-  RotateCcw, User, Heart, ChevronLeft, ChevronRight, Star,
+  Play,
+  ArrowLeft,
+  Film,
+  Check,
+  Pencil,
+  Link2,
+  AlertCircle,
+  RotateCcw,
+  User,
+  Heart,
+  ChevronLeft,
+  ChevronRight,
+  Star,
 } from 'lucide-react';
 import type { Movie, MovieCredits } from '@musicserver/shared';
 import { MediaMetadataEditor } from '@/components/MediaMetadataEditor';
 import { TmdbSearchModal } from '@/components/video/TmdbSearchModal';
 import { MovieRatings } from '@/components/video/MovieRatings';
 
-interface MovieDetailResponse { data: Movie }
-interface CreditsResponse { data: MovieCredits }
+interface MovieDetailResponse {
+  data: Movie;
+}
+interface CreditsResponse {
+  data: MovieCredits;
+}
 
 // Square action button with label below
 function ActionButton({
@@ -42,13 +57,17 @@ function ActionButton({
       disabled={disabled}
       className={`flex flex-col items-center gap-1.5 group ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
     >
-      <div className={`flex items-center justify-center rounded-xl transition-all
+      <div
+        className={`flex items-center justify-center rounded-xl transition-all
         ${large ? 'w-16 h-16' : 'w-14 h-14'}
         ${active ? 'bg-white/25 ring-1 ring-white/40' : warn ? 'bg-amber-500/20 ring-1 ring-amber-500/40' : 'bg-white/10 hover:bg-white/20'}
-      `}>
+      `}
+      >
         <span className={warn ? 'text-amber-300' : 'text-white'}>{icon}</span>
       </div>
-      <span className={`text-[11px] text-center leading-tight max-w-[60px] truncate ${warn ? 'text-amber-300/80' : 'text-white/50 group-hover:text-white/70'}`}>
+      <span
+        className={`text-[11px] text-center leading-tight max-w-[60px] truncate ${warn ? 'text-amber-300/80' : 'text-white/50 group-hover:text-white/70'}`}
+      >
         {label}
       </span>
     </button>
@@ -80,11 +99,9 @@ export function MovieDetail() {
   });
 
   const progressMutation = useMutation({
-    mutationFn: (position: number) =>
-      api.post(`/video/movies/${id}/progress`, { position }),
+    mutationFn: (position: number) => api.post(`/video/movies/${id}/progress`, { position }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['movie', id] }),
   });
-
 
   const refreshMetadataMutation = useMutation({
     mutationFn: () => api.post(`/video/movies/${id}/refresh-metadata`, {}),
@@ -95,9 +112,8 @@ export function MovieDetail() {
   const credits = creditsData?.data;
 
   const directors = credits?.crew.filter((c) => c.job === 'Director') ?? [];
-  const writers = credits?.crew.filter(
-    (c) => ['Screenplay', 'Writer', 'Story'].includes(c.job),
-  ) ?? [];
+  const writers =
+    credits?.crew.filter((c) => ['Screenplay', 'Writer', 'Story'].includes(c.job)) ?? [];
 
   if (isLoading) {
     return (
@@ -116,7 +132,9 @@ export function MovieDetail() {
       <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-3">
         <Film className="h-12 w-12 opacity-30" />
         <p>Film nicht gefunden</p>
-        <Button variant="ghost" onClick={() => navigate('/video/movies')}>Zurück</Button>
+        <Button variant="ghost" onClick={() => navigate('/video/movies')}>
+          Zurück
+        </Button>
       </div>
     );
   }
@@ -146,7 +164,8 @@ export function MovieDetail() {
     castScrollRef.current?.scrollBy({ left: dir === 'right' ? 360 : -360, behavior: 'smooth' });
   };
 
-  const resumeLabel = movie.watchProgress && movie.watchProgress > 60 ? 'Weiterschauen' : 'Abspielen';
+  const resumeLabel =
+    movie.watchProgress && movie.watchProgress > 60 ? 'Weiterschauen' : 'Abspielen';
   const hasProgress = movie.watchProgress != null && movie.watchProgress > 60 && movie.runtime;
   const progressPercent = hasProgress
     ? Math.min(100, (movie.watchProgress! / (movie.runtime! * 60)) * 100)
@@ -193,7 +212,10 @@ export function MovieDetail() {
             <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-black/40" />
 
             {/* Content */}
-            <div className="relative z-10 flex h-full px-6 sm:px-10 pt-5 pb-12" style={{ minHeight: 560 }}>
+            <div
+              className="relative z-10 flex h-full px-6 sm:px-10 pt-5 pb-12"
+              style={{ minHeight: 560 }}
+            >
               {/* Left column */}
               <div className="flex flex-col justify-between flex-1 min-w-0 pr-6">
                 {/* Back button */}
@@ -269,11 +291,13 @@ export function MovieDetail() {
                   {/* Overview */}
                   {movie.overview ? (
                     <div className="max-w-2xl">
-                      <p className={`text-white/65 text-sm leading-relaxed${overviewExpanded ? '' : ' line-clamp-3'}`}>
+                      <p
+                        className={`text-white/65 text-sm leading-relaxed${overviewExpanded ? '' : ' line-clamp-3'}`}
+                      >
                         {movie.overview}
                       </p>
                       <button
-                        onClick={() => setOverviewExpanded(e => !e)}
+                        onClick={() => setOverviewExpanded((e) => !e)}
                         className="mt-1 text-xs text-white/40 hover:text-white/70 transition-colors"
                       >
                         {overviewExpanded ? 'Weniger' : 'Mehr'}
@@ -291,13 +315,17 @@ export function MovieDetail() {
                               disabled={refreshMetadataMutation.isPending}
                               className="text-xs mt-0.5 text-amber-400/60 hover:text-amber-400 underline transition-colors"
                             >
-                              {refreshMetadataMutation.isPending ? 'Wird geladen…' : 'Metadaten von TMDb neu laden'}
+                              {refreshMetadataMutation.isPending
+                                ? 'Wird geladen…'
+                                : 'Metadaten von TMDb neu laden'}
                             </button>
                           </>
                         ) : (
                           <>
                             <p className="font-medium text-amber-400">Keine Metadaten</p>
-                            <p className="text-xs mt-0.5 text-amber-400/60">Nicht mit TMDb verknüpft.</p>
+                            <p className="text-xs mt-0.5 text-amber-400/60">
+                              Nicht mit TMDb verknüpft.
+                            </p>
                           </>
                         )}
                       </div>
@@ -320,7 +348,9 @@ export function MovieDetail() {
                           />
                         )}
                       </div>
-                      <span className="text-[11px] text-white/70 group-hover:text-white transition-colors">{resumeLabel}</span>
+                      <span className="text-[11px] text-white/70 group-hover:text-white transition-colors">
+                        {resumeLabel}
+                      </span>
                     </button>
 
                     <ActionButton
@@ -329,10 +359,7 @@ export function MovieDetail() {
                       active={movie.watched}
                     />
 
-                    <ActionButton
-                      icon={<Heart className="h-5 w-5" />}
-                      label="Favorit"
-                    />
+                    <ActionButton icon={<Heart className="h-5 w-5" />} label="Favorit" />
 
                     <ActionButton
                       icon={<Pencil className="h-5 w-5" />}
@@ -349,7 +376,11 @@ export function MovieDetail() {
 
                     {movie.tmdbId && (
                       <ActionButton
-                        icon={<RotateCcw className={`h-5 w-5 ${refreshMetadataMutation.isPending ? 'animate-spin' : ''}`} />}
+                        icon={
+                          <RotateCcw
+                            className={`h-5 w-5 ${refreshMetadataMutation.isPending ? 'animate-spin' : ''}`}
+                          />
+                        }
                         label="Metadaten"
                         onClick={() => refreshMetadataMutation.mutate()}
                         disabled={refreshMetadataMutation.isPending}
@@ -380,37 +411,56 @@ export function MovieDetail() {
 
           {/* ── Below hero ───────────────────────────────────────────────────── */}
           <div className="px-6 sm:px-10 pb-16 space-y-10">
-
             {/* Metadata bar — single horizontal row */}
-            {(movie.genres.length > 0 || directors.length > 0 || writers.length > 0 || movie.studio || movie.runtime) && (
+            {(movie.genres.length > 0 ||
+              directors.length > 0 ||
+              writers.length > 0 ||
+              movie.studio ||
+              movie.runtime) && (
               <div className="flex flex-wrap divide-x divide-white/10 rounded-xl bg-white/[0.04] border border-white/[0.08] overflow-hidden">
                 {movie.genres.length > 0 && (
                   <div className="flex flex-col gap-1 px-5 py-4 flex-1 min-w-[120px]">
-                    <span className="text-[10px] uppercase tracking-widest font-semibold text-white/30">Genres</span>
-                    <span className="text-sm text-white/80">{movie.genres.map((g) => g.name).join(', ')}</span>
+                    <span className="text-[10px] uppercase tracking-widest font-semibold text-white/30">
+                      Genres
+                    </span>
+                    <span className="text-sm text-white/80">
+                      {movie.genres.map((g) => g.name).join(', ')}
+                    </span>
                   </div>
                 )}
                 {directors.length > 0 && (
                   <div className="flex flex-col gap-1 px-5 py-4 flex-1 min-w-[120px]">
-                    <span className="text-[10px] uppercase tracking-widest font-semibold text-white/30">Regie</span>
-                    <span className="text-sm text-white/80">{directors.map((d) => d.name).join(', ')}</span>
+                    <span className="text-[10px] uppercase tracking-widest font-semibold text-white/30">
+                      Regie
+                    </span>
+                    <span className="text-sm text-white/80">
+                      {directors.map((d) => d.name).join(', ')}
+                    </span>
                   </div>
                 )}
                 {writers.length > 0 && (
                   <div className="flex flex-col gap-1 px-5 py-4 flex-1 min-w-[160px]">
-                    <span className="text-[10px] uppercase tracking-widest font-semibold text-white/30">Drehbuch</span>
-                    <span className="text-sm text-white/80">{writers.map((w) => w.name).join(', ')}</span>
+                    <span className="text-[10px] uppercase tracking-widest font-semibold text-white/30">
+                      Drehbuch
+                    </span>
+                    <span className="text-sm text-white/80">
+                      {writers.map((w) => w.name).join(', ')}
+                    </span>
                   </div>
                 )}
                 {movie.studio && (
                   <div className="flex flex-col gap-1 px-5 py-4 flex-1 min-w-[120px]">
-                    <span className="text-[10px] uppercase tracking-widest font-semibold text-white/30">Studio</span>
+                    <span className="text-[10px] uppercase tracking-widest font-semibold text-white/30">
+                      Studio
+                    </span>
                     <span className="text-sm text-white/80">{movie.studio}</span>
                   </div>
                 )}
                 {movie.runtime && (
                   <div className="flex flex-col gap-1 px-5 py-4 min-w-[100px]">
-                    <span className="text-[10px] uppercase tracking-widest font-semibold text-white/30">Laufzeit</span>
+                    <span className="text-[10px] uppercase tracking-widest font-semibold text-white/30">
+                      Laufzeit
+                    </span>
                     <span className="text-sm text-white/80">{formatRuntime(movie.runtime)}</span>
                   </div>
                 )}
@@ -462,15 +512,17 @@ export function MovieDetail() {
                           </div>
                         )}
                       </div>
-                      <p className="text-xs text-white font-medium leading-tight line-clamp-2">{member.name}</p>
-                      <p className="text-xs text-white/40 leading-tight mt-0.5 line-clamp-2">{member.character}</p>
+                      <p className="text-xs text-white font-medium leading-tight line-clamp-2">
+                        {member.name}
+                      </p>
+                      <p className="text-xs text-white/40 leading-tight mt-0.5 line-clamp-2">
+                        {member.character}
+                      </p>
                     </div>
                   ))}
                 </div>
               </section>
             )}
-
-
           </div>
         </>
       )}
@@ -483,25 +535,25 @@ export function MovieDetail() {
           type="movie"
           id={movie.id}
           initialData={{
-            title:         movie.title,
-            sortTitle:     movie.sortTitle,
+            title: movie.title,
+            sortTitle: movie.sortTitle,
             originalTitle: movie.originalTitle,
-            year:          movie.year,
-            releaseDate:   movie.releaseDate,
-            runtime:       movie.runtime,
-            overview:      movie.overview,
-            tagline:       movie.tagline,
-            studio:        movie.studio,
-            network:       movie.network,
-            fskRating:     movie.fskRating,
+            year: movie.year,
+            releaseDate: movie.releaseDate,
+            runtime: movie.runtime,
+            overview: movie.overview,
+            tagline: movie.tagline,
+            studio: movie.studio,
+            network: movie.network,
+            fskRating: movie.fskRating,
             contentRating: movie.contentRating,
-            posterPath:    movie.posterPath,
-            backdropPath:  movie.backdropPath,
-            logoPath:      movie.logoPath,
-            tmdbId:        movie.tmdbId,
-            imdbId:        movie.imdbId,
-            codec:         movie.codec,
-            resolution:    movie.resolution,
+            posterPath: movie.posterPath,
+            backdropPath: movie.backdropPath,
+            logoPath: movie.logoPath,
+            tmdbId: movie.tmdbId,
+            imdbId: movie.imdbId,
+            codec: movie.codec,
+            resolution: movie.resolution,
           }}
         />
       )}

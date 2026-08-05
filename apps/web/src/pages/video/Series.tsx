@@ -59,11 +59,7 @@ export function Series() {
         </div>
         <div className="flex items-center gap-2">
           {showUnmatched && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setSearchParams({})}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setSearchParams({})}>
               Alle anzeigen
             </Button>
           )}
@@ -86,8 +82,8 @@ export function Series() {
           <div>
             <h3 className="font-medium text-amber-400">Nicht zugeordnete Serien</h3>
             <p className="text-sm text-amber-400/80 mt-1">
-              Diese Serien konnten nicht automatisch mit TMDb verknüpft werden. 
-              Klicke auf das <Link2 className="h-3 w-3 inline" /> Icon, um sie manuell zuzuordnen.
+              Diese Serien konnten nicht automatisch mit TMDb verknüpft werden. Klicke auf das{' '}
+              <Link2 className="h-3 w-3 inline" /> Icon, um sie manuell zuzuordnen.
             </p>
           </div>
         </div>
@@ -136,7 +132,7 @@ export function Series() {
                 fallbackIcon={<Tv className="h-12 w-12" />}
                 onClick={() => navigate(`/video/series/${show.id}`)}
               />
-              
+
               {/* TMDB link button - show for unmatched or on hover */}
               {(showUnmatched || !show.tmdbId) && (
                 <button
@@ -146,7 +142,11 @@ export function Series() {
                     hover:bg-section-accent transition-all ${!show.tmdbId ? 'opacity-100 animate-pulse' : ''}`}
                   title={show.tmdbId ? 'TMDb Verknüpfung bearbeiten' : 'Mit TMDb verknüpfen'}
                 >
-                  {show.tmdbId ? <Link2 className="h-4 w-4" /> : <Search className="h-4 w-4 text-amber-400" />}
+                  {show.tmdbId ? (
+                    <Link2 className="h-4 w-4" />
+                  ) : (
+                    <Search className="h-4 w-4 text-amber-400" />
+                  )}
                 </button>
               )}
 

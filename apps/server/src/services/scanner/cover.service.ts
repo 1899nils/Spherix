@@ -27,7 +27,14 @@ const EXT_TO_MIME: Record<string, string> = {
 
 /** Candidate filenames to look for when there is no embedded cover art */
 const FOLDER_COVER_NAMES = [
-  'cover', 'folder', 'Folder', 'Cover', 'front', 'Front', 'album', 'Album',
+  'cover',
+  'folder',
+  'Folder',
+  'Cover',
+  'front',
+  'Front',
+  'album',
+  'Album',
 ];
 const FOLDER_COVER_EXTS = ['.jpg', '.jpeg', '.png', '.webp'];
 
@@ -39,9 +46,7 @@ async function ensureCoversDir(): Promise<void> {
  * Saves embedded cover art to disk and returns the relative URL path.
  * Uses a content hash as filename to deduplicate identical covers.
  */
-export async function saveCoverArt(
-  pictures: IPicture[] | undefined,
-): Promise<string | null> {
+export async function saveCoverArt(pictures: IPicture[] | undefined): Promise<string | null> {
   if (!pictures || pictures.length === 0) {
     return null;
   }

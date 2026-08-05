@@ -23,7 +23,8 @@ if (
 export const env = {
   port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  databaseUrl: process.env.DATABASE_URL || 'postgresql://musicserver:musicserver@localhost:5432/musicserver',
+  databaseUrl:
+    process.env.DATABASE_URL || 'postgresql://musicserver:musicserver@localhost:5432/musicserver',
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
   sessionSecret,
   lastfmApiKey: process.env.LASTFM_API_KEY || '',
@@ -43,8 +44,8 @@ export const env = {
   /** Root for persisted data. Override with DATA_DIR in .env for local dev (e.g. DATA_DIR=./data). */
   dataDir: process.env.DATA_DIR || '/data',
   /** Mount paths for the three media libraries. */
-  musicPath:     process.env.MUSIC_PATH     || '/music',
-  videoPath:     process.env.VIDEO_PATH     || '/videos',
+  musicPath: process.env.MUSIC_PATH || '/music',
+  videoPath: process.env.VIDEO_PATH || '/videos',
   audiobookPath: process.env.AUDIOBOOK_PATH || '/audiobooks',
   /**
    * Admin credentials for initial setup / password recovery.

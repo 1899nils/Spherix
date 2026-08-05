@@ -41,10 +41,7 @@ export async function validateTraktClientId(clientId: string): Promise<boolean> 
  * Falls back to all-null when clientId is missing, imdbId is unknown,
  * or the request fails — so callers can treat this as best-effort.
  */
-export async function fetchTraktRatings(
-  imdbId: string,
-  clientId: string,
-): Promise<TraktRatings> {
+export async function fetchTraktRatings(imdbId: string, clientId: string): Promise<TraktRatings> {
   const empty: TraktRatings = { rating: null, votes: null };
 
   if (!clientId || !imdbId) return empty;
@@ -60,7 +57,7 @@ export async function fetchTraktRatings(
     const data = (await res.json()) as { rating?: number; votes?: number };
 
     const rating = typeof data.rating === 'number' && data.rating > 0 ? data.rating : null;
-    const votes  = typeof data.votes  === 'number' && data.votes  > 0 ? data.votes  : null;
+    const votes = typeof data.votes === 'number' && data.votes > 0 ? data.votes : null;
 
     return { rating, votes };
   } catch {

@@ -79,23 +79,27 @@ export async function enrichAlbum(albumId: string): Promise<EnrichmentResult> {
   // 1. MusicBrainz enrichment (if linked or auto-matchable)
   if (album.musicbrainzId || !album.musicbrainzId) {
     enrichmentPromises.push(
-      enrichFromMusicBrainz(album).then(updated => {
-        if (updated) changes.metadata = true;
-      }).catch(err => {
-        logger.warn('MusicBrainz enrichment failed', { albumId, error: String(err) });
-        errors.push('MusicBrainz: ' + String(err));
-      })
+      enrichFromMusicBrainz(album)
+        .then((updated) => {
+          if (updated) changes.metadata = true;
+        })
+        .catch((err) => {
+          logger.warn('MusicBrainz enrichment failed', { albumId, error: String(err) });
+          errors.push('MusicBrainz: ' + String(err));
+        }),
     );
   }
 
   // 2. Cover art enrichment
   if (album.musicbrainzId) {
     enrichmentPromises.push(
-      enrichCoverArt(album).then(updated => {
-        if (updated) changes.cover = true;
-      }).catch(err => {
-        logger.warn('Cover art enrichment failed', { albumId, error: String(err) });
-      })
+      enrichCoverArt(album)
+        .then((updated) => {
+          if (updated) changes.cover = true;
+        })
+        .catch((err) => {
+          logger.warn('Cover art enrichment failed', { albumId, error: String(err) });
+        }),
     );
   }
 
@@ -103,9 +107,12 @@ export async function enrichAlbum(albumId: string): Promise<EnrichmentResult> {
   const lastfmConfig = getLastfmConfig();
   if (lastfmConfig) {
     enrichmentPromises.push(
-      enrichArtistFromLastfm(album.artist.id, album.artist.name, lastfmConfig).catch(err => {
-        logger.warn('Last.fm artist enrichment failed', { artistId: album.artist.id, error: String(err) });
-      })
+      enrichArtistFromLastfm(album.artist.id, album.artist.name, lastfmConfig).catch((err) => {
+        logger.warn('Last.fm artist enrichment failed', {
+          artistId: album.artist.id,
+          error: String(err),
+        });
+      }),
     );
   }
 
@@ -118,9 +125,7 @@ export async function enrichAlbum(albumId: string): Promise<EnrichmentResult> {
   changes.musicVideos = trackEnrichment.videoCount;
   changes.tracks = trackEnrichment.updatedCount;
 
-  result.enriched = Object.values(changes).some(v => 
-    typeof v === 'boolean' ? v : v > 0
-  );
+  result.enriched = Object.values(changes).some((v) => (typeof v === 'boolean' ? v : v > 0));
   result.changes = changes;
   result.errors = errors;
 
@@ -142,7 +147,7 @@ async function enrichFromMusicBrainz(album: any): Promise<boolean> {
 
   // Update album metadata
   const updateData: any = {};
-  
+
   if (release.date && !album.releaseDate) {
     updateData.releaseDate = release.date;
   }
@@ -191,7 +196,7 @@ async function enrichCoverArt(album: any): Promise<boolean> {
 async function enrichArtistFromLastfm(
   artistId: string,
   artistName: string,
-  config: LastfmConfig
+  config: LastfmConfig,
 ): Promise<void> {
   // Check if artist already has bio
   const artist = await prisma.artist.findUnique({
@@ -222,9 +227,7 @@ interface TrackEnrichmentResult {
 /**
  * Enrich tracks with lyrics and music videos
  */
-async function enrichTracks(
-  tracks: any[]
-): Promise<TrackEnrichmentResult> {
+async function enrichTracks(tracks: any[]): Promise<TrackEnrichmentResult> {
   const result: TrackEnrichmentResult = {
     lyricsCount: 0,
     videoCount: 0,
@@ -245,13 +248,9 @@ async function enrichTracks(
         result.lyricsCount++;
       }
     }
-    
+
     if (!track.lyrics && !enrichments.lyrics) {
-      const lyrics = await lrclib.searchLyrics(
-        track.title,
-        track.artist.name,
-        track.album?.title
-      );
+      const lyrics = await lrclib.searchLyrics(track.title, track.artist.name, track.album?.title);
       if (lyrics?.plainLyrics) {
         enrichments.lyrics = lrclib.formatLyricsForStorage(lyrics);
         result.lyricsCount++;
@@ -260,11 +259,7 @@ async function enrichTracks(
 
     // 2. Music video from YouTube
     if (!track.musicVideoUrl && youtubeApiKey) {
-      const video = await youtube.searchMusicVideo(
-        track.title,
-        track.artist.name,
-        youtubeApiKey
-      );
+      const video = await youtube.searchMusicVideo(track.title, track.artist.name, youtubeApiKey);
       if (video) {
         enrichments.musicVideoUrl = video.url;
         enrichments.musicVideoSource = 'youtube';
@@ -285,7 +280,7 @@ async function enrichTracks(
     }
 
     // Small delay to avoid rate limits
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 100));
   }
 
   return result;
@@ -296,14 +291,14 @@ async function enrichTracks(
  */
 export async function batchEnrichAlbums(albumIds: string[]): Promise<EnrichmentResult[]> {
   const results: EnrichmentResult[] = [];
-  
+
   for (const albumId of albumIds) {
     try {
       const result = await enrichAlbum(albumId);
       results.push(result);
-      
+
       // Delay between albums to be nice to APIs
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 500));
     } catch (error) {
       results.push({
         albumId,
@@ -313,7 +308,7 @@ export async function batchEnrichAlbums(albumIds: string[]): Promise<EnrichmentR
       });
     }
   }
-  
+
   return results;
 }
 
@@ -337,10 +332,10 @@ export async function quickEnrichTrack(trackId: string): Promise<TrackEnrichment
 
   // Only fetch what's missing
   if (!track.lyrics) {
-    const lyrics = track.musicbrainzId 
+    const lyrics = track.musicbrainzId
       ? await lrclib.getLyricsByRecordingId(track.musicbrainzId)
       : await lrclib.searchLyrics(track.title, track.artist.name, track.album?.title);
-    
+
     if (lyrics?.plainLyrics) {
       const formattedLyrics = lrclib.formatLyricsForStorage(lyrics);
       if (formattedLyrics) {
@@ -350,11 +345,7 @@ export async function quickEnrichTrack(trackId: string): Promise<TrackEnrichment
   }
 
   if (!track.musicVideoUrl && youtubeApiKey) {
-    const video = await youtube.searchMusicVideo(
-      track.title,
-      track.artist.name,
-      youtubeApiKey
-    );
+    const video = await youtube.searchMusicVideo(track.title, track.artist.name, youtubeApiKey);
     if (video) {
       result.musicVideoUrl = video.url;
       result.musicVideoSource = 'youtube';
@@ -371,7 +362,7 @@ export async function quickEnrichTrack(trackId: string): Promise<TrackEnrichment
     updateData.musicVideoSource = result.musicVideoSource ?? 'youtube';
     updateData.musicVideoCheckedAt = new Date();
   }
-  
+
   if (Object.keys(updateData).length > 0) {
     await prisma.track.update({
       where: { id: trackId },

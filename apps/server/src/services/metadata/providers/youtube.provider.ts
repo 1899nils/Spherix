@@ -24,19 +24,19 @@ async function checkAndIncrementQuota(): Promise<boolean> {
     // Get current count
     const current = await redis.get(YOUTUBE_COUNTER_KEY);
     const count = current ? parseInt(current, 10) : 0;
-    
+
     if (count >= YOUTUBE_DAILY_LIMIT) {
-      logger.warn('YouTube API daily quota reached', { 
+      logger.warn('YouTube API daily quota reached', {
         limit: YOUTUBE_DAILY_LIMIT,
-        used: count 
+        used: count,
       });
       return false;
     }
-    
+
     // Increment counter and set expiry if new
     const multi = redis.multi();
     multi.incr(YOUTUBE_COUNTER_KEY);
-    
+
     // Set TTL to end of day if not already set
     if (!current) {
       const now = new Date();
@@ -44,15 +44,15 @@ async function checkAndIncrementQuota(): Promise<boolean> {
       const ttlSeconds = Math.floor((endOfDay.getTime() - now.getTime()) / 1000);
       multi.expire(YOUTUBE_COUNTER_KEY, ttlSeconds);
     }
-    
+
     await multi.exec();
-    
-    logger.debug('YouTube API quota used', { 
-      used: count + 1, 
+
+    logger.debug('YouTube API quota used', {
+      used: count + 1,
       limit: YOUTUBE_DAILY_LIMIT,
-      remaining: YOUTUBE_DAILY_LIMIT - count - 1 
+      remaining: YOUTUBE_DAILY_LIMIT - count - 1,
     });
-    
+
     return true;
   } catch (error) {
     logger.error('Failed to check YouTube quota', { error: String(error) });
@@ -64,7 +64,11 @@ async function checkAndIncrementQuota(): Promise<boolean> {
 /**
  * Get current quota status for monitoring
  */
-export async function getQuotaStatus(): Promise<{ used: number; limit: number; remaining: number }> {
+export async function getQuotaStatus(): Promise<{
+  used: number;
+  limit: number;
+  remaining: number;
+}> {
   try {
     const current = await redis.get(YOUTUBE_COUNTER_KEY);
     const used = current ? parseInt(current, 10) : 0;
@@ -106,7 +110,7 @@ export async function getYouTubeApiKey(userId?: string): Promise<string | undefi
 export async function searchMusicVideo(
   trackTitle: string,
   artistName: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<YouTubeVideoResult | null> {
   const cacheKey = `youtube:mv:${artistName}:${trackTitle}`;
   const searchQuery = `${artistName} ${trackTitle} official music video`;
@@ -136,17 +140,16 @@ export async function searchMusicVideo(
       });
 
       try {
-        const response = await fetch(
-          `https://www.googleapis.com/youtube/v3/search?${params}`,
-          { signal: AbortSignal.timeout(10_000) }
-        );
+        const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`, {
+          signal: AbortSignal.timeout(10_000),
+        });
 
         if (!response.ok) {
           const error = await response.text();
           throw new Error(`YouTube API error: ${response.status} - ${error}`);
         }
 
-        const data = await response.json() as {
+        const data = (await response.json()) as {
           items?: Array<{
             id?: { videoId?: string };
             snippet?: {
@@ -163,34 +166,36 @@ export async function searchMusicVideo(
 
         const video = data.items[0];
         const videoId = video.id?.videoId;
-        
+
         if (!videoId) return null;
 
         return {
           videoId,
           title: video.snippet?.title || '',
           channelTitle: video.snippet?.channelTitle || '',
-          thumbnail: video.snippet?.thumbnails?.medium?.url || 
-                     video.snippet?.thumbnails?.default?.url,
+          thumbnail:
+            video.snippet?.thumbnails?.medium?.url || video.snippet?.thumbnails?.default?.url,
           url: `https://www.youtube.com/watch?v=${videoId}`,
         };
       } catch (error) {
-        logger.warn('YouTube music video search failed', { 
+        logger.warn('YouTube music video search failed', {
           track: trackTitle,
           artist: artistName,
-          error: String(error) 
+          error: String(error),
         });
         return null;
       }
     },
-    CACHE_TTLS.youtube
+    CACHE_TTLS.youtube,
   );
 }
 
 /**
  * Check if cached video is still valid (returns cached data or null)
  */
-export async function getCachedVideo(trackId: string): Promise<{ url: string; source: string } | null> {
+export async function getCachedVideo(
+  trackId: string,
+): Promise<{ url: string; source: string } | null> {
   const track = await prisma.track.findUnique({
     where: { id: trackId },
     select: {
@@ -207,7 +212,7 @@ export async function getCachedVideo(trackId: string): Promise<{ url: string; so
   // Check if cache is still valid (30 days)
   const cacheExpiry = new Date(track.musicVideoCheckedAt);
   cacheExpiry.setDate(cacheExpiry.getDate() + 30);
-  
+
   if (new Date() > cacheExpiry) {
     return null;
   }
@@ -224,7 +229,7 @@ export async function getCachedVideo(trackId: string): Promise<{ url: string; so
 export async function saveMusicVideo(
   trackId: string,
   video: YouTubeVideoResult,
-  source: string = 'youtube'
+  source: string = 'youtube',
 ): Promise<void> {
   await prisma.track.update({
     where: { id: trackId },
@@ -234,7 +239,7 @@ export async function saveMusicVideo(
       musicVideoCheckedAt: new Date(),
     },
   });
-  
+
   logger.debug('Music video saved to database', { trackId, videoId: video.videoId });
 }
 
@@ -262,7 +267,7 @@ export async function findMusicVideo(
   options: {
     userId?: string;
     forceRefresh?: boolean;
-  } = {}
+  } = {},
 ): Promise<YouTubeVideoResult | null> {
   // Check cache first
   if (!options.forceRefresh) {
@@ -291,7 +296,7 @@ export async function findMusicVideo(
 
   // Search YouTube
   const result = await searchMusicVideo(trackTitle, artistName, apiKey);
-  
+
   if (result) {
     await saveMusicVideo(trackId, result, 'youtube');
   } else {
@@ -311,23 +316,23 @@ export async function findMusicVideo(
  */
 export async function batchFindMusicVideos(
   tracks: Array<{ id: string; title: string; artistName: string }>,
-  userId?: string
+  userId?: string,
 ): Promise<Map<string, YouTubeVideoResult | null>> {
   const apiKey = await getYouTubeApiKey(userId);
   if (!apiKey) {
-    return new Map(tracks.map(t => [t.id, null]));
+    return new Map(tracks.map((t) => [t.id, null]));
   }
 
   // Check remaining quota
   const quotaStatus = await getQuotaStatus();
   if (quotaStatus.remaining === 0) {
     logger.warn('YouTube API quota exhausted, skipping batch search');
-    return new Map(tracks.map(t => [t.id, null]));
+    return new Map(tracks.map((t) => [t.id, null]));
   }
 
   const results = new Map<string, YouTubeVideoResult | null>();
   const tracksToProcess = tracks.slice(0, quotaStatus.remaining); // Only process what quota allows
-  
+
   if (tracksToProcess.length < tracks.length) {
     logger.warn('YouTube API quota limited batch search', {
       requested: tracks.length,
@@ -355,7 +360,7 @@ export async function batchFindMusicVideos(
 
     // Search YouTube (uses quota)
     const result = await searchMusicVideo(track.title, track.artistName, apiKey);
-    
+
     if (result) {
       await saveMusicVideo(track.id, result, 'youtube');
     } else {
@@ -364,7 +369,7 @@ export async function batchFindMusicVideos(
         data: { musicVideoCheckedAt: new Date() },
       });
     }
-    
+
     results.set(track.id, result);
   }
 

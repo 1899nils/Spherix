@@ -50,7 +50,10 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
     return (
       <div
         ref={ref}
-        className={cn('group relative flex w-full touch-none select-none items-center py-1.5 cursor-pointer', className)}
+        className={cn(
+          'group relative flex w-full touch-none select-none items-center py-1.5 cursor-pointer',
+          className,
+        )}
         onMouseDown={handleMouseDown}
       >
         <div

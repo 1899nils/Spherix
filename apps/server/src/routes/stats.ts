@@ -34,84 +34,101 @@ router.get('/', async (req, res, next) => {
       prisma.podcast.count(),
 
       // Top 5 most played artists for this user
-      prisma.playHistory.groupBy({
-        by: ['trackId'],
-        where: { userId },
-        _count: { trackId: true },
-        orderBy: { _count: { trackId: 'desc' } },
-        take: 50,
-      }).then(async (rows) => {
-        const trackIds = rows.map((r) => r.trackId);
-        const tracks = await prisma.track.findMany({
-          where: { id: { in: trackIds } },
-          select: {
-            id: true,
-            album: {
-              select: {
-                artist: { select: { id: true, name: true, imageUrl: true } },
+      prisma.playHistory
+        .groupBy({
+          by: ['trackId'],
+          where: { userId },
+          _count: { trackId: true },
+          orderBy: { _count: { trackId: 'desc' } },
+          take: 50,
+        })
+        .then(async (rows) => {
+          const trackIds = rows.map((r) => r.trackId);
+          const tracks = await prisma.track.findMany({
+            where: { id: { in: trackIds } },
+            select: {
+              id: true,
+              album: {
+                select: {
+                  artist: { select: { id: true, name: true, imageUrl: true } },
+                },
               },
             },
-          },
-        });
+          });
 
-        const artistCounts = new Map<string, { id: string; name: string; imageUrl: string | null; plays: number }>();
-        for (const row of rows) {
-          const track = tracks.find((t) => t.id === row.trackId);
-          const artist = track?.album?.artist;
-          if (!artist) continue;
-          const existing = artistCounts.get(artist.id);
-          if (existing) {
-            existing.plays += row._count.trackId;
-          } else {
-            artistCounts.set(artist.id, { ...artist, plays: row._count.trackId });
+          const artistCounts = new Map<
+            string,
+            { id: string; name: string; imageUrl: string | null; plays: number }
+          >();
+          for (const row of rows) {
+            const track = tracks.find((t) => t.id === row.trackId);
+            const artist = track?.album?.artist;
+            if (!artist) continue;
+            const existing = artistCounts.get(artist.id);
+            if (existing) {
+              existing.plays += row._count.trackId;
+            } else {
+              artistCounts.set(artist.id, { ...artist, plays: row._count.trackId });
+            }
           }
-        }
 
-        return Array.from(artistCounts.values())
-          .sort((a, b) => b.plays - a.plays)
-          .slice(0, 5);
-      }),
+          return Array.from(artistCounts.values())
+            .sort((a, b) => b.plays - a.plays)
+            .slice(0, 5);
+        }),
 
       // Top 5 most played albums for this user
-      prisma.playHistory.groupBy({
-        by: ['trackId'],
-        where: { userId },
-        _count: { trackId: true },
-        orderBy: { _count: { trackId: 'desc' } },
-        take: 50,
-      }).then(async (rows) => {
-        const trackIds = rows.map((r) => r.trackId);
-        const tracks = await prisma.track.findMany({
-          where: { id: { in: trackIds } },
-          select: {
-            id: true,
-            album: { select: { id: true, title: true, coverUrl: true, artist: { select: { name: true } } } },
-          },
-        });
+      prisma.playHistory
+        .groupBy({
+          by: ['trackId'],
+          where: { userId },
+          _count: { trackId: true },
+          orderBy: { _count: { trackId: 'desc' } },
+          take: 50,
+        })
+        .then(async (rows) => {
+          const trackIds = rows.map((r) => r.trackId);
+          const tracks = await prisma.track.findMany({
+            where: { id: { in: trackIds } },
+            select: {
+              id: true,
+              album: {
+                select: {
+                  id: true,
+                  title: true,
+                  coverUrl: true,
+                  artist: { select: { name: true } },
+                },
+              },
+            },
+          });
 
-        const albumCounts = new Map<string, { id: string; title: string; coverUrl: string | null; artist: string; plays: number }>();
-        for (const row of rows) {
-          const track = tracks.find((t) => t.id === row.trackId);
-          const album = track?.album;
-          if (!album) continue;
-          const existing = albumCounts.get(album.id);
-          if (existing) {
-            existing.plays += row._count.trackId;
-          } else {
-            albumCounts.set(album.id, {
-              id: album.id,
-              title: album.title,
-              coverUrl: album.coverUrl,
-              artist: album.artist?.name ?? 'Unbekannt',
-              plays: row._count.trackId,
-            });
+          const albumCounts = new Map<
+            string,
+            { id: string; title: string; coverUrl: string | null; artist: string; plays: number }
+          >();
+          for (const row of rows) {
+            const track = tracks.find((t) => t.id === row.trackId);
+            const album = track?.album;
+            if (!album) continue;
+            const existing = albumCounts.get(album.id);
+            if (existing) {
+              existing.plays += row._count.trackId;
+            } else {
+              albumCounts.set(album.id, {
+                id: album.id,
+                title: album.title,
+                coverUrl: album.coverUrl,
+                artist: album.artist?.name ?? 'Unbekannt',
+                plays: row._count.trackId,
+              });
+            }
           }
-        }
 
-        return Array.from(albumCounts.values())
-          .sort((a, b) => b.plays - a.plays)
-          .slice(0, 5);
-      }),
+          return Array.from(albumCounts.values())
+            .sort((a, b) => b.plays - a.plays)
+            .slice(0, 5);
+        }),
 
       // Last 10 played tracks
       prisma.playHistory.findMany({

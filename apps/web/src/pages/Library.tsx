@@ -8,8 +8,7 @@ import { formatDuration } from '@/lib/utils';
 export function Library() {
   const { data, isLoading } = useQuery({
     queryKey: ['tracks'],
-    queryFn: () =>
-      api.get<PaginatedResponse<TrackWithRelations>>('/tracks?pageSize=100'),
+    queryFn: () => api.get<PaginatedResponse<TrackWithRelations>>('/tracks?pageSize=100'),
   });
 
   const { playTrack, currentTrack, isPlaying } = usePlayerStore();
@@ -64,9 +63,7 @@ export function Library() {
                   <p className={`truncate ${isCurrent ? 'text-primary font-medium' : ''}`}>
                     {track.title}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {track.artist.name}
-                  </p>
+                  <p className="text-xs text-muted-foreground truncate">{track.artist.name}</p>
                 </div>
                 <span className="text-muted-foreground truncate self-center">
                   {track.album?.title ?? '—'}

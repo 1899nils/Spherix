@@ -34,7 +34,10 @@ router.get('/status', async (req, res) => {
 router.post('/config', async (req, res) => {
   try {
     const userId = await getUserId(req);
-    if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
     const { clientId } = req.body as { clientId?: string };
     if (typeof clientId !== 'string') {
@@ -58,7 +61,10 @@ router.post('/config', async (req, res) => {
 router.post('/test-config', async (_req, res) => {
   try {
     const { clientId } = _req.body as { clientId?: string };
-    if (!clientId) { res.status(400).json({ error: 'clientId is required' }); return; }
+    if (!clientId) {
+      res.status(400).json({ error: 'clientId is required' });
+      return;
+    }
 
     const valid = await validateTraktClientId(clientId);
     if (valid) {

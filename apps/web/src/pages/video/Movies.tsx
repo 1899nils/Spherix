@@ -56,11 +56,7 @@ export function Movies() {
         </div>
         <div className="flex items-center gap-2">
           {showUnmatched && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setSearchParams({})}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setSearchParams({})}>
               Alle anzeigen
             </Button>
           )}
@@ -83,8 +79,8 @@ export function Movies() {
           <div>
             <h3 className="font-medium text-amber-400">Nicht zugeordnete Filme</h3>
             <p className="text-sm text-amber-400/80 mt-1">
-              Diese Filme konnten nicht automatisch mit TMDb verknüpft werden. 
-              Klicke auf das <Link2 className="h-3 w-3 inline" /> Icon, um sie manuell zuzuordnen.
+              Diese Filme konnten nicht automatisch mit TMDb verknüpft werden. Klicke auf das{' '}
+              <Link2 className="h-3 w-3 inline" /> Icon, um sie manuell zuzuordnen.
             </p>
           </div>
         </div>
@@ -135,7 +131,7 @@ export function Movies() {
                 fallbackIcon={<Film className="h-12 w-12" />}
                 onClick={() => navigate(`/video/movies/${movie.id}`)}
               />
-              
+
               {/* TMDB link button - show for unmatched or on hover */}
               {(showUnmatched || !movie.tmdbId) && (
                 <button
@@ -145,7 +141,11 @@ export function Movies() {
                     hover:bg-section-accent transition-all ${!movie.tmdbId ? 'opacity-100 animate-pulse' : ''}`}
                   title={movie.tmdbId ? 'TMDb Verknüpfung bearbeiten' : 'Mit TMDb verknüpfen'}
                 >
-                  {movie.tmdbId ? <Link2 className="h-4 w-4" /> : <Search className="h-4 w-4 text-amber-400" />}
+                  {movie.tmdbId ? (
+                    <Link2 className="h-4 w-4" />
+                  ) : (
+                    <Search className="h-4 w-4 text-amber-400" />
+                  )}
                 </button>
               )}
 

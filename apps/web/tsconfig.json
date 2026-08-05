@@ -13,8 +13,5 @@
     }
   },
   "include": ["src", "types", "vite-env.d.ts"],
-  "references": [
-    { "path": "../../packages/shared" },
-    { "path": "./tsconfig.node.json" }
-  ]
+  "references": [{ "path": "../../packages/shared" }, { "path": "./tsconfig.node.json" }]
 }

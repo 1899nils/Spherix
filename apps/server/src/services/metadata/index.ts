@@ -1,10 +1,10 @@
 // Cache service
-export { 
-  getCached, 
-  getCachedBatch, 
-  setCachedBatch, 
+export {
+  getCached,
+  getCachedBatch,
+  setCachedBatch,
   invalidateCache,
-  CACHE_TTLS 
+  CACHE_TTLS,
 } from './cache.service.js';
 
 // Providers

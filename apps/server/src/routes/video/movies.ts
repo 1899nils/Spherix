@@ -25,26 +25,28 @@ const serializeMovie = (m: Record<string, unknown>) => ({
 
 router.get('/', async (req, res, next) => {
   try {
-    const page     = Math.max(1, parseInt(req.query.page     as string) || 1);
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 30));
-    const skip     = (page - 1) * pageSize;
-    const sort     = (req.query.sort    as string) || 'title';
-    const genreId  =  req.query.genre   as string | undefined;
-    const watched  =  req.query.watched as string | undefined;
-    const q        =  req.query.q       as string | undefined;
+    const skip = (page - 1) * pageSize;
+    const sort = (req.query.sort as string) || 'title';
+    const genreId = req.query.genre as string | undefined;
+    const watched = req.query.watched as string | undefined;
+    const q = req.query.q as string | undefined;
     const unmatched = req.query.unmatched === 'true';
 
     const where: Record<string, unknown> = {};
-    if (genreId)          where.genres  = { some: { id: genreId } };
-    if (watched === 'true')  where.watched = true;
+    if (genreId) where.genres = { some: { id: genreId } };
+    if (watched === 'true') where.watched = true;
     if (watched === 'false') where.watched = false;
     if (q) where.title = { contains: q, mode: 'insensitive' };
-    if (unmatched)        where.tmdbId  = null;
+    if (unmatched) where.tmdbId = null;
 
     const orderBy =
-      sort === 'newest' ? { addedAt:  'desc' as const } :
-      sort === 'year'   ? { year:     'desc' as const } :
-                          { title:    'asc'  as const };
+      sort === 'newest'
+        ? { addedAt: 'desc' as const }
+        : sort === 'year'
+          ? { year: 'desc' as const }
+          : { title: 'asc' as const };
 
     const [movies, total] = await Promise.all([
       prisma.movie.findMany({ where, skip, take: pageSize, include: genreInclude, orderBy }),
@@ -52,13 +54,15 @@ router.get('/', async (req, res, next) => {
     ]);
 
     res.json({
-      data:       movies.map(serializeMovie),
+      data: movies.map(serializeMovie),
       total,
       page,
       pageSize,
       totalPages: Math.ceil(total / pageSize),
     });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 // ─── GET /api/video/movies/unmatched/count ─────────────────────────────────────
@@ -69,7 +73,9 @@ router.get('/unmatched/count', async (_req, res, next) => {
       where: { tmdbId: null },
     });
     res.json({ data: { count } });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 // ─── GET /api/video/movies/:id ────────────────────────────────────────────────
@@ -77,12 +83,17 @@ router.get('/unmatched/count', async (_req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const movie = await prisma.movie.findUnique({
-      where:   { id: req.params.id },
+      where: { id: req.params.id },
       include: genreInclude,
     });
-    if (!movie) { res.status(404).json({ error: 'Movie not found' }); return; }
+    if (!movie) {
+      res.status(404).json({ error: 'Movie not found' });
+      return;
+    }
     res.json({ data: serializeMovie(movie as unknown as Record<string, unknown>) });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 // ─── GET /api/video/movies/:id/credits ───────────────────────────────────────
@@ -91,18 +102,29 @@ router.get('/:id', async (req, res, next) => {
 router.get('/:id/credits', async (req, res, next) => {
   try {
     const movie = await prisma.movie.findUnique({
-      where:  { id: req.params.id },
+      where: { id: req.params.id },
       select: { tmdbId: true },
     });
-    if (!movie) { res.status(404).json({ error: 'Movie not found' }); return; }
-    if (!movie.tmdbId) { res.json({ data: { cast: [], crew: [] } }); return; }
+    if (!movie) {
+      res.status(404).json({ error: 'Movie not found' });
+      return;
+    }
+    if (!movie.tmdbId) {
+      res.json({ data: { cast: [], crew: [] } });
+      return;
+    }
 
     const apiKey = await getTmdbApiKeyForRequest(req);
-    if (!apiKey) { res.json({ data: { cast: [], crew: [] } }); return; }
+    if (!apiKey) {
+      res.json({ data: { cast: [], crew: [] } });
+      return;
+    }
 
     const credits = await getMovieCredits(movie.tmdbId, apiKey);
     res.json({ data: credits });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 // ─── POST /api/video/movies/:id/progress ─────────────────────────────────────
@@ -117,22 +139,27 @@ router.post('/:id/progress', async (req, res, next) => {
     }
 
     const movie = await prisma.movie.findUnique({
-      where:  { id: req.params.id },
+      where: { id: req.params.id },
       select: { runtime: true },
     });
-    if (!movie) { res.status(404).json({ error: 'Movie not found' }); return; }
+    if (!movie) {
+      res.status(404).json({ error: 'Movie not found' });
+      return;
+    }
 
     // Auto-mark watched when within last 5% or 5 minutes of end
     const runtimeSec = (movie.runtime ?? 0) * 60;
-    const watched    = runtimeSec > 0 && position >= runtimeSec * 0.95;
+    const watched = runtimeSec > 0 && position >= runtimeSec * 0.95;
 
     await prisma.movie.update({
       where: { id: req.params.id },
-      data:  { watchProgress: Math.floor(position), ...(watched ? { watched: true } : {}) },
+      data: { watchProgress: Math.floor(position), ...(watched ? { watched: true } : {}) },
     });
 
     res.json({ ok: true, watched });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 // ─── GET /api/video/movies/:id/mediainfo ─────────────────────────────────────
@@ -140,44 +167,66 @@ router.post('/:id/progress', async (req, res, next) => {
 router.get('/:id/mediainfo', async (req, res, next) => {
   try {
     const movie = await prisma.movie.findUnique({
-      where:  { id: req.params.id },
+      where: { id: req.params.id },
       select: { filePath: true },
     });
-    if (!movie) { res.status(404).json({ error: 'Movie not found' }); return; }
+    if (!movie) {
+      res.status(404).json({ error: 'Movie not found' });
+      return;
+    }
 
     const { probeMedia } = await import('../../services/streaming/mediaInfo.service.js');
     const info = await probeMedia(movie.filePath);
     res.json({ data: info });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 // ─── PATCH /api/video/movies/:id ─────────────────────────────────────────────
 
 router.patch('/:id', async (req, res, next) => {
   try {
-    const { title, sortTitle, originalTitle, year, releaseDate, runtime, overview, tagline, studio, network, posterPath, backdropPath, logoPath, imdbId } = req.body;
+    const {
+      title,
+      sortTitle,
+      originalTitle,
+      year,
+      releaseDate,
+      runtime,
+      overview,
+      tagline,
+      studio,
+      network,
+      posterPath,
+      backdropPath,
+      logoPath,
+      imdbId,
+    } = req.body;
     const movie = await prisma.movie.update({
       where: { id: req.params.id },
       data: {
-        ...(title         !== undefined ? { title }         : {}),
-        ...(sortTitle     !== undefined ? { sortTitle }     : {}),
+        ...(title !== undefined ? { title } : {}),
+        ...(sortTitle !== undefined ? { sortTitle } : {}),
         ...(originalTitle !== undefined ? { originalTitle } : {}),
-        ...(year          !== undefined ? { year }          : {}),
-        ...(releaseDate   !== undefined ? { releaseDate }   : {}),
-        ...(runtime       !== undefined ? { runtime }       : {}),
-        ...(overview      !== undefined ? { overview }      : {}),
-        ...(tagline       !== undefined ? { tagline }       : {}),
-        ...(studio        !== undefined ? { studio }        : {}),
-        ...(network       !== undefined ? { network }       : {}),
-        ...(posterPath    !== undefined ? { posterPath }    : {}),
-        ...(backdropPath  !== undefined ? { backdropPath }  : {}),
-        ...(logoPath      !== undefined ? { logoPath }      : {}),
-        ...(imdbId        !== undefined ? { imdbId }        : {}),
+        ...(year !== undefined ? { year } : {}),
+        ...(releaseDate !== undefined ? { releaseDate } : {}),
+        ...(runtime !== undefined ? { runtime } : {}),
+        ...(overview !== undefined ? { overview } : {}),
+        ...(tagline !== undefined ? { tagline } : {}),
+        ...(studio !== undefined ? { studio } : {}),
+        ...(network !== undefined ? { network } : {}),
+        ...(posterPath !== undefined ? { posterPath } : {}),
+        ...(backdropPath !== undefined ? { backdropPath } : {}),
+        ...(logoPath !== undefined ? { logoPath } : {}),
+        ...(imdbId !== undefined ? { imdbId } : {}),
       },
       include: genreInclude,
     });
     res.json({ data: serializeMovie(movie as unknown as Record<string, unknown>) });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 // ─── GET /api/video/movies/:id/stream ────────────────────────────────────────
@@ -185,20 +234,28 @@ router.patch('/:id', async (req, res, next) => {
 router.get('/:id/stream', async (req, res, next) => {
   try {
     const movie = await prisma.movie.findUnique({
-      where:  { id: req.params.id },
+      where: { id: req.params.id },
       select: { filePath: true },
     });
-    if (!movie) { res.status(404).json({ error: 'Movie not found' }); return; }
+    if (!movie) {
+      res.status(404).json({ error: 'Movie not found' });
+      return;
+    }
 
     streamFile(req, res, movie.filePath, VIDEO_MIME);
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Manual TMDb Linking (Admin only)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-async function getAdminRatingKeys(): Promise<{ mdblistApiKey: string | null; traktClientId: string | null }> {
+async function getAdminRatingKeys(): Promise<{
+  mdblistApiKey: string | null;
+  traktClientId: string | null;
+}> {
   const settings = await prisma.userSettings.findFirst({
     where: { user: { isAdmin: true } },
     select: { mdblistApiKey: true, traktClientId: true },
@@ -209,11 +266,7 @@ async function getAdminRatingKeys(): Promise<{ mdblistApiKey: string | null; tra
   };
 }
 
-async function syncMovieGenres(
-  movieId: string,
-  genreIds: number[],
-  apiKey: string,
-): Promise<void> {
+async function syncMovieGenres(movieId: string, genreIds: number[], apiKey: string): Promise<void> {
   if (genreIds.length === 0) return;
   const genreMap = await fetchGenreMap('movie', apiKey);
 
@@ -237,19 +290,15 @@ async function syncMovieGenres(
  * Fetch and store enriched ratings for a movie from TMDB + OMDb.
  * This is called after linking a movie to TMDB and can also be triggered manually.
  */
-async function enrichMovieRatings(
-  movieId: string,
-  tmdbId: number,
-  apiKey: string,
-): Promise<void> {
+async function enrichMovieRatings(movieId: string, tmdbId: number, apiKey: string): Promise<void> {
   try {
     const enriched = await getMovieEnrichedDetails(tmdbId, apiKey);
     if (!enriched) return;
 
     const ratingData: Record<string, unknown> = {
-      tagline:       enriched.tagline,
+      tagline: enriched.tagline,
       contentRating: enriched.contentRating,
-      fskRating:     enriched.fskRating,
+      fskRating: enriched.fskRating,
     };
 
     if (enriched.imdbId) {
@@ -260,11 +309,13 @@ async function enrichMovieRatings(
       // Fetch IMDb / RT Tomatometer + Audience / Metacritic from MDBList
       if (mdblistApiKey) {
         const mdblist = await fetchMdblistRatings(enriched.imdbId, mdblistApiKey);
-        if (mdblist.imdbRating                  !== null) ratingData.imdbRating                  = mdblist.imdbRating;
-        if (mdblist.rottenTomatoesScore         !== null) ratingData.rottenTomatoesScore         = mdblist.rottenTomatoesScore;
-        if (mdblist.rottenTomatoesAudienceScore !== null) ratingData.rottenTomatoesAudienceScore = mdblist.rottenTomatoesAudienceScore;
-        if (mdblist.metacriticScore             !== null) ratingData.metacriticScore             = mdblist.metacriticScore;
-        if (mdblist.letterboxdScore             !== null) ratingData.letterboxdScore             = mdblist.letterboxdScore;
+        if (mdblist.imdbRating !== null) ratingData.imdbRating = mdblist.imdbRating;
+        if (mdblist.rottenTomatoesScore !== null)
+          ratingData.rottenTomatoesScore = mdblist.rottenTomatoesScore;
+        if (mdblist.rottenTomatoesAudienceScore !== null)
+          ratingData.rottenTomatoesAudienceScore = mdblist.rottenTomatoesAudienceScore;
+        if (mdblist.metacriticScore !== null) ratingData.metacriticScore = mdblist.metacriticScore;
+        if (mdblist.letterboxdScore !== null) ratingData.letterboxdScore = mdblist.letterboxdScore;
         ratingData.ratingsUpdatedAt = new Date();
       }
 
@@ -272,7 +323,7 @@ async function enrichMovieRatings(
       if (traktClientId) {
         const trakt = await fetchTraktRatings(enriched.imdbId, traktClientId);
         if (trakt.rating !== null) ratingData.traktRating = trakt.rating;
-        if (trakt.votes  !== null) ratingData.traktVotes  = trakt.votes;
+        if (trakt.votes !== null) ratingData.traktVotes = trakt.votes;
       }
     }
 
@@ -332,7 +383,8 @@ router.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
     let posterPath = movie.posterPath;
     if (details.posterPath && !posterPath) {
       try {
-        const { downloadAndSaveCover } = await import('../../services/metadata/cover-processing.service.js');
+        const { downloadAndSaveCover } =
+          await import('../../services/metadata/cover-processing.service.js');
         const saved = await downloadAndSaveCover(details.posterPath, movie.id);
         if (saved) posterPath = saved.url500;
       } catch (e) {
@@ -344,20 +396,20 @@ router.post('/:id/link-tmdb', requireAuth, async (req, res, next) => {
     const updated = await prisma.movie.update({
       where: { id: movie.id },
       data: {
-        tmdbId:        details.tmdbId,
-        imdbId:        details.imdbId        ?? movie.imdbId,
+        tmdbId: details.tmdbId,
+        imdbId: details.imdbId ?? movie.imdbId,
         originalTitle: details.originalTitle ?? movie.originalTitle,
-        releaseDate:   details.releaseDate   ?? movie.releaseDate,
-        overview:      details.overview      || movie.overview,
-        tagline:       details.tagline       ?? movie.tagline,
-        posterPath:    posterPath            || details.posterPath,
-        backdropPath:  details.backdropPath  || movie.backdropPath,
-        logoPath:      details.logoPath      ?? movie.logoPath,
-        rating:        details.rating        || movie.rating,
-        year:          details.year          || movie.year,
+        releaseDate: details.releaseDate ?? movie.releaseDate,
+        overview: details.overview || movie.overview,
+        tagline: details.tagline ?? movie.tagline,
+        posterPath: posterPath || details.posterPath,
+        backdropPath: details.backdropPath || movie.backdropPath,
+        logoPath: details.logoPath ?? movie.logoPath,
+        rating: details.rating || movie.rating,
+        year: details.year || movie.year,
         contentRating: details.contentRating ?? movie.contentRating,
-        fskRating:     details.fskRating     ?? movie.fskRating,
-        studio:        details.studio        ?? movie.studio,
+        fskRating: details.fskRating ?? movie.fskRating,
+        studio: details.studio ?? movie.studio,
       },
       include: genreInclude,
     });
@@ -389,28 +441,28 @@ router.post('/:id/unlink-tmdb', requireAuth, async (req, res, next) => {
     const updated = await prisma.movie.update({
       where: { id: movie.id },
       data: {
-        tmdbId:                     null,
-        imdbId:                     null,
-        originalTitle:              null,
-        releaseDate:                null,
-        overview:                   null,
-        tagline:                    null,
-        backdropPath:               null,
-        logoPath:                   null,
-        studio:                     null,
-        network:                    null,
-        rating:                     null,
-        imdbRating:                 null,
-        rottenTomatoesScore:        null,
+        tmdbId: null,
+        imdbId: null,
+        originalTitle: null,
+        releaseDate: null,
+        overview: null,
+        tagline: null,
+        backdropPath: null,
+        logoPath: null,
+        studio: null,
+        network: null,
+        rating: null,
+        imdbRating: null,
+        rottenTomatoesScore: null,
         rottenTomatoesAudienceScore: null,
-        metacriticScore:            null,
-        traktRating:                null,
-        traktVotes:                 null,
-        letterboxdScore:            null,
-        contentRating:              null,
-        fskRating:                  null,
-        ratingsUpdatedAt:           null,
-        ratingsNextRetry:           null,
+        metacriticScore: null,
+        traktRating: null,
+        traktVotes: null,
+        letterboxdScore: null,
+        contentRating: null,
+        fskRating: null,
+        ratingsUpdatedAt: null,
+        ratingsNextRetry: null,
       },
       include: genreInclude,
     });
@@ -432,10 +484,13 @@ router.post('/:id/unlink-tmdb', requireAuth, async (req, res, next) => {
 router.post('/:id/refresh-metadata', requireAuth, async (req, res, next) => {
   try {
     const movie = await prisma.movie.findUnique({
-      where:   { id: req.params.id as string },
+      where: { id: req.params.id as string },
       include: genreInclude,
     });
-    if (!movie) { res.status(404).json({ error: 'Movie not found' }); return; }
+    if (!movie) {
+      res.status(404).json({ error: 'Movie not found' });
+      return;
+    }
     if (!movie.tmdbId) {
       res.status(400).json({ error: 'Movie is not linked to TMDb' });
       return;
@@ -457,17 +512,17 @@ router.post('/:id/refresh-metadata', requireAuth, async (req, res, next) => {
       where: { id: movie.id },
       data: {
         originalTitle: details.originalTitle ?? movie.originalTitle,
-        releaseDate:   details.releaseDate   ?? movie.releaseDate,
-        overview:      details.overview      || movie.overview,
-        tagline:       details.tagline       ?? movie.tagline,
-        posterPath:    details.posterPath    || movie.posterPath,
-        backdropPath:  details.backdropPath  || movie.backdropPath,
-        logoPath:      details.logoPath      ?? movie.logoPath,
-        rating:        details.rating        || movie.rating,
-        year:          details.year          || movie.year,
+        releaseDate: details.releaseDate ?? movie.releaseDate,
+        overview: details.overview || movie.overview,
+        tagline: details.tagline ?? movie.tagline,
+        posterPath: details.posterPath || movie.posterPath,
+        backdropPath: details.backdropPath || movie.backdropPath,
+        logoPath: details.logoPath ?? movie.logoPath,
+        rating: details.rating || movie.rating,
+        year: details.year || movie.year,
         contentRating: details.contentRating ?? movie.contentRating,
-        fskRating:     details.fskRating     ?? movie.fskRating,
-        studio:        details.studio        ?? movie.studio,
+        fskRating: details.fskRating ?? movie.fskRating,
+        studio: details.studio ?? movie.studio,
       },
       include: genreInclude,
     });
@@ -477,17 +532,22 @@ router.post('/:id/refresh-metadata', requireAuth, async (req, res, next) => {
 
     logger.info(`Refreshed metadata for movie "${movie.title}"`);
     res.json({ data: serializeMovie(updated as unknown as Record<string, unknown>) });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 /** POST /api/video/movies/:id/refresh-ratings — re-fetch ratings from TMDB + OMDb */
 router.post('/:id/refresh-ratings', requireAuth, async (req, res, next) => {
   try {
     const movie = await prisma.movie.findUnique({
-      where:  { id: req.params.id as string },
+      where: { id: req.params.id as string },
       select: { id: true, title: true, tmdbId: true },
     });
-    if (!movie) { res.status(404).json({ error: 'Movie not found' }); return; }
+    if (!movie) {
+      res.status(404).json({ error: 'Movie not found' });
+      return;
+    }
     if (!movie.tmdbId) {
       res.status(400).json({ error: 'Movie is not linked to TMDb' });
       return;
@@ -502,11 +562,13 @@ router.post('/:id/refresh-ratings', requireAuth, async (req, res, next) => {
     await enrichMovieRatings(movie.id, movie.tmdbId, apiKey);
 
     const updated = await prisma.movie.findUnique({
-      where:   { id: movie.id },
+      where: { id: movie.id },
       include: genreInclude,
     });
     res.json({ data: serializeMovie(updated as unknown as Record<string, unknown>) });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default router;

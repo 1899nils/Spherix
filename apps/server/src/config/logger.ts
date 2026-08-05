@@ -47,9 +47,6 @@ if (env.nodeEnv === 'production') {
 
 export const logger = winston.createLogger({
   level: env.nodeEnv === 'production' ? 'info' : 'debug',
-  format: combine(
-    errors({ stack: true }),
-    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-  ),
+  format: combine(errors({ stack: true }), timestamp({ format: 'YYYY-MM-DD HH:mm:ss' })),
   transports,
 });

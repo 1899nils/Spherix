@@ -18,7 +18,7 @@ import { logger } from '../../config/logger.js';
 import { fetchMdblistRatings } from '../metadata/mdblist.service.js';
 import { fetchTraktRatings } from '../metadata/trakt.service.js';
 
-const DAILY_LIMIT    = 950;
+const DAILY_LIMIT = 950;
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 let schedulerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -37,7 +37,7 @@ async function getUsedToday(): Promise<number> {
 async function incrementQuota(): Promise<void> {
   const date = todayString();
   await prisma.ratingsDailyQuota.upsert({
-    where:  { date },
+    where: { date },
     update: { usedToday: { increment: 1 } },
     create: { date, usedToday: 1 },
   });
@@ -45,7 +45,10 @@ async function incrementQuota(): Promise<void> {
 
 // ─── Config helpers ────────────────────────────────────────────────────────────
 
-async function getAdminSettings(): Promise<{ mdblistApiKey: string | null; traktClientId: string | null }> {
+async function getAdminSettings(): Promise<{
+  mdblistApiKey: string | null;
+  traktClientId: string | null;
+}> {
   const settings = await prisma.userSettings.findFirst({
     where: { user: { isAdmin: true } },
     select: { mdblistApiKey: true, traktClientId: true },
@@ -68,16 +71,16 @@ async function runRatingsRefresh(): Promise<void> {
   }
 
   const usedToday = await getUsedToday();
-  let remaining   = DAILY_LIMIT - usedToday;
+  let remaining = DAILY_LIMIT - usedToday;
 
   if (remaining <= 0) {
     logger.info('[RatingsScheduler] Daily quota exhausted, skipping');
     return;
   }
 
-  const now          = new Date();
+  const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - THIRTY_DAYS_MS);
-  const tomorrow     = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
   const needsUpdate = {
     OR: [
@@ -106,16 +109,18 @@ async function runRatingsRefresh(): Promise<void> {
         ratingsUpdatedAt: now,
         ratingsNextRetry: null,
       };
-      if (mdblist.imdbRating                  !== null) data.imdbRating                  = mdblist.imdbRating;
-      if (mdblist.rottenTomatoesScore         !== null) data.rottenTomatoesScore         = mdblist.rottenTomatoesScore;
-      if (mdblist.rottenTomatoesAudienceScore !== null) data.rottenTomatoesAudienceScore = mdblist.rottenTomatoesAudienceScore;
-      if (mdblist.metacriticScore             !== null) data.metacriticScore             = mdblist.metacriticScore;
-      if (mdblist.letterboxdScore             !== null) data.letterboxdScore             = mdblist.letterboxdScore;
+      if (mdblist.imdbRating !== null) data.imdbRating = mdblist.imdbRating;
+      if (mdblist.rottenTomatoesScore !== null)
+        data.rottenTomatoesScore = mdblist.rottenTomatoesScore;
+      if (mdblist.rottenTomatoesAudienceScore !== null)
+        data.rottenTomatoesAudienceScore = mdblist.rottenTomatoesAudienceScore;
+      if (mdblist.metacriticScore !== null) data.metacriticScore = mdblist.metacriticScore;
+      if (mdblist.letterboxdScore !== null) data.letterboxdScore = mdblist.letterboxdScore;
 
       if (traktClientId) {
         const trakt = await fetchTraktRatings(movie.imdbId!, traktClientId);
         if (trakt.rating !== null) data.traktRating = trakt.rating;
-        if (trakt.votes  !== null) data.traktVotes  = trakt.votes;
+        if (trakt.votes !== null) data.traktVotes = trakt.votes;
       }
 
       await prisma.movie.update({
@@ -148,14 +153,15 @@ async function runRatingsRefresh(): Promise<void> {
           ratingsUpdatedAt: now,
           ratingsNextRetry: null,
         };
-        if (mdblist.imdbRating          !== null) data.imdbRating          = mdblist.imdbRating;
-        if (mdblist.rottenTomatoesScore !== null) data.rottenTomatoesScore = mdblist.rottenTomatoesScore;
-        if (mdblist.metacriticScore     !== null) data.metacriticScore     = mdblist.metacriticScore;
+        if (mdblist.imdbRating !== null) data.imdbRating = mdblist.imdbRating;
+        if (mdblist.rottenTomatoesScore !== null)
+          data.rottenTomatoesScore = mdblist.rottenTomatoesScore;
+        if (mdblist.metacriticScore !== null) data.metacriticScore = mdblist.metacriticScore;
 
         if (traktClientId) {
           const trakt = await fetchTraktRatings(series.imdbId!, traktClientId);
           if (trakt.rating !== null) data.traktRating = trakt.rating;
-          if (trakt.votes  !== null) data.traktVotes  = trakt.votes;
+          if (trakt.votes !== null) data.traktVotes = trakt.votes;
         }
 
         await prisma.series.update({
@@ -164,21 +170,26 @@ async function runRatingsRefresh(): Promise<void> {
         });
       } catch (e) {
         logger.warn(`[RatingsScheduler] Failed for series ${series.id}: ${String(e)}`);
-        await prisma.series.update({ where: { id: series.id }, data: { ratingsNextRetry: tomorrow } });
+        await prisma.series.update({
+          where: { id: series.id },
+          data: { ratingsNextRetry: tomorrow },
+        });
       }
     }
   }
 
-  logger.info(`[RatingsScheduler] Refresh complete — quota used today: ${DAILY_LIMIT - remaining}/${DAILY_LIMIT}`);
+  logger.info(
+    `[RatingsScheduler] Refresh complete — quota used today: ${DAILY_LIMIT - remaining}/${DAILY_LIMIT}`,
+  );
 }
 
 // ─── Scheduling ────────────────────────────────────────────────────────────────
 
 function scheduleNextMidnight(): void {
-  const now      = new Date();
+  const now = new Date();
   const midnight = new Date(now);
   midnight.setHours(24, 0, 0, 0); // next midnight
-  const msUntil  = midnight.getTime() - now.getTime();
+  const msUntil = midnight.getTime() - now.getTime();
 
   schedulerTimer = setTimeout(() => {
     runRatingsRefresh().catch((e) =>

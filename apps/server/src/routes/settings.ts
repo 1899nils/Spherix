@@ -42,8 +42,8 @@ export async function getMediaPaths(userId: string | null) {
       })
     : null;
   return {
-    music:     row?.musicPath     ?? env.musicPath,
-    video:     row?.videoPath     ?? env.videoPath,
+    music: row?.musicPath ?? env.musicPath,
+    video: row?.videoPath ?? env.videoPath,
     audiobook: row?.audiobookPath ?? env.audiobookPath,
   };
 }
@@ -117,25 +117,33 @@ router.put('/', async (req, res, next) => {
 
     // Media paths → UserSettings in DB
     const userId = await getUserId(req);
-    if (userId && (musicPath !== undefined || videoPath !== undefined || audiobookPath !== undefined)) {
+    if (
+      userId &&
+      (musicPath !== undefined || videoPath !== undefined || audiobookPath !== undefined)
+    ) {
       const toVal = (v: unknown) => (v === '' || v == null ? null : String(v).trim());
       await prisma.userSettings.upsert({
-        where:  { userId },
+        where: { userId },
         update: {
-          ...(musicPath     !== undefined && { musicPath:     toVal(musicPath) }),
-          ...(videoPath     !== undefined && { videoPath:     toVal(videoPath) }),
+          ...(musicPath !== undefined && { musicPath: toVal(musicPath) }),
+          ...(videoPath !== undefined && { videoPath: toVal(videoPath) }),
           ...(audiobookPath !== undefined && { audiobookPath: toVal(audiobookPath) }),
         },
         create: {
           userId,
-          musicPath:     toVal(musicPath),
-          videoPath:     toVal(videoPath),
+          musicPath: toVal(musicPath),
+          videoPath: toVal(videoPath),
           audiobookPath: toVal(audiobookPath),
         },
       });
     }
 
-    logger.info('Settings updated', { publicUrl: updated.publicUrl, musicPath, videoPath, audiobookPath });
+    logger.info('Settings updated', {
+      publicUrl: updated.publicUrl,
+      musicPath,
+      videoPath,
+      audiobookPath,
+    });
     const paths = await getMediaPaths(userId);
     res.json({ data: { ...updated, paths } });
   } catch (error) {

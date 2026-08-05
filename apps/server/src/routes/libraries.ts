@@ -46,7 +46,7 @@ router.post('/scan', async (_req, res, next) => {
     const musicPath = paths.music;
 
     const library = await prisma.library.upsert({
-      where:  { path: musicPath },
+      where: { path: musicPath },
       update: {},
       create: { name: 'Musik', path: musicPath },
     });
@@ -84,8 +84,12 @@ router.get('/:id/scan/status', async (req, res, next) => {
       .map((j) => ({
         jobId: j.id,
         status: j.finishedOn
-          ? j.failedReason ? 'failed' : 'completed'
-          : j.processedOn ? 'active' : 'waiting',
+          ? j.failedReason
+            ? 'failed'
+            : 'completed'
+          : j.processedOn
+            ? 'active'
+            : 'waiting',
         result: j.returnvalue,
         failedReason: j.failedReason,
       }));

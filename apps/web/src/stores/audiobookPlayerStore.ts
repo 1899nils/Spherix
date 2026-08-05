@@ -247,7 +247,10 @@ export const useAudiobookPlayerStore = create<AudiobookPlayerState>((set, get) =
 
     const interval = setInterval(() => {
       const { sleepRemaining } = get();
-      if (sleepRemaining === null) { clearInterval(interval); return; }
+      if (sleepRemaining === null) {
+        clearInterval(interval);
+        return;
+      }
       const next = sleepRemaining - 1;
       if (next <= 0) {
         clearInterval(interval);

@@ -28,7 +28,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   }
 
   const response: ApiError = {
-    error: isServerError ? 'Interner Serverfehler' : (err.message || 'Fehler'),
+    error: isServerError ? 'Interner Serverfehler' : err.message || 'Fehler',
     statusCode,
   };
 

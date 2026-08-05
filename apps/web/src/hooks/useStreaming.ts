@@ -22,7 +22,11 @@ interface UseStreamingReturn {
 /**
  * Hook for managing video streaming with automatic transcoding detection
  */
-export function useStreaming({ type, id, enabled = true }: UseStreamingOptions): UseStreamingReturn {
+export function useStreaming({
+  type,
+  id,
+  enabled = true,
+}: UseStreamingOptions): UseStreamingReturn {
   const [transcodeStatus, setTranscodeStatus] = useState<TranscodeStatus | null>(null);
   const [actualStreamUrl, setActualStreamUrl] = useState<string | null>(null);
 
@@ -35,9 +39,7 @@ export function useStreaming({ type, id, enabled = true }: UseStreamingOptions):
   } = useQuery({
     queryKey: ['stream-info', type, id],
     queryFn: async () => {
-      const res = await api.get<{ data: MediaStreamInfo }>(
-        `/video/stream/info/${type}/${id}`
-      );
+      const res = await api.get<{ data: MediaStreamInfo }>(`/video/stream/info/${type}/${id}`);
       return res.data;
     },
     enabled: enabled && !!id,
@@ -58,7 +60,7 @@ export function useStreaming({ type, id, enabled = true }: UseStreamingOptions):
       try {
         // Extract job ID from stream URL or check status
         const res = await api.get<{ data: TranscodeStatus }>(
-          `/video/stream/job/${type}_${id}/status`
+          `/video/stream/job/${type}_${id}/status`,
         );
         setTranscodeStatus(res.data);
 

@@ -41,12 +41,15 @@ router.get('/status', async (req, res, next) => {
 router.post('/config', async (req, res, next) => {
   try {
     const userId = await getUserId(req);
-    logger.debug('YouTube config save attempt', { userId: userId || 'undefined', sessionId: req.sessionID });
-    
+    logger.debug('YouTube config save attempt', {
+      userId: userId || 'undefined',
+      sessionId: req.sessionID,
+    });
+
     if (!userId) {
-      res.status(401).json({ 
-        error: 'Not authenticated', 
-        message: 'Bitte melde dich an, um den API-Key zu speichern' 
+      res.status(401).json({
+        error: 'Not authenticated',
+        message: 'Bitte melde dich an, um den API-Key zu speichern',
       });
       return;
     }
@@ -99,7 +102,7 @@ router.post('/test-config', async (req, res, next) => {
 
     const response = await fetch(
       `https://www.googleapis.com/youtube/v3/search?${params.toString()}`,
-      { signal: AbortSignal.timeout(10_000) }
+      { signal: AbortSignal.timeout(10_000) },
     );
 
     if (!response.ok) {
@@ -150,7 +153,7 @@ router.get('/quota', async (req, res, next) => {
     }
 
     const status = await getQuotaStatus();
-    
+
     res.json({
       data: {
         ...status,

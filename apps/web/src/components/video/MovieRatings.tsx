@@ -2,11 +2,15 @@ import type { Movie } from '@musicserver/shared';
 
 type RatableMedia = Pick<
   Movie,
-  | 'tmdbId' | 'imdbId' | 'rating'
+  | 'tmdbId'
+  | 'imdbId'
+  | 'rating'
   | 'imdbRating'
-  | 'rottenTomatoesScore' | 'rottenTomatoesAudienceScore'
+  | 'rottenTomatoesScore'
+  | 'rottenTomatoesAudienceScore'
   | 'metacriticScore'
-  | 'traktRating' | 'traktVotes'
+  | 'traktRating'
+  | 'traktVotes'
   | 'letterboxdScore'
 >;
 
@@ -64,7 +68,8 @@ function ImdbIcon() {
     <svg viewBox="0 0 80 36" className="h-5 w-auto">
       <rect width="80" height="36" rx="5" fill="#F5C518" />
       <text
-        x="6" y="27"
+        x="6"
+        y="27"
         fill="#000000"
         fontSize="24"
         fontWeight="900"
@@ -108,7 +113,14 @@ function RtFreshIcon() {
       {/* body */}
       <circle cx="25" cy="30" r="17" fill="#FA320A" />
       {/* highlight */}
-      <ellipse cx="18" cy="23" rx="4.5" ry="3.5" fill="rgba(255,255,255,0.22)" transform="rotate(-20,18,23)" />
+      <ellipse
+        cx="18"
+        cy="23"
+        rx="4.5"
+        ry="3.5"
+        fill="rgba(255,255,255,0.22)"
+        transform="rotate(-20,18,23)"
+      />
     </svg>
   );
 }
@@ -160,15 +172,13 @@ function PopcornRottenIcon() {
 }
 
 function MetacriticIcon({ score }: { score: number }) {
-  const bg =
-    score >= 61 ? '#66CC33' :
-    score >= 40 ? '#FFCC33' :
-                  '#FF4444';
+  const bg = score >= 61 ? '#66CC33' : score >= 40 ? '#FFCC33' : '#FF4444';
   return (
     <svg viewBox="0 0 40 40" className="h-8 w-8">
       <rect width="40" height="40" rx="6" fill={bg} />
       <text
-        x="20" y="30"
+        x="20"
+        y="30"
         textAnchor="middle"
         fill="#000"
         fontSize="26"
@@ -198,22 +208,22 @@ function LetterboxdIcon() {
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export function MovieRatings({ movie }: Props) {
-  const hasTmdb      = movie.rating != null && movie.rating > 0;
-  const hasImdb      = movie.imdbRating != null && movie.imdbRating > 0;
-  const hasRt        = movie.rottenTomatoesScore != null;
-  const hasRtAud     = movie.rottenTomatoesAudienceScore != null;
-  const hasMeta      = movie.metacriticScore != null;
-  const hasTrakt     = movie.traktRating != null && movie.traktRating > 0;
+  const hasTmdb = movie.rating != null && movie.rating > 0;
+  const hasImdb = movie.imdbRating != null && movie.imdbRating > 0;
+  const hasRt = movie.rottenTomatoesScore != null;
+  const hasRtAud = movie.rottenTomatoesAudienceScore != null;
+  const hasMeta = movie.metacriticScore != null;
+  const hasTrakt = movie.traktRating != null && movie.traktRating > 0;
   const hasLetterboxd = movie.letterboxdScore != null && movie.letterboxdScore > 0;
 
-  if (!hasTmdb && !hasImdb && !hasRt && !hasRtAud && !hasMeta && !hasTrakt && !hasLetterboxd) return null;
+  if (!hasTmdb && !hasImdb && !hasRt && !hasRtAud && !hasMeta && !hasTrakt && !hasLetterboxd)
+    return null;
 
-  const rtScore    = movie.rottenTomatoesScore!;
+  const rtScore = movie.rottenTomatoesScore!;
   const rtAudScore = movie.rottenTomatoesAudienceScore!;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-
       {/* IMDb */}
       {hasImdb && (
         <Badge
@@ -243,7 +253,11 @@ export function MovieRatings({ movie }: Props) {
           value={movie.traktRating!.toFixed(1)}
           label="Trakt"
           href={movie.imdbId ? `https://trakt.tv/search/imdb/${movie.imdbId}` : 'https://trakt.tv'}
-          title={movie.traktVotes != null ? `Trakt · ${movie.traktVotes.toLocaleString()} Stimmen` : 'Trakt'}
+          title={
+            movie.traktVotes != null
+              ? `Trakt · ${movie.traktVotes.toLocaleString()} Stimmen`
+              : 'Trakt'
+          }
         />
       )}
 
@@ -283,11 +297,12 @@ export function MovieRatings({ movie }: Props) {
           icon={<LetterboxdIcon />}
           value={movie.letterboxdScore!.toFixed(1)}
           label="Letterboxd"
-          href={movie.imdbId ? `https://letterboxd.com/film/${movie.imdbId}` : 'https://letterboxd.com'}
+          href={
+            movie.imdbId ? `https://letterboxd.com/film/${movie.imdbId}` : 'https://letterboxd.com'
+          }
           title={`Letterboxd · ${movie.letterboxdScore!.toFixed(2)} / 5`}
         />
       )}
-
     </div>
   );
 }

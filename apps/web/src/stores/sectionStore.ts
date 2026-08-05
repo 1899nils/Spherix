@@ -31,4 +31,5 @@ export const useSectionStore = create<SectionState>()(
 
 // Apply default on import (before React mounts)
 document.documentElement.dataset.section =
-  (JSON.parse(localStorage.getItem('spherix-section') ?? '{}')?.state?.section as AppSection) ?? 'music';
+  (JSON.parse(localStorage.getItem('spherix-section') ?? '{}')?.state?.section as AppSection) ??
+  'music';

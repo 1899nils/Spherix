@@ -2,27 +2,63 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import {
-  Music, Disc3, Mic2, ListMusic, Film, Tv, BookOpen, Podcast,
-  BarChart2, Clock, TrendingUp,
+  Music,
+  Disc3,
+  Mic2,
+  ListMusic,
+  Film,
+  Tv,
+  BookOpen,
+  Podcast,
+  BarChart2,
+  Clock,
+  TrendingUp,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface LibraryCounts {
-  tracks: number; albums: number; artists: number; playlists: number;
-  movies: number; series: number; audiobooks: number; podcasts: number;
+  tracks: number;
+  albums: number;
+  artists: number;
+  playlists: number;
+  movies: number;
+  series: number;
+  audiobooks: number;
+  podcasts: number;
 }
 
-interface TopArtist { id: string; name: string; imageUrl: string | null; plays: number }
-interface TopAlbum  { id: string; title: string; coverUrl: string | null; artist: string; plays: number }
+interface TopArtist {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  plays: number;
+}
+interface TopAlbum {
+  id: string;
+  title: string;
+  coverUrl: string | null;
+  artist: string;
+  plays: number;
+}
 interface RecentPlay {
   playedAt: string;
   track: {
-    id: string; title: string; duration: number | null;
-    album: { id: string; title: string; coverUrl: string | null; artist: { name: string } | null } | null;
+    id: string;
+    title: string;
+    duration: number | null;
+    album: {
+      id: string;
+      title: string;
+      coverUrl: string | null;
+      artist: { name: string } | null;
+    } | null;
   } | null;
 }
-interface DayCount { day: string; count: number }
+interface DayCount {
+  day: string;
+  count: number;
+}
 
 interface StatsData {
   library: LibraryCounts;
@@ -42,13 +78,26 @@ function fmtDuration(secs: number | null): string {
 }
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatCard({ icon: Icon, label, value, color }: {
-  icon: React.ElementType; label: string; value: number; color: string;
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: number;
+  color: string;
 }) {
   return (
     <div className="bg-[#1a1a1a] rounded-xl p-5 flex items-center gap-4">
@@ -74,10 +123,7 @@ function ActivityChart({ data }: { data: DayCount[] }) {
       {data.map((d) => {
         const heightPct = Math.round((d.count / max) * 100);
         return (
-          <div
-            key={d.day}
-            className="flex-1 flex flex-col items-center gap-1 group relative"
-          >
+          <div key={d.day} className="flex-1 flex flex-col items-center gap-1 group relative">
             <div
               className="w-full rounded-t bg-[#1db954] opacity-80 group-hover:opacity-100 transition-opacity"
               style={{ height: `${heightPct}%` }}
@@ -121,7 +167,9 @@ export function Stats() {
     <div className="space-y-10 max-w-5xl">
       {/* Header */}
       <div>
-        <p className="text-xs text-[#b3b3b3] uppercase tracking-widest font-semibold mb-1">Übersicht</p>
+        <p className="text-xs text-[#b3b3b3] uppercase tracking-widest font-semibold mb-1">
+          Übersicht
+        </p>
         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
           <BarChart2 className="h-7 w-7 text-[#1db954]" />
           Statistiken
@@ -132,14 +180,24 @@ export function Stats() {
       <section className="space-y-4">
         <h2 className="text-lg font-semibold text-white">Mediathek</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard icon={Music}    label="Titel"      value={library.tracks}     color="bg-[#1db954]" />
-          <StatCard icon={Disc3}    label="Alben"      value={library.albums}     color="bg-blue-600" />
-          <StatCard icon={Mic2}     label="Künstler"   value={library.artists}    color="bg-purple-600" />
-          <StatCard icon={ListMusic} label="Playlists" value={library.playlists}  color="bg-orange-600" />
-          <StatCard icon={Film}     label="Filme"      value={library.movies}     color="bg-red-600" />
-          <StatCard icon={Tv}       label="Serien"     value={library.series}     color="bg-pink-600" />
-          <StatCard icon={BookOpen} label="Hörbücher"  value={library.audiobooks} color="bg-yellow-600" />
-          <StatCard icon={Podcast}  label="Podcasts"   value={library.podcasts}   color="bg-teal-600" />
+          <StatCard icon={Music} label="Titel" value={library.tracks} color="bg-[#1db954]" />
+          <StatCard icon={Disc3} label="Alben" value={library.albums} color="bg-blue-600" />
+          <StatCard icon={Mic2} label="Künstler" value={library.artists} color="bg-purple-600" />
+          <StatCard
+            icon={ListMusic}
+            label="Playlists"
+            value={library.playlists}
+            color="bg-orange-600"
+          />
+          <StatCard icon={Film} label="Filme" value={library.movies} color="bg-red-600" />
+          <StatCard icon={Tv} label="Serien" value={library.series} color="bg-pink-600" />
+          <StatCard
+            icon={BookOpen}
+            label="Hörbücher"
+            value={library.audiobooks}
+            color="bg-yellow-600"
+          />
+          <StatCard icon={Podcast} label="Podcasts" value={library.podcasts} color="bg-teal-600" />
         </div>
       </section>
 
@@ -152,7 +210,8 @@ export function Stats() {
         <div className="bg-[#1a1a1a] rounded-xl p-5">
           <ActivityChart data={playHistoryByDay} />
           <p className="text-[#b3b3b3] text-xs mt-2">
-            Gesamt: {playHistoryByDay.reduce((s, d) => s + d.count, 0).toLocaleString('de-DE')} Wiedergaben
+            Gesamt: {playHistoryByDay.reduce((s, d) => s + d.count, 0).toLocaleString('de-DE')}{' '}
+            Wiedergaben
           </p>
         </div>
       </section>
@@ -173,12 +232,18 @@ export function Stats() {
                 <li key={a.id} className="flex items-center gap-3 bg-[#1a1a1a] rounded-lg p-3">
                   <span className="text-[#b3b3b3] text-sm w-5 text-right">{i + 1}</span>
                   <div className="h-9 w-9 rounded-full bg-[#282828] overflow-hidden flex-shrink-0">
-                    {a.imageUrl
-                      ? <img src={a.imageUrl} alt={a.name} className="h-full w-full object-cover" />
-                      : <div className="h-full w-full flex items-center justify-center"><Mic2 className="h-4 w-4 text-[#b3b3b3]" /></div>
-                    }
+                    {a.imageUrl ? (
+                      <img src={a.imageUrl} alt={a.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <Mic2 className="h-4 w-4 text-[#b3b3b3]" />
+                      </div>
+                    )}
                   </div>
-                  <Link to={`/music/artists/${a.id}`} className="flex-1 text-white text-sm font-medium hover:underline truncate">
+                  <Link
+                    to={`/music/artists/${a.id}`}
+                    className="flex-1 text-white text-sm font-medium hover:underline truncate"
+                  >
                     {a.name}
                   </Link>
                   <span className="text-[#b3b3b3] text-xs whitespace-nowrap">{a.plays}×</span>
@@ -202,13 +267,19 @@ export function Stats() {
                 <li key={a.id} className="flex items-center gap-3 bg-[#1a1a1a] rounded-lg p-3">
                   <span className="text-[#b3b3b3] text-sm w-5 text-right">{i + 1}</span>
                   <div className="h-9 w-9 rounded bg-[#282828] overflow-hidden flex-shrink-0">
-                    {a.coverUrl
-                      ? <img src={a.coverUrl} alt={a.title} className="h-full w-full object-cover" />
-                      : <div className="h-full w-full flex items-center justify-center"><Disc3 className="h-4 w-4 text-[#b3b3b3]" /></div>
-                    }
+                    {a.coverUrl ? (
+                      <img src={a.coverUrl} alt={a.title} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <Disc3 className="h-4 w-4 text-[#b3b3b3]" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <Link to={`/music/albums/${a.id}`} className="text-white text-sm font-medium hover:underline block truncate">
+                    <Link
+                      to={`/music/albums/${a.id}`}
+                      className="text-white text-sm font-medium hover:underline block truncate"
+                    >
                       {a.title}
                     </Link>
                     <p className="text-[#b3b3b3] text-xs truncate">{a.artist}</p>
@@ -242,18 +313,32 @@ export function Stats() {
               </thead>
               <tbody>
                 {recentPlays.map((p, i) => (
-                  <tr key={i} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
+                  <tr
+                    key={i}
+                    className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors"
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded bg-[#282828] overflow-hidden flex-shrink-0">
-                          {p.track?.album?.coverUrl
-                            ? <img src={p.track.album.coverUrl} alt="" className="h-full w-full object-cover" />
-                            : <div className="h-full w-full flex items-center justify-center"><Music className="h-3.5 w-3.5 text-[#b3b3b3]" /></div>
-                          }
+                          {p.track?.album?.coverUrl ? (
+                            <img
+                              src={p.track.album.coverUrl}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center">
+                              <Music className="h-3.5 w-3.5 text-[#b3b3b3]" />
+                            </div>
+                          )}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-white font-medium truncate">{p.track?.title ?? 'Unbekannt'}</p>
-                          <p className="text-[#b3b3b3] text-xs truncate">{p.track?.album?.artist?.name ?? '-'}</p>
+                          <p className="text-white font-medium truncate">
+                            {p.track?.title ?? 'Unbekannt'}
+                          </p>
+                          <p className="text-[#b3b3b3] text-xs truncate">
+                            {p.track?.album?.artist?.name ?? '-'}
+                          </p>
                         </div>
                       </div>
                     </td>

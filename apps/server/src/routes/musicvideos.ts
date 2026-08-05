@@ -56,16 +56,21 @@ router.post('/:id/musicvideo/download', async (req, res, next) => {
     // Run yt-dlp in background
     // Format: prefer best mp4+m4a (needs ffmpeg for merge), fallback to best single-file mp4
     const ytdlp = spawn('yt-dlp', [
-      '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-      '--merge-output-format', 'mp4',
+      '-f',
+      'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+      '--merge-output-format',
+      'mp4',
       '--no-playlist',
       '--no-warnings',
-      '-o', outputPath,
+      '-o',
+      outputPath,
       track.musicVideoUrl,
     ]);
 
     let stderr = '';
-    ytdlp.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+    ytdlp.stderr.on('data', (d: Buffer) => {
+      stderr += d.toString();
+    });
 
     ytdlp.on('error', async (err) => {
       console.error(`[yt-dlp] spawn error for track ${trackId}:`, err.message);
@@ -215,12 +220,15 @@ router.post('/:id/musicvideo-search', async (req, res, next) => {
     // Check if YouTube API key is configured
     const apiKey = await youtube.getYouTubeApiKey(userId);
     if (!apiKey) {
-      res.status(422).json({ error: 'Kein YouTube API-Key konfiguriert. Bitte in den Einstellungen einen YouTube Data API v3 Key hinterlegen.' });
+      res.status(422).json({
+        error:
+          'Kein YouTube API-Key konfiguriert. Bitte in den Einstellungen einen YouTube Data API v3 Key hinterlegen.',
+      });
       return;
     }
 
     // Use the new batch search (forceRefresh not used in batch yet)
-    const trackData = album.tracks.map(t => ({
+    const trackData = album.tracks.map((t) => ({
       id: t.id,
       title: t.title,
       artistName: t.artist.name,
@@ -228,7 +236,7 @@ router.post('/:id/musicvideo-search', async (req, res, next) => {
 
     const batchResults = await youtube.batchFindMusicVideos(trackData, userId);
 
-    const results = album.tracks.map(track => {
+    const results = album.tracks.map((track) => {
       const result = batchResults.get(track.id);
       return {
         trackId: track.id,
@@ -239,7 +247,7 @@ router.post('/:id/musicvideo-search', async (req, res, next) => {
       };
     });
 
-    const foundCount = results.filter(r => r.found).length;
+    const foundCount = results.filter((r) => r.found).length;
 
     res.json({
       data: {
@@ -275,12 +283,10 @@ router.get('/:id/musicvideo', async (req, res, next) => {
     }
 
     // Use the new youtube provider
-    const result = await youtube.findMusicVideo(
-      trackId,
-      track.title,
-      track.artist.name,
-      { userId, forceRefresh }
-    );
+    const result = await youtube.findMusicVideo(trackId, track.title, track.artist.name, {
+      userId,
+      forceRefresh,
+    });
 
     if (result) {
       res.json({

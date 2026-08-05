@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Radio as RadioIcon, Play, Signal, Plus, Trash2, Loader2, Image as ImageIcon, Pencil } from 'lucide-react';
+import {
+  Radio as RadioIcon,
+  Play,
+  Signal,
+  Plus,
+  Trash2,
+  Loader2,
+  Image as ImageIcon,
+  Pencil,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/Modal';
 import { usePlayerStore, type RadioStation } from '@/stores/playerStore';
@@ -21,7 +30,11 @@ async function fetchStations(): Promise<SavedStation[]> {
   return res.json();
 }
 
-async function createStation(data: { name: string; url: string; logoUrl?: string }): Promise<SavedStation> {
+async function createStation(data: {
+  name: string;
+  url: string;
+  logoUrl?: string;
+}): Promise<SavedStation> {
   const res = await fetch(`${API}/radio/stations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -31,7 +44,10 @@ async function createStation(data: { name: string; url: string; logoUrl?: string
   return res.json();
 }
 
-async function updateStation(id: string, data: { name?: string; url?: string; logoUrl?: string | null }): Promise<SavedStation> {
+async function updateStation(
+  id: string,
+  data: { name?: string; url?: string; logoUrl?: string | null },
+): Promise<SavedStation> {
   const res = await fetch(`${API}/radio/stations/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -68,7 +84,9 @@ function StationForm({ name, url, logoUrl, onName, onUrl, onLogoUrl, onSubmit }:
               src={logoUrl}
               alt="Logo-Vorschau"
               className="w-full h-full object-contain p-2"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
             />
           ) : (
             <span className="text-4xl">📻</span>
@@ -152,7 +170,9 @@ export function Radio() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['radio-stations'] });
       setShowAddModal(false);
-      setAddName(''); setAddUrl(''); setAddLogoUrl('');
+      setAddName('');
+      setAddUrl('');
+      setAddLogoUrl('');
     },
   });
 
@@ -183,7 +203,11 @@ export function Radio() {
 
   const handleAdd = () => {
     if (!addName.trim() || !addUrl.trim()) return;
-    addMutation.mutate({ name: addName.trim(), url: addUrl.trim(), logoUrl: addLogoUrl.trim() || undefined });
+    addMutation.mutate({
+      name: addName.trim(),
+      url: addUrl.trim(),
+      logoUrl: addLogoUrl.trim() || undefined,
+    });
   };
 
   const openEdit = (station: SavedStation) => {
@@ -231,7 +255,10 @@ export function Radio() {
       {isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="aspect-square bg-white/5 animate-pulse rounded-2xl border border-white/5" />
+            <div
+              key={i}
+              className="aspect-square bg-white/5 animate-pulse rounded-2xl border border-white/5"
+            />
           ))}
         </div>
       ) : stations.length === 0 ? (
@@ -254,7 +281,11 @@ export function Radio() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
           {stations.map((station) => {
-            const isCurrent = !!(currentTrack && 'id' in currentTrack && currentTrack.id === station.id);
+            const isCurrent = !!(
+              currentTrack &&
+              'id' in currentTrack &&
+              currentTrack.id === station.id
+            );
             const isThisPlaying = isCurrent && isPlaying;
             const hasImageFailed = failedImages.has(station.id);
 
@@ -269,14 +300,20 @@ export function Radio() {
                 <div className="absolute top-3 right-3 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     className="bg-black/60 hover:bg-white/20 rounded-full p-1.5"
-                    onClick={(e) => { e.stopPropagation(); openEdit(station); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEdit(station);
+                    }}
                     title="Sender bearbeiten"
                   >
                     <Pencil className="h-3.5 w-3.5 text-white" />
                   </button>
                   <button
                     className="bg-black/60 hover:bg-red-500/80 rounded-full p-1.5"
-                    onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(station.id); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteMutation.mutate(station.id);
+                    }}
                     title="Sender entfernen"
                   >
                     <Trash2 className="h-3.5 w-3.5 text-white" />
@@ -297,14 +334,18 @@ export function Radio() {
                   )}
 
                   {/* Play Overlay */}
-                  <div className={`absolute inset-0 bg-black/40 transition-opacity flex items-center justify-center ${
-                    isCurrent ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                  }`}>
+                  <div
+                    className={`absolute inset-0 bg-black/40 transition-opacity flex items-center justify-center ${
+                      isCurrent ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                    }`}
+                  >
                     <Button
                       variant="secondary"
                       size="icon"
                       className={`rounded-full h-14 w-14 shadow-2xl transition-transform active:scale-90 ${
-                        isCurrent ? 'bg-pink-500 text-white hover:bg-pink-400' : 'bg-white text-black hover:bg-white/90'
+                        isCurrent
+                          ? 'bg-pink-500 text-white hover:bg-pink-400'
+                          : 'bg-white text-black hover:bg-white/90'
                       }`}
                       onClick={() => handlePlay(station)}
                     >
@@ -318,7 +359,9 @@ export function Radio() {
                 </div>
 
                 <div className="space-y-1 min-w-0">
-                  <h3 className={`font-bold text-sm truncate ${isCurrent ? 'text-pink-400' : 'text-white'}`}>
+                  <h3
+                    className={`font-bold text-sm truncate ${isCurrent ? 'text-pink-400' : 'text-white'}`}
+                  >
                     {station.name}
                   </h3>
                   <p className="text-[11px] text-muted-foreground truncate uppercase tracking-wider font-semibold">
@@ -335,12 +378,21 @@ export function Radio() {
       <Modal
         title="Sender hinzufügen"
         isOpen={showAddModal}
-        onClose={() => { setShowAddModal(false); setAddName(''); setAddUrl(''); setAddLogoUrl(''); }}
+        onClose={() => {
+          setShowAddModal(false);
+          setAddName('');
+          setAddUrl('');
+          setAddLogoUrl('');
+        }}
         maxWidth="max-w-lg"
       >
         <StationForm
-          name={addName} url={addUrl} logoUrl={addLogoUrl}
-          onName={setAddName} onUrl={setAddUrl} onLogoUrl={setAddLogoUrl}
+          name={addName}
+          url={addUrl}
+          logoUrl={addLogoUrl}
+          onName={setAddName}
+          onUrl={setAddUrl}
+          onLogoUrl={setAddLogoUrl}
           onSubmit={handleAdd}
         />
         {addMutation.isError && (
@@ -350,7 +402,12 @@ export function Radio() {
           <Button
             variant="ghost"
             className="flex-1 rounded-xl border border-white/10 hover:bg-white/5"
-            onClick={() => { setShowAddModal(false); setAddName(''); setAddUrl(''); setAddLogoUrl(''); }}
+            onClick={() => {
+              setShowAddModal(false);
+              setAddName('');
+              setAddUrl('');
+              setAddLogoUrl('');
+            }}
           >
             Abbrechen
           </Button>
@@ -359,7 +416,15 @@ export function Radio() {
             onClick={handleAdd}
             disabled={!addName.trim() || !addUrl.trim() || addMutation.isPending}
           >
-            {addMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Wird hinzugefügt…</> : <><Plus className="h-4 w-4" /> Hinzufügen</>}
+            {addMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Wird hinzugefügt…
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" /> Hinzufügen
+              </>
+            )}
           </Button>
         </div>
       </Modal>
@@ -372,8 +437,12 @@ export function Radio() {
         maxWidth="max-w-lg"
       >
         <StationForm
-          name={editName} url={editUrl} logoUrl={editLogoUrl}
-          onName={setEditName} onUrl={setEditUrl} onLogoUrl={setEditLogoUrl}
+          name={editName}
+          url={editUrl}
+          logoUrl={editLogoUrl}
+          onName={setEditName}
+          onUrl={setEditUrl}
+          onLogoUrl={setEditLogoUrl}
           onSubmit={handleEdit}
         />
         {editMutation.isError && (
@@ -392,7 +461,13 @@ export function Radio() {
             onClick={handleEdit}
             disabled={!editName.trim() || editMutation.isPending}
           >
-            {editMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Wird gespeichert…</> : 'Speichern'}
+            {editMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Wird gespeichert…
+              </>
+            ) : (
+              'Speichern'
+            )}
           </Button>
         </div>
       </Modal>

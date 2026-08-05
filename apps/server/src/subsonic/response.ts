@@ -100,21 +100,14 @@ export function sendResponse(req: Request, res: Response, data: SubsonicObj = {}
       openSubsonic: true,
       ...data,
     });
-    res
-      .type('application/xml')
-      .send(`<?xml version="1.0" encoding="UTF-8"?>\n${inner}`);
+    res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n${inner}`);
   }
 }
 
 /**
  * Send a Subsonic error response.
  */
-export function sendError(
-  req: Request,
-  res: Response,
-  code: number,
-  message: string,
-): void {
+export function sendError(req: Request, res: Response, code: number, message: string): void {
   const format = getFormat(req);
 
   if (format === 'json') {
@@ -138,8 +131,6 @@ export function sendError(
       openSubsonic: true,
       error: { code, message },
     });
-    res
-      .type('application/xml')
-      .send(`<?xml version="1.0" encoding="UTF-8"?>\n${inner}`);
+    res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n${inner}`);
   }
 }

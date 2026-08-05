@@ -3,17 +3,13 @@ import { Router } from 'express';
 import multer from 'multer';
 import { prisma } from '../config/database.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
-import {
-  albumMetadataSchema,
-  matchMusicbrainzSchema,
-} from './schemas/metadata.schemas.js';
+import { albumMetadataSchema, matchMusicbrainzSchema } from './schemas/metadata.schemas.js';
 import { writeAlbumNfo } from '../services/metadata/nfowriter.service.js';
-import { processAndSaveCover, downloadAndSaveCover } from '../services/metadata/cover-processing.service.js';
 import {
-  getReleaseById,
-  getCoverArtUrl,
-  matchAlbum,
-} from '../services/musicbrainz/index.js';
+  processAndSaveCover,
+  downloadAndSaveCover,
+} from '../services/metadata/cover-processing.service.js';
+import { getReleaseById, getCoverArtUrl, matchAlbum } from '../services/musicbrainz/index.js';
 import { logger } from '../config/logger.js';
 import type { AlbumWithRelations, PaginatedResponse } from '@musicserver/shared';
 
@@ -34,9 +30,11 @@ router.get('/', async (req, res, next) => {
     };
 
     const orderBy =
-      sort === 'year' ? { year: 'desc' as const } :
-      sort === 'newest' ? { createdAt: 'desc' as const } :
-      { title: 'asc' as const };
+      sort === 'year'
+        ? { year: 'desc' as const }
+        : sort === 'newest'
+          ? { createdAt: 'desc' as const }
+          : { title: 'asc' as const };
 
     const [albums, total] = await Promise.all([
       prisma.album.findMany({
@@ -52,7 +50,7 @@ router.get('/', async (req, res, next) => {
       prisma.album.count({ where }),
     ]);
 
-    const data: AlbumWithRelations[] = albums.map((a: typeof albums[number]) => ({
+    const data: AlbumWithRelations[] = albums.map((a: (typeof albums)[number]) => ({
       id: a.id,
       title: a.title,
       artistId: a.artistId,
@@ -106,7 +104,7 @@ router.get('/:id', async (req, res, next) => {
       return;
     }
 
-    const tracks = album.tracks.map((t: typeof album.tracks[number]) => ({
+    const tracks = album.tracks.map((t: (typeof album.tracks)[number]) => ({
       ...t,
       fileSize: t.fileSize.toString(),
       createdAt: t.createdAt.toISOString(),
@@ -142,7 +140,18 @@ router.get('/:id', async (req, res, next) => {
 /** Update album metadata (DB only — does not write audio file tags) */
 router.patch('/:id', async (req, res, next) => {
   try {
-    const { title, year, releaseDate, releaseType, genre, label, country, artistName, totalTracks, totalDiscs } = req.body;
+    const {
+      title,
+      year,
+      releaseDate,
+      releaseType,
+      genre,
+      label,
+      country,
+      artistName,
+      totalTracks,
+      totalDiscs,
+    } = req.body;
 
     // Resolve artist if name was changed
     let artistId: string | undefined;
@@ -167,7 +176,9 @@ router.patch('/:id', async (req, res, next) => {
       data: {
         ...(title !== undefined ? { title } : {}),
         ...(year !== undefined ? { year } : {}),
-        ...(releaseDate !== undefined ? { releaseDate: releaseDate ? new Date(releaseDate) : null } : {}),
+        ...(releaseDate !== undefined
+          ? { releaseDate: releaseDate ? new Date(releaseDate) : null }
+          : {}),
         ...(releaseType !== undefined ? { releaseType } : {}),
         ...(genre !== undefined ? { genre } : {}),
         ...(label !== undefined ? { label } : {}),
@@ -353,16 +364,18 @@ router.post('/:id/match-musicbrainz', async (req, res, next) => {
 
     const { musicbrainzReleaseId, confirm } = parsed.data;
 
-    logger.info(`MusicBrainz match for album "${album.title}" (${album.id}) → release ${musicbrainzReleaseId}, confirm=${confirm}`);
+    logger.info(
+      `MusicBrainz match for album "${album.title}" (${album.id}) → release ${musicbrainzReleaseId}, confirm=${confirm}`,
+    );
 
     // Fetch MusicBrainz release data
     const release = await getReleaseById(musicbrainzReleaseId);
     const coverUrl = await getCoverArtUrl(musicbrainzReleaseId);
 
     // Build the preview of changes
-    const artistName = release['artist-credit']
-      ?.map((c) => c.name + (c.joinphrase || ''))
-      .join('') ?? album.artist.name;
+    const artistName =
+      release['artist-credit']?.map((c) => c.name + (c.joinphrase || '')).join('') ??
+      album.artist.name;
     const releaseYear = release.date ? parseInt(release.date.slice(0, 4), 10) : null;
     const label = release['label-info']?.[0]?.label?.name ?? null;
     const country = release.country ?? null;
@@ -379,16 +392,17 @@ router.post('/:id/match-musicbrainz', async (req, res, next) => {
       recording?: { tags?: Array<{ name: string; count: number }> };
     }
 
-    const mbTracks: MBTrackInfo[] = release.media?.flatMap((m) =>
-      (m.tracks ?? []).map((t) => ({
-        discNumber: m.position,
-        trackNumber: t.position,
-        title: t.title,
-        duration: t.length ? t.length / 1000 : null,
-        musicbrainzId: t.recording.id,
-        recording: t.recording,
-      })),
-    ) ?? [];
+    const mbTracks: MBTrackInfo[] =
+      release.media?.flatMap((m) =>
+        (m.tracks ?? []).map((t) => ({
+          discNumber: m.position,
+          trackNumber: t.position,
+          title: t.title,
+          duration: t.length ? t.length / 1000 : null,
+          musicbrainzId: t.recording.id,
+          recording: t.recording,
+        })),
+      ) ?? [];
 
     const changes = {
       album: {
@@ -421,10 +435,12 @@ router.post('/:id/match-musicbrainz', async (req, res, next) => {
       });
       artistId = existing
         ? existing.id
-        : (await prisma.artist.create({
-            data: { name: artistName },
-            select: { id: true },
-          })).id;
+        : (
+            await prisma.artist.create({
+              data: { name: artistName },
+              select: { id: true },
+            })
+          ).id;
     }
 
     // Download and save cover art locally (instead of storing the remote URL)
@@ -470,18 +486,28 @@ router.post('/:id/match-musicbrainz', async (req, res, next) => {
     // Match and update tracks by disc + track position
     let tracksUpdated = 0;
     let tracksSkipped = 0;
-    const nfoTracks: Array<{ position: number; discNumber: number | null; title: string; musicbrainzId: string }> = [];
+    const nfoTracks: Array<{
+      position: number;
+      discNumber: number | null;
+      title: string;
+      musicbrainzId: string;
+    }> = [];
     for (const mbTrack of mbTracks) {
-      const localTrack = album.tracks.find(
-        (t) =>
-          t.discNumber === mbTrack.discNumber && t.trackNumber === mbTrack.trackNumber,
-      ) ?? album.tracks.find(
-        // Fallback: match by trackNumber only (single-disc albums or missing disc info)
-        (t) => t.trackNumber === mbTrack.trackNumber && (album.tracks.every((tr) => tr.discNumber === 1 || tr.discNumber === null)),
-      );
+      const localTrack =
+        album.tracks.find(
+          (t) => t.discNumber === mbTrack.discNumber && t.trackNumber === mbTrack.trackNumber,
+        ) ??
+        album.tracks.find(
+          // Fallback: match by trackNumber only (single-disc albums or missing disc info)
+          (t) =>
+            t.trackNumber === mbTrack.trackNumber &&
+            album.tracks.every((tr) => tr.discNumber === 1 || tr.discNumber === null),
+        );
       if (!localTrack) {
         tracksSkipped++;
-        logger.debug(`No local track for disc ${mbTrack.discNumber} track ${mbTrack.trackNumber} — skipped`);
+        logger.debug(
+          `No local track for disc ${mbTrack.discNumber} track ${mbTrack.trackNumber} — skipped`,
+        );
         continue;
       }
 
@@ -494,9 +520,11 @@ router.post('/:id/match-musicbrainz', async (req, res, next) => {
         : null;
 
       // Check if track has explicit tag from MusicBrainz
-      const isExplicit = mbTrack.recording?.tags?.some(
-        (tag: { name: string }) => tag.name.toLowerCase() === 'explicit' || tag.name.toLowerCase() === 'explicit content'
-      ) ?? false;
+      const isExplicit =
+        mbTrack.recording?.tags?.some(
+          (tag: { name: string }) =>
+            tag.name.toLowerCase() === 'explicit' || tag.name.toLowerCase() === 'explicit content',
+        ) ?? false;
 
       await prisma.track.update({
         where: { id: localTrack.id },
@@ -517,7 +545,9 @@ router.post('/:id/match-musicbrainz', async (req, res, next) => {
       tracksUpdated++;
     }
 
-    logger.info(`MusicBrainz match applied for album ${album.id}: ${tracksUpdated} tracks updated, ${tracksSkipped} skipped`);
+    logger.info(
+      `MusicBrainz match applied for album ${album.id}: ${tracksUpdated} tracks updated, ${tracksSkipped} skipped`,
+    );
 
     // Write album.nfo into the album folder (no ID3 tags are modified)
     const firstTrackPath = album.tracks[0]?.filePath;

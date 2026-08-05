@@ -34,9 +34,7 @@ async function handleSearch3(req: import('express').Request, res: import('expres
         imageUrl: true,
         musicbrainzId: true,
         _count: { select: { albums: true } },
-        ...(userId
-          ? { starredArtists: { where: { userId }, take: 1 } }
-          : {}),
+        ...(userId ? { starredArtists: { where: { userId }, take: 1 } } : {}),
       },
     }),
     prisma.album.findMany({
@@ -47,9 +45,7 @@ async function handleSearch3(req: import('express').Request, res: import('expres
         artist: { select: { id: true, name: true } },
         _count: { select: { tracks: true } },
         tracks: { select: { duration: true } },
-        ...(userId
-          ? { starredAlbums: { where: { userId }, take: 1 } }
-          : {}),
+        ...(userId ? { starredAlbums: { where: { userId }, take: 1 } } : {}),
       },
     }),
     prisma.track.findMany({
@@ -59,23 +55,26 @@ async function handleSearch3(req: import('express').Request, res: import('expres
       include: {
         artist: { select: { id: true, name: true } },
         album: { select: { id: true, title: true, coverUrl: true, year: true, genre: true } },
-        ...(userId
-          ? { starredTracks: { where: { userId }, take: 1 } }
-          : {}),
+        ...(userId ? { starredTracks: { where: { userId }, take: 1 } } : {}),
       },
     }),
   ]);
 
   const suffix = (format: string) => format?.replace('.', '') || 'mp3';
   const mimeMap: Record<string, string> = {
-    mp3: 'audio/mpeg', flac: 'audio/flac', ogg: 'audio/ogg',
-    opus: 'audio/opus', m4a: 'audio/mp4', wav: 'audio/wav',
+    mp3: 'audio/mpeg',
+    flac: 'audio/flac',
+    ogg: 'audio/ogg',
+    opus: 'audio/opus',
+    m4a: 'audio/mp4',
+    wav: 'audio/wav',
   };
 
   sendResponse(req, res, {
     searchResult3: {
       artist: artists.map((a) => {
-        const starred = (a as unknown as { starredArtists?: { starredAt: Date }[] }).starredArtists?.[0];
+        const starred = (a as unknown as { starredArtists?: { starredAt: Date }[] })
+          .starredArtists?.[0];
         return {
           id: a.id,
           name: a.name,
@@ -86,7 +85,8 @@ async function handleSearch3(req: import('express').Request, res: import('expres
       }),
       album: albums.map((al) => {
         const totalDuration = al.tracks.reduce((sum, t) => sum + t.duration, 0);
-        const starred = (al as unknown as { starredAlbums?: { starredAt: Date }[] }).starredAlbums?.[0];
+        const starred = (al as unknown as { starredAlbums?: { starredAt: Date }[] })
+          .starredAlbums?.[0];
         return {
           id: al.id,
           name: al.title,
@@ -103,8 +103,15 @@ async function handleSearch3(req: import('express').Request, res: import('expres
       }),
       song: tracks.map((t) => {
         const s = suffix(t.format);
-        const starred = (t as unknown as { starredTracks?: { starredAt: Date }[] }).starredTracks?.[0];
-        const albumData = t.album as { id: string; title: string; coverUrl: string | null; year?: number | null; genre?: string | null } | null;
+        const starred = (t as unknown as { starredTracks?: { starredAt: Date }[] })
+          .starredTracks?.[0];
+        const albumData = t.album as {
+          id: string;
+          title: string;
+          coverUrl: string | null;
+          year?: number | null;
+          genre?: string | null;
+        } | null;
         return {
           id: t.id,
           parent: albumData?.id ?? t.artist?.id ?? '',

@@ -186,8 +186,12 @@ async function handleGetStarred2(req: import('express').Request, res: import('ex
 
   const suffix = (format: string) => format?.replace('.', '') || 'mp3';
   const mimeMap: Record<string, string> = {
-    mp3: 'audio/mpeg', flac: 'audio/flac', ogg: 'audio/ogg',
-    opus: 'audio/opus', m4a: 'audio/mp4', wav: 'audio/wav',
+    mp3: 'audio/mpeg',
+    flac: 'audio/flac',
+    ogg: 'audio/ogg',
+    opus: 'audio/opus',
+    m4a: 'audio/mp4',
+    wav: 'audio/wav',
   };
 
   sendResponse(req, res, {
@@ -219,7 +223,13 @@ async function handleGetStarred2(req: import('express').Request, res: import('ex
       song: starredTracks.map((st) => {
         const t = st.track;
         const s = suffix(t.format);
-        const albumData = t.album as { id: string; title: string; coverUrl: string | null; year?: number | null; genre?: string | null } | null;
+        const albumData = t.album as {
+          id: string;
+          title: string;
+          coverUrl: string | null;
+          year?: number | null;
+          genre?: string | null;
+        } | null;
         return {
           id: t.id,
           parent: albumData?.id ?? t.artist?.id ?? '',

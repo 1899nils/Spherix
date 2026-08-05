@@ -5,8 +5,17 @@ import { api } from '@/lib/api';
 import { usePlayerStore } from '@/stores/playerStore';
 import type { TrackWithRelations } from '@musicserver/shared';
 import {
-  Play, Pause, Music, Radio as RadioIcon, ListMusic, Disc3,
-  ChevronRight, Shuffle, User2, Loader2, Headphones,
+  Play,
+  Pause,
+  Music,
+  Radio as RadioIcon,
+  ListMusic,
+  Disc3,
+  ChevronRight,
+  Shuffle,
+  User2,
+  Loader2,
+  Headphones,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -89,9 +98,15 @@ function greeting() {
 
 /** Horizontal scroll section with optional "all" link */
 function Section({
-  title, subtitle, href, children,
+  title,
+  subtitle,
+  href,
+  children,
 }: {
-  title: string; subtitle?: string; href?: string; children: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  href?: string;
+  children: React.ReactNode;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -99,16 +114,26 @@ function Section({
     <section className="space-y-4">
       <div className="flex items-end justify-between">
         <div>
-          {subtitle && <p className="text-xs text-[#b3b3b3] uppercase tracking-widest font-semibold mb-0.5">{subtitle}</p>}
+          {subtitle && (
+            <p className="text-xs text-[#b3b3b3] uppercase tracking-widest font-semibold mb-0.5">
+              {subtitle}
+            </p>
+          )}
           <h2 className="text-2xl font-bold text-white leading-tight">{title}</h2>
         </div>
         {href && (
-          <Link to={href} className="text-xs text-[#b3b3b3] hover:text-white uppercase tracking-wider font-semibold transition-colors flex items-center gap-1">
+          <Link
+            to={href}
+            className="text-xs text-[#b3b3b3] hover:text-white uppercase tracking-wider font-semibold transition-colors flex items-center gap-1"
+          >
             Alle anzeigen <ChevronRight className="h-3.5 w-3.5" />
           </Link>
         )}
       </div>
-      <div ref={scrollRef} className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory"
+      >
         {children}
       </div>
     </section>
@@ -117,31 +142,51 @@ function Section({
 
 /** Card used for albums, playlists, mixes, new additions */
 function MediaCard({
-  title, subtitle, coverUrl, coverColor, icon: Icon = Music,
-  onClick, playable, isPlaying, isLoading,
+  title,
+  subtitle,
+  coverUrl,
+  coverColor,
+  icon: Icon = Music,
+  onClick,
+  playable,
+  isPlaying,
+  isLoading,
 }: {
-  title: string; subtitle?: string; coverUrl?: string | null;
-  coverColor?: string; icon?: React.ElementType;
-  onClick?: () => void; playable?: boolean;
-  isPlaying?: boolean; isLoading?: boolean;
+  title: string;
+  subtitle?: string;
+  coverUrl?: string | null;
+  coverColor?: string;
+  icon?: React.ElementType;
+  onClick?: () => void;
+  playable?: boolean;
+  isPlaying?: boolean;
+  isLoading?: boolean;
 }) {
   const [imgError, setImgError] = useState(false);
 
   return (
-    <div
-      className="group relative shrink-0 w-44 snap-start cursor-pointer"
-      onClick={onClick}
-    >
+    <div className="group relative shrink-0 w-44 snap-start cursor-pointer" onClick={onClick}>
       {/* Cover */}
       <div
         className="relative w-44 h-44 rounded-lg overflow-hidden mb-3 shadow-lg"
-        style={coverColor && (!coverUrl || imgError) ? { background: `linear-gradient(135deg, ${coverColor}cc, ${coverColor}55)` } : undefined}
+        style={
+          coverColor && (!coverUrl || imgError)
+            ? { background: `linear-gradient(135deg, ${coverColor}cc, ${coverColor}55)` }
+            : undefined
+        }
       >
         {coverUrl && !imgError ? (
-          <img src={coverUrl} alt={title} className="w-full h-full object-cover" onError={() => setImgError(true)} />
+          <img
+            src={coverUrl}
+            alt={title}
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+          />
         ) : coverColor ? (
           <div className="w-full h-full flex items-center justify-center">
-            <span className="text-white/30 text-5xl font-black select-none">{title.slice(0, 2).toUpperCase()}</span>
+            <span className="text-white/30 text-5xl font-black select-none">
+              {title.slice(0, 2).toUpperCase()}
+            </span>
           </div>
         ) : (
           <div className="w-full h-full bg-[#2a2a2a] flex items-center justify-center">
@@ -154,7 +199,10 @@ function MediaCard({
           <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-3">
             <button
               className="h-12 w-12 rounded-full bg-[#dc2626] hover:bg-[#b91c1c] hover:scale-105 transition-all flex items-center justify-center shadow-xl"
-              onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick?.();
+              }}
             >
               {isLoading ? (
                 <Loader2 className="h-5 w-5 text-white animate-spin" />
@@ -169,7 +217,9 @@ function MediaCard({
       </div>
 
       <p className="text-white font-semibold text-sm truncate leading-snug">{title}</p>
-      {subtitle && <p className="text-[#b3b3b3] text-xs truncate mt-0.5 leading-snug">{subtitle}</p>}
+      {subtitle && (
+        <p className="text-[#b3b3b3] text-xs truncate mt-0.5 leading-snug">{subtitle}</p>
+      )}
     </div>
   );
 }
@@ -177,10 +227,17 @@ function MediaCard({
 /** Artist card (circular image) */
 function ArtistCard({ artist }: { artist: TopArtist }) {
   return (
-    <Link to={`/music/artists/${artist.id}`} className="group relative shrink-0 w-36 snap-start text-center cursor-pointer">
+    <Link
+      to={`/music/artists/${artist.id}`}
+      className="group relative shrink-0 w-36 snap-start text-center cursor-pointer"
+    >
       <div className="relative w-36 h-36 rounded-full overflow-hidden mx-auto mb-3 shadow-lg bg-[#2a2a2a]">
         {artist.imageUrl ? (
-          <img src={artist.imageUrl} alt={artist.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          <img
+            src={artist.imageUrl}
+            alt={artist.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <User2 className="h-16 w-16 text-[#b3b3b3]" />
@@ -196,9 +253,13 @@ function ArtistCard({ artist }: { artist: TopArtist }) {
 
 /** Compact recently-played card (2-column layout at top) */
 function RecentCard({
-  item, onPlay, isPlaying,
+  item,
+  onPlay,
+  isPlaying,
 }: {
-  item: RecentItem; onPlay: (item: RecentItem) => void; isPlaying: boolean;
+  item: RecentItem;
+  onPlay: (item: RecentItem) => void;
+  isPlaying: boolean;
 }) {
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
@@ -219,23 +280,39 @@ function RecentCard({
       {/* Cover thumbnail */}
       <div className="h-14 w-14 shrink-0 bg-[#282828] flex items-center justify-center overflow-hidden">
         {item.coverUrl && !imgError ? (
-          <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" onError={() => setImgError(true)} />
+          <img
+            src={item.coverUrl}
+            alt={item.title}
+            className="h-full w-full object-cover"
+            onError={() => setImgError(true)}
+          />
         ) : (
           <Icon className="h-6 w-6 text-[#b3b3b3]" />
         )}
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold truncate ${isPlaying ? 'text-[#dc2626]' : 'text-white'}`}>{item.title}</p>
+        <p
+          className={`text-sm font-semibold truncate ${isPlaying ? 'text-[#dc2626]' : 'text-white'}`}
+        >
+          {item.title}
+        </p>
         <p className="text-xs text-[#b3b3b3] truncate">{item.subtitle}</p>
       </div>
 
       {/* Play button on hover */}
       <button
         className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 rounded-full bg-[#dc2626] flex items-center justify-center shrink-0"
-        onClick={(e) => { e.stopPropagation(); onPlay(item); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onPlay(item);
+        }}
       >
-        {isPlaying ? <Pause className="h-4 w-4 text-white fill-white" /> : <Play className="h-4 w-4 text-white fill-white ml-0.5" />}
+        {isPlaying ? (
+          <Pause className="h-4 w-4 text-white fill-white" />
+        ) : (
+          <Play className="h-4 w-4 text-white fill-white ml-0.5" />
+        )}
       </button>
     </div>
   );
@@ -243,9 +320,13 @@ function RecentCard({
 
 /** Podcast episode card for the new-episodes row */
 function PodcastEpisodeCard({
-  episode, onPlay, isPlaying,
+  episode,
+  onPlay,
+  isPlaying,
 }: {
-  episode: NewPodcastEpisode; onPlay: () => void; isPlaying: boolean;
+  episode: NewPodcastEpisode;
+  onPlay: () => void;
+  isPlaying: boolean;
 }) {
   const [imgError, setImgError] = useState(false);
   const coverSrc = episode.episodeImageUrl ?? episode.podcastImageUrl;
@@ -259,7 +340,12 @@ function PodcastEpisodeCard({
       {/* Cover */}
       <div className="relative w-44 h-44 rounded-lg overflow-hidden mb-3 shadow-lg bg-[#2a2a2a]">
         {coverSrc && !imgError ? (
-          <img src={coverSrc} alt={episode.episodeTitle} className="w-full h-full object-cover" onError={() => setImgError(true)} />
+          <img
+            src={coverSrc}
+            alt={episode.episodeTitle}
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <Headphones className="h-14 w-14 text-[#b3b3b3]" />
@@ -268,9 +354,11 @@ function PodcastEpisodeCard({
         {/* Play overlay */}
         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-3">
           <button className="h-12 w-12 rounded-full bg-[#dc2626] hover:bg-[#b91c1c] hover:scale-105 transition-all flex items-center justify-center shadow-xl">
-            {isPlaying
-              ? <Pause className="h-5 w-5 text-white fill-white" />
-              : <Play className="h-5 w-5 text-white fill-white ml-0.5" />}
+            {isPlaying ? (
+              <Pause className="h-5 w-5 text-white fill-white" />
+            ) : (
+              <Play className="h-5 w-5 text-white fill-white ml-0.5" />
+            )}
           </button>
         </div>
         {/* "Neu" badge */}
@@ -279,7 +367,9 @@ function PodcastEpisodeCard({
         </div>
       </div>
 
-      <p className={`text-sm font-semibold truncate leading-snug ${isPlaying ? 'text-[#dc2626]' : 'text-white'}`}>
+      <p
+        className={`text-sm font-semibold truncate leading-snug ${isPlaying ? 'text-[#dc2626]' : 'text-white'}`}
+      >
         {episode.episodeTitle}
       </p>
       <p className="text-[#b3b3b3] text-xs truncate mt-0.5">{episode.podcastTitle}</p>
@@ -291,7 +381,8 @@ function PodcastEpisodeCard({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function Browse() {
-  const { playTrack, playStream, playPodcastEpisode, currentTrack, isPlaying, togglePlay } = usePlayerStore();
+  const { playTrack, playStream, playPodcastEpisode, currentTrack, isPlaying, togglePlay } =
+    usePlayerStore();
   const [loadingMix, setLoadingMix] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -325,24 +416,38 @@ export function Browse() {
 
   const handlePlayRecent = async (item: RecentItem) => {
     if (item.type === 'radio' && item.url) {
-      playStream({ id: item.id, name: item.title, url: item.url, favicon: item.coverUrl ?? undefined, isRadio: true });
+      playStream({
+        id: item.id,
+        name: item.title,
+        url: item.url,
+        favicon: item.coverUrl ?? undefined,
+        isRadio: true,
+      });
       return;
     }
     if (item.type === 'album') {
       // Fetch album tracks and play
       try {
-        const result = await api.get<{ data: { tracks: TrackWithRelations[] } }>(`/albums/${item.id}`);
+        const result = await api.get<{ data: { tracks: TrackWithRelations[] } }>(
+          `/albums/${item.id}`,
+        );
         const tracks = result.data.tracks ?? [];
         if (tracks.length > 0) playTrack(tracks[0], tracks);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       return;
     }
     if (item.type === 'playlist') {
       try {
-        const result = await api.get<{ data: { tracks: { track: TrackWithRelations }[] } }>(`/playlists/${item.id}`);
-        const tracks = (result.data.tracks ?? []).map(pt => pt.track);
+        const result = await api.get<{ data: { tracks: { track: TrackWithRelations }[] } }>(
+          `/playlists/${item.id}`,
+        );
+        const tracks = (result.data.tracks ?? []).map((pt) => pt.track);
         if (tracks.length > 0) playTrack(tracks[0], tracks);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   };
 
@@ -358,8 +463,12 @@ export function Browse() {
   };
 
   const handlePlayPodcastEpisode = (ep: NewPodcastEpisode) => {
-    const isPodcastCurrent = currentTrack && 'isPodcast' in currentTrack && currentTrack.id === ep.episodeId;
-    if (isPodcastCurrent && isPlaying) { togglePlay(); return; }
+    const isPodcastCurrent =
+      currentTrack && 'isPodcast' in currentTrack && currentTrack.id === ep.episodeId;
+    if (isPodcastCurrent && isPlaying) {
+      togglePlay();
+      return;
+    }
     playPodcastEpisode({
       id: ep.episodeId,
       title: ep.episodeTitle,
@@ -372,7 +481,12 @@ export function Browse() {
   };
 
   const isPodcastEpisodePlaying = (ep: NewPodcastEpisode) =>
-    !!(currentTrack && 'isPodcast' in currentTrack && currentTrack.id === ep.episodeId && isPlaying);
+    !!(
+      currentTrack &&
+      'isPodcast' in currentTrack &&
+      currentTrack.id === ep.episodeId &&
+      isPlaying
+    );
 
   if (isLoading) {
     return (
@@ -386,11 +500,11 @@ export function Browse() {
 
   return (
     <div className="space-y-10 pb-6">
-
       {/* ── Greeting ──────────────────────────────────────────────────────── */}
       <div>
         <h1 className="text-3xl md:text-4xl font-black text-white">
-          {greeting()}{summary?.username ? `, ${summary.username}` : ''}
+          {greeting()}
+          {summary?.username ? `, ${summary.username}` : ''}
         </h1>
       </div>
 
@@ -412,7 +526,11 @@ export function Browse() {
 
       {/* ── Für Dich (Playlists) ────────────────────────────────────────────── */}
       {summary && summary.forYouPlaylists.length > 0 && (
-        <Section title={summary.username ? `Für ${summary.username}` : 'Für Dich'} subtitle="Für" href="/music/playlists">
+        <Section
+          title={summary.username ? `Für ${summary.username}` : 'Für Dich'}
+          subtitle="Für"
+          href="/music/playlists"
+        >
           {summary.forYouPlaylists.map((pl) => (
             <Link key={pl.id} to={`/music/playlists/${pl.id}`} className="contents">
               <MediaCard
@@ -488,15 +606,16 @@ export function Browse() {
       )}
 
       {/* Empty state when library is empty */}
-      {summary && summary.recentlyPlayed.length === 0 &&
-        summary.newAdditions.length === 0 && (
+      {summary && summary.recentlyPlayed.length === 0 && summary.newAdditions.length === 0 && (
         <div className="flex flex-col items-center justify-center h-64 text-center space-y-4">
           <div className="h-20 w-20 bg-[#dc2626]/10 rounded-2xl flex items-center justify-center">
             <Music className="h-10 w-10 text-[#dc2626]/60" />
           </div>
           <div>
             <p className="text-white font-semibold text-lg">Deine Bibliothek ist leer</p>
-            <p className="text-[#b3b3b3] mt-1 text-sm">Scanne deine Musik, um hier Empfehlungen zu sehen.</p>
+            <p className="text-[#b3b3b3] mt-1 text-sm">
+              Scanne deine Musik, um hier Empfehlungen zu sehen.
+            </p>
           </div>
         </div>
       )}

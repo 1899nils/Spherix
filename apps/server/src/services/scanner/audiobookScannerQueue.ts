@@ -12,9 +12,9 @@ interface AudiobookScanJobData {
 export const audiobookScanQueue = new Queue<AudiobookScanJobData>(QUEUE_NAME, {
   connection: { url: env.redisUrl },
   defaultJobOptions: {
-    attempts:         1,
+    attempts: 1,
     removeOnComplete: { count: 10 },
-    removeOnFail:     { count: 20 },
+    removeOnFail: { count: 20 },
   },
 });
 
@@ -31,7 +31,7 @@ export function startAudiobookScanWorker(): void {
       return await scanAudiobookLibrary(rootPath);
     },
     {
-      connection:  { url: env.redisUrl },
+      connection: { url: env.redisUrl },
       concurrency: 1,
     },
   );
@@ -53,7 +53,9 @@ export async function enqueueAudiobookScan(rootPath?: string): Promise<string> {
     return active[0].id!;
   }
   const job = await audiobookScanQueue.add('scan', { rootPath });
-  logger.info(`[AudiobookScanQueue] Enqueued audiobook scan job ${job.id} (path: ${rootPath ?? 'default'})`);
+  logger.info(
+    `[AudiobookScanQueue] Enqueued audiobook scan job ${job.id} (path: ${rootPath ?? 'default'})`,
+  );
   return job.id!;
 }
 

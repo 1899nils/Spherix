@@ -69,7 +69,10 @@ function resolveStationLogo(streamUrl: string): string | null {
 router.get('/stations', async (req, res) => {
   try {
     const userId = await getUserId(req);
-    if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
     const stations = await prisma.radioStation.findMany({
       where: { userId },
@@ -85,9 +88,16 @@ router.get('/stations', async (req, res) => {
 router.post('/stations', async (req, res) => {
   try {
     const userId = await getUserId(req);
-    if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
-    const { name, url, logoUrl: customLogo } = req.body as {
+    const {
+      name,
+      url,
+      logoUrl: customLogo,
+    } = req.body as {
       name?: string;
       url?: string;
       logoUrl?: string;
@@ -115,7 +125,10 @@ router.post('/stations', async (req, res) => {
 router.patch('/stations/:id', async (req, res) => {
   try {
     const userId = await getUserId(req);
-    if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
     const { name, url, logoUrl } = req.body as {
       name?: string;
@@ -134,9 +147,10 @@ router.patch('/stations/:id', async (req, res) => {
     }
     if (logoUrl !== undefined) {
       // null = clear logo, '' = clear logo, string = set logo
-      data.logoUrl = logoUrl?.trim() || resolveStationLogo(
-        (data.url as string | undefined) ?? url?.trim() ?? ''
-      ) ?? null;
+      data.logoUrl =
+        (logoUrl?.trim() ||
+          resolveStationLogo((data.url as string | undefined) ?? url?.trim() ?? '')) ??
+        null;
     }
 
     const station = await prisma.radioStation.updateMany({
@@ -160,7 +174,10 @@ router.patch('/stations/:id', async (req, res) => {
 router.delete('/stations/:id', async (req, res) => {
   try {
     const userId = await getUserId(req);
-    if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
     await prisma.radioStation.deleteMany({
       where: { id: req.params.id, userId },
@@ -177,7 +194,10 @@ router.delete('/stations/:id', async (req, res) => {
 router.post('/start', async (req, res) => {
   try {
     const userId = await getUserId(req);
-    if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
     const { stationUrl, stationName } = req.body as {
       stationUrl?: string;
@@ -200,7 +220,10 @@ router.post('/start', async (req, res) => {
 router.get('/current-track', async (req, res) => {
   try {
     const userId = await getUserId(req);
-    if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
     const track = radioPoller.getCurrentTrack(userId);
     res.json({ track });
@@ -214,7 +237,10 @@ router.get('/current-track', async (req, res) => {
  */
 router.get('/events', async (req, res) => {
   const userId = await getUserId(req);
-  if (!userId) { res.status(401).end(); return; }
+  if (!userId) {
+    res.status(401).end();
+    return;
+  }
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -230,14 +256,19 @@ router.get('/events', async (req, res) => {
   };
 
   radioPoller.subscribe(userId, send);
-  req.on('close', () => { radioPoller.unsubscribe(userId, send); });
+  req.on('close', () => {
+    radioPoller.unsubscribe(userId, send);
+  });
 });
 
 /** Stop ICY metadata polling for the current user */
 router.post('/stop', async (req, res) => {
   try {
     const userId = await getUserId(req);
-    if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
     radioPoller.stop(userId);
     res.json({ success: true });

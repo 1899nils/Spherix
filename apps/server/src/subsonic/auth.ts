@@ -62,11 +62,7 @@ async function verifyPassword(plainPassword: string, storedHash: string): Promis
  * because bcrypt is not reversible and cannot be used to recompute md5(password+salt).
  * Clients using token auth need to re-authenticate after a password rehash.
  */
-export async function subsonicAuth(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
+export async function subsonicAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   // Parameters can be in query string or body (POST)
   const params = { ...req.query, ...req.body } as Record<string, string>;
 

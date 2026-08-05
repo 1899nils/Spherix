@@ -31,9 +31,9 @@ export const scrobbleWorker = new Worker(
       return; // No Last.fm account connected
     }
 
-    const config = { 
-      apiKey: userSettings.lastfmApiKey, 
-      apiSecret: userSettings.lastfmApiSecret 
+    const config = {
+      apiKey: userSettings.lastfmApiKey,
+      apiSecret: userSettings.lastfmApiSecret,
     };
 
     try {
@@ -47,21 +47,21 @@ export const scrobbleWorker = new Worker(
         logger.info('Now Playing updated on Last.fm', { userId, track: track.track });
       }
     } catch (error) {
-      logger.error('Last.fm scrobble job failed', { 
-        jobId: job.id, 
+      logger.error('Last.fm scrobble job failed', {
+        jobId: job.id,
         error: String(error),
-        track: track.track 
+        track: track.track,
       });
       throw error; // Let BullMQ handle retries
     }
   },
-  { 
+  {
     connection: redis as any,
     limiter: {
       max: 5,
       duration: 1000, // Max 5 requests per second to stay within Last.fm limits
-    }
-  }
+    },
+  },
 );
 
 scrobbleWorker.on('failed', (job, err) => {

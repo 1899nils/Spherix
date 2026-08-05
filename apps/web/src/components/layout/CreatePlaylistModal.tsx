@@ -20,11 +20,14 @@ export function CreatePlaylistModal({ isOpen, onClose }: CreatePlaylistModalProp
 
   const { data: tracksData, isLoading: tracksLoading } = useQuery({
     queryKey: ['tracks', 'search', searchQuery],
-    queryFn: () => api.get<PaginatedResponse<TrackWithRelations>>(`/tracks?pageSize=50${searchQuery ? `&q=${searchQuery}` : ''}`),
+    queryFn: () =>
+      api.get<PaginatedResponse<TrackWithRelations>>(
+        `/tracks?pageSize=50${searchQuery ? `&q=${searchQuery}` : ''}`,
+      ),
   });
 
   const createPlaylist = useMutation({
-    mutationFn: (data: { name: string; coverUrl?: string; trackIds: string[] }) => 
+    mutationFn: (data: { name: string; coverUrl?: string; trackIds: string[] }) =>
       api.post('/playlists', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['playlists'] });
@@ -33,32 +36,29 @@ export function CreatePlaylistModal({ isOpen, onClose }: CreatePlaylistModalProp
   });
 
   const toggleTrack = (id: string) => {
-    setSelectedTracks((prev: string[]) => 
-      prev.includes(id) ? prev.filter((t: string) => t !== id) : [...prev, id]
+    setSelectedTracks((prev: string[]) =>
+      prev.includes(id) ? prev.filter((t: string) => t !== id) : [...prev, id],
     );
   };
 
   const handleSave = () => {
     if (!name) return;
-    createPlaylist.mutate({ 
-      name, 
-      coverUrl: coverUrl || undefined, 
-      trackIds: selectedTracks 
+    createPlaylist.mutate({
+      name,
+      coverUrl: coverUrl || undefined,
+      trackIds: selectedTracks,
     });
   };
 
   return (
-    <Modal 
-      title="Neue Playlist erstellen" 
-      isOpen={isOpen} 
-      onClose={onClose}
-      maxWidth="max-w-5xl"
-    >
+    <Modal title="Neue Playlist erstellen" isOpen={isOpen} onClose={onClose} maxWidth="max-w-5xl">
       <div className="flex overflow-hidden h-[70vh]">
         {/* Left: Details */}
         <div className="w-1/3 border-r border-white/5 pr-8 space-y-8 overflow-y-auto">
           <div className="space-y-4">
-            <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Playlist-Details</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+              Playlist-Details
+            </label>
             <div className="space-y-4">
               <input
                 type="text"
@@ -92,12 +92,16 @@ export function CreatePlaylistModal({ isOpen, onClose }: CreatePlaylistModalProp
           </div>
 
           <div className="pt-4">
-            <Button 
+            <Button
               className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-lg shadow-blue-900/20 disabled:opacity-50"
               disabled={!name || createPlaylist.isPending}
               onClick={handleSave}
             >
-              {createPlaylist.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Playlist speichern'}
+              {createPlaylist.isPending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                'Playlist speichern'
+              )}
             </Button>
           </div>
         </div>
@@ -105,14 +109,18 @@ export function CreatePlaylistModal({ isOpen, onClose }: CreatePlaylistModalProp
         {/* Right: Track Selection */}
         <div className="flex-1 flex flex-col pl-8 space-y-6 overflow-hidden">
           <div className="flex items-center justify-between shrink-0">
-            <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Songs hinzufügen ({selectedTracks.length} ausgewählt)</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+              Songs hinzufügen ({selectedTracks.length} ausgewählt)
+            </label>
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
               <input
                 type="text"
                 placeholder="Songs suchen..."
                 value={searchQuery}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setSearchQuery(e.target.value)
+                }
                 className="w-full bg-white/5 border border-white/5 rounded-full pl-9 pr-4 py-1.5 text-xs text-white focus:outline-none focus:bg-white/10 transition-all"
               />
             </div>
@@ -120,37 +128,50 @@ export function CreatePlaylistModal({ isOpen, onClose }: CreatePlaylistModalProp
 
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
             <div className="space-y-1">
-              {tracksLoading ? (
-                Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="h-14 bg-white/5 animate-pulse rounded-xl" />
-                ))
-              ) : (
-                tracksData?.data.map((track) => {
-                  const isSelected = selectedTracks.includes(track.id);
-                  return (
-                    <div 
-                      key={track.id}
-                      className={`group flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all ${
-                        isSelected ? 'bg-blue-600/20 border border-blue-500/30' : 'hover:bg-white/5 border border-transparent'
-                      }`}
-                      onClick={() => toggleTrack(track.id)}
-                    >
-                      <div className="h-10 w-10 rounded-lg bg-zinc-800 overflow-hidden shrink-0 shadow-md">
-                        {track.album?.coverUrl && <img src={track.album.coverUrl} className="w-full h-full object-cover" />}
+              {tracksLoading
+                ? Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="h-14 bg-white/5 animate-pulse rounded-xl" />
+                  ))
+                : tracksData?.data.map((track) => {
+                    const isSelected = selectedTracks.includes(track.id);
+                    return (
+                      <div
+                        key={track.id}
+                        className={`group flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-blue-600/20 border border-blue-500/30'
+                            : 'hover:bg-white/5 border border-transparent'
+                        }`}
+                        onClick={() => toggleTrack(track.id)}
+                      >
+                        <div className="h-10 w-10 rounded-lg bg-zinc-800 overflow-hidden shrink-0 shadow-md">
+                          {track.album?.coverUrl && (
+                            <img
+                              src={track.album.coverUrl}
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`text-sm font-semibold truncate ${isSelected ? 'text-blue-400' : 'text-white'}`}
+                          >
+                            {track.title}
+                          </p>
+                          <p className="text-xs text-zinc-500 truncate">{track.artist.name}</p>
+                        </div>
+                        <div
+                          className={`h-6 w-6 rounded-full flex items-center justify-center transition-all ${
+                            isSelected
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-white/5 group-hover:bg-white/10 text-transparent'
+                          }`}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-sm font-semibold truncate ${isSelected ? 'text-blue-400' : 'text-white'}`}>{track.title}</p>
-                        <p className="text-xs text-zinc-500 truncate">{track.artist.name}</p>
-                      </div>
-                      <div className={`h-6 w-6 rounded-full flex items-center justify-center transition-all ${
-                        isSelected ? 'bg-blue-500 text-white' : 'bg-white/5 group-hover:bg-white/10 text-transparent'
-                      }`}>
-                        <Check className="h-3.5 w-3.5" />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+                    );
+                  })}
             </div>
           </div>
         </div>

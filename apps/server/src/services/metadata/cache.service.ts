@@ -7,12 +7,12 @@ export interface CacheConfig {
 }
 
 export const CACHE_TTLS = {
-  musicbrainz: 7 * 24 * 60 * 60,    // 7 days
-  coverArt: 30 * 24 * 60 * 60,      // 30 days
-  youtube: 30 * 24 * 60 * 60,       // 30 days
-  lastfm: 14 * 24 * 60 * 60,        // 14 days
-  lrclib: 90 * 24 * 60 * 60,        // 90 days (lyrics rarely change)
-  artistBio: 14 * 24 * 60 * 60,     // 14 days
+  musicbrainz: 7 * 24 * 60 * 60, // 7 days
+  coverArt: 30 * 24 * 60 * 60, // 30 days
+  youtube: 30 * 24 * 60 * 60, // 30 days
+  lastfm: 14 * 24 * 60 * 60, // 14 days
+  lrclib: 90 * 24 * 60 * 60, // 90 days (lyrics rarely change)
+  artistBio: 14 * 24 * 60 * 60, // 14 days
   similarArtists: 7 * 24 * 60 * 60, // 7 days
 } as const;
 
@@ -22,7 +22,7 @@ export const CACHE_TTLS = {
 export async function getCached<T>(
   key: string,
   fetcher: () => Promise<T>,
-  ttl: number
+  ttl: number,
 ): Promise<T> {
   // Try cache first
   try {
@@ -55,7 +55,7 @@ export async function getCached<T>(
 export async function getCachedBatch<T>(keys: string[]): Promise<(T | null)[]> {
   try {
     const values = await redis.mget(...keys);
-    return values.map(v => v ? JSON.parse(v) as T : null);
+    return values.map((v) => (v ? (JSON.parse(v) as T) : null));
   } catch (err) {
     logger.warn('Batch cache read failed', { error: String(err) });
     return keys.map(() => null);
@@ -66,7 +66,7 @@ export async function getCachedBatch<T>(keys: string[]): Promise<(T | null)[]> {
  * Batch cache set
  */
 export async function setCachedBatch(
-  entries: { key: string; value: unknown; ttl: number }[]
+  entries: { key: string; value: unknown; ttl: number }[],
 ): Promise<void> {
   if (entries.length === 0) return;
 

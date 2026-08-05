@@ -8,8 +8,8 @@ import { join } from 'node:path';
 // isolated temp directory before importing the service under test so this
 // test never touches the real /data/transcodes folder.
 let dataDir: string;
-let cleanupOldTranscodes: typeof import('./transcode.service.js')['cleanupOldTranscodes'];
-let getTranscodeDirectory: typeof import('./transcode.service.js')['getTranscodeDirectory'];
+let cleanupOldTranscodes: (typeof import('./transcode.service.js'))['cleanupOldTranscodes'];
+let getTranscodeDirectory: (typeof import('./transcode.service.js'))['getTranscodeDirectory'];
 
 beforeAll(async () => {
   dataDir = mkdtempSync(join(tmpdir(), 'spherix-transcode-test-'));

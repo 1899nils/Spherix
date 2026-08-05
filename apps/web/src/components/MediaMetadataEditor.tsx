@@ -3,8 +3,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
-  X, Loader2, FileText, Image as ImageIcon, Info,
-  Music, AlignLeft, Lock, Search, Upload, Film, Tv, Headphones,
+  X,
+  Loader2,
+  FileText,
+  Image as ImageIcon,
+  Info,
+  Music,
+  AlignLeft,
+  Lock,
+  Search,
+  Upload,
+  Film,
+  Tv,
+  Headphones,
   Link as LinkIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -32,48 +43,54 @@ interface Tab {
 
 const ALBUM_TABS: Tab[] = [
   { id: 'general', label: 'Allgemein', icon: FileText },
-  { id: 'artwork', label: 'Artwork',   icon: ImageIcon },
-  { id: 'info',    label: 'Info',      icon: Info },
+  { id: 'artwork', label: 'Artwork', icon: ImageIcon },
+  { id: 'info', label: 'Info', icon: Info },
 ];
 
 const TRACK_TABS: Tab[] = [
   { id: 'general', label: 'Allgemein', icon: Music },
-  { id: 'lyrics',  label: 'Lyrics',    icon: AlignLeft },
-  { id: 'info',    label: 'Info',      icon: Info },
+  { id: 'lyrics', label: 'Lyrics', icon: AlignLeft },
+  { id: 'info', label: 'Info', icon: Info },
 ];
 
 const MOVIE_TABS: Tab[] = [
-  { id: 'general', label: 'Allgemein',  icon: Film },
-  { id: 'images',  label: 'Bilder',     icon: ImageIcon },
-  { id: 'links',   label: 'Verknüpfung', icon: LinkIcon },
-  { id: 'info',    label: 'Info',       icon: Info },
+  { id: 'general', label: 'Allgemein', icon: Film },
+  { id: 'images', label: 'Bilder', icon: ImageIcon },
+  { id: 'links', label: 'Verknüpfung', icon: LinkIcon },
+  { id: 'info', label: 'Info', icon: Info },
 ];
 
 const SERIES_TABS: Tab[] = [
-  { id: 'general', label: 'Allgemein',  icon: Tv },
-  { id: 'images',  label: 'Bilder',     icon: ImageIcon },
-  { id: 'links',   label: 'Verknüpfung', icon: LinkIcon },
-  { id: 'info',    label: 'Info',       icon: Info },
+  { id: 'general', label: 'Allgemein', icon: Tv },
+  { id: 'images', label: 'Bilder', icon: ImageIcon },
+  { id: 'links', label: 'Verknüpfung', icon: LinkIcon },
+  { id: 'info', label: 'Info', icon: Info },
 ];
 
 const EPISODE_TABS: Tab[] = [
   { id: 'general', label: 'Allgemein', icon: Film },
-  { id: 'info',    label: 'Info',      icon: Info },
+  { id: 'info', label: 'Info', icon: Info },
 ];
 
 const AUDIOBOOK_TABS: Tab[] = [
   { id: 'general', label: 'Allgemein', icon: Headphones },
-  { id: 'info',    label: 'Info',      icon: Info },
+  { id: 'info', label: 'Info', icon: Info },
 ];
 
 function getTabsForType(type: MediaMetadataEditorProps['type']): Tab[] {
   switch (type) {
-    case 'album':     return ALBUM_TABS;
-    case 'track':     return TRACK_TABS;
-    case 'movie':     return MOVIE_TABS;
-    case 'series':    return SERIES_TABS;
-    case 'episode':   return EPISODE_TABS;
-    case 'audiobook': return AUDIOBOOK_TABS;
+    case 'album':
+      return ALBUM_TABS;
+    case 'track':
+      return TRACK_TABS;
+    case 'movie':
+      return MOVIE_TABS;
+    case 'series':
+      return SERIES_TABS;
+    case 'episode':
+      return EPISODE_TABS;
+    case 'audiobook':
+      return AUDIOBOOK_TABS;
   }
 }
 
@@ -92,9 +109,18 @@ function FieldLabel({ label, locked }: { label: string; locked?: boolean }) {
 
 // ── Reusable field components ─────────────────────────────────────────────────
 
-function TextField({ label, value, onChange, locked, placeholder }: {
-  label: string; value: string; onChange: (v: string) => void;
-  locked?: boolean; placeholder?: string;
+function TextField({
+  label,
+  value,
+  onChange,
+  locked,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  locked?: boolean;
+  placeholder?: string;
 }) {
   return (
     <div>
@@ -102,7 +128,7 @@ function TextField({ label, value, onChange, locked, placeholder }: {
       <input
         type="text"
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       />
@@ -110,8 +136,16 @@ function TextField({ label, value, onChange, locked, placeholder }: {
   );
 }
 
-function NumberField({ label, value, onChange, locked }: {
-  label: string; value: string; onChange: (v: string) => void; locked?: boolean;
+function NumberField({
+  label,
+  value,
+  onChange,
+  locked,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  locked?: boolean;
 }) {
   return (
     <div>
@@ -119,7 +153,7 @@ function NumberField({ label, value, onChange, locked }: {
       <input
         type="number"
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       />
     </div>
@@ -137,15 +171,23 @@ function ReadonlyField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TextareaField({ label, value, onChange, rows = 6 }: {
-  label: string; value: string; onChange: (v: string) => void; rows?: number;
+function TextareaField({
+  label,
+  value,
+  onChange,
+  rows = 6,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
 }) {
   return (
     <div className="flex flex-col flex-1">
       <FieldLabel label={label} />
       <textarea
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         rows={rows}
         className="flex-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
       />
@@ -155,7 +197,11 @@ function TextareaField({ label, value, onChange, rows = 6 }: {
 
 // ── Album tab panels ──────────────────────────────────────────────────────────
 
-function AlbumGeneralTab({ form, onChange, isLocked }: {
+function AlbumGeneralTab({
+  form,
+  onChange,
+  isLocked,
+}: {
   form: Record<string, string>;
   onChange: (key: string, val: string) => void;
   isLocked: boolean;
@@ -163,16 +209,25 @@ function AlbumGeneralTab({ form, onChange, isLocked }: {
   return (
     <div className="space-y-4">
       {/* Titel */}
-      <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} locked={isLocked} />
+      <TextField
+        label="Titel"
+        value={form.title ?? ''}
+        onChange={(v) => onChange('title', v)}
+        locked={isLocked}
+      />
 
       {/* Künstler & Release-Typ */}
       <div className="grid grid-cols-2 gap-4">
-        <TextField label="Künstler" value={form.artistName ?? ''} onChange={v => onChange('artistName', v)} />
+        <TextField
+          label="Künstler"
+          value={form.artistName ?? ''}
+          onChange={(v) => onChange('artistName', v)}
+        />
         <div>
           <FieldLabel label="Release-Typ" />
           <select
             value={form.releaseType ?? 'Album'}
-            onChange={e => onChange('releaseType', e.target.value)}
+            onChange={(e) => onChange('releaseType', e.target.value)}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
             <option value="Album">Album</option>
@@ -194,32 +249,70 @@ function AlbumGeneralTab({ form, onChange, isLocked }: {
 
       {/* Jahr & Release-Date */}
       <div className="grid grid-cols-2 gap-4">
-        <NumberField label="Jahr" value={form.year ?? ''} onChange={v => onChange('year', v)} locked={isLocked} />
-        <TextField label="Release-Datum" value={form.releaseDate ?? ''} onChange={v => onChange('releaseDate', v)} placeholder="YYYY-MM-DD" />
+        <NumberField
+          label="Jahr"
+          value={form.year ?? ''}
+          onChange={(v) => onChange('year', v)}
+          locked={isLocked}
+        />
+        <TextField
+          label="Release-Datum"
+          value={form.releaseDate ?? ''}
+          onChange={(v) => onChange('releaseDate', v)}
+          placeholder="YYYY-MM-DD"
+        />
       </div>
 
       {/* CD-Anzahl & Track-Anzahl */}
       <div className="grid grid-cols-2 gap-4">
-        <NumberField label="CD-Anzahl" value={form.totalDiscs ?? ''} onChange={v => onChange('totalDiscs', v)} locked={isLocked} />
-        <NumberField label="Track-Anzahl" value={form.totalTracks ?? ''} onChange={v => onChange('totalTracks', v)} locked={isLocked} />
+        <NumberField
+          label="CD-Anzahl"
+          value={form.totalDiscs ?? ''}
+          onChange={(v) => onChange('totalDiscs', v)}
+          locked={isLocked}
+        />
+        <NumberField
+          label="Track-Anzahl"
+          value={form.totalTracks ?? ''}
+          onChange={(v) => onChange('totalTracks', v)}
+          locked={isLocked}
+        />
       </div>
 
       {/* Genre & Label */}
       <div className="grid grid-cols-2 gap-4">
-        <TextField label="Genre" value={form.genre ?? ''} onChange={v => onChange('genre', v)} locked={isLocked} />
-        <TextField label="Label" value={form.label ?? ''} onChange={v => onChange('label', v)} locked={isLocked} />
+        <TextField
+          label="Genre"
+          value={form.genre ?? ''}
+          onChange={(v) => onChange('genre', v)}
+          locked={isLocked}
+        />
+        <TextField
+          label="Label"
+          value={form.label ?? ''}
+          onChange={(v) => onChange('label', v)}
+          locked={isLocked}
+        />
       </div>
 
       {/* Land & MusicBrainz ID */}
       <div className="grid grid-cols-2 gap-4">
-        <TextField label="Land" value={form.country ?? ''} onChange={v => onChange('country', v)} />
+        <TextField
+          label="Land"
+          value={form.country ?? ''}
+          onChange={(v) => onChange('country', v)}
+        />
         <ReadonlyField label="MusicBrainz ID" value={form.musicbrainzId ?? ''} />
       </div>
     </div>
   );
 }
 
-function AlbumArtworkTab({ albumId, coverUrl, onCoverUploaded }: {
+function AlbumArtworkTab({
+  albumId,
+  coverUrl,
+  onCoverUploaded,
+}: {
   albumId: string;
   coverUrl: string;
   onCoverUploaded: () => void;
@@ -278,9 +371,7 @@ function AlbumArtworkTab({ albumId, coverUrl, onCoverUploaded }: {
           Cover hochladen
         </Button>
         <p className="text-xs text-muted-foreground">JPG, PNG, WebP · max. 5 MB</p>
-        {uploadMutation.isError && (
-          <p className="text-xs text-red-500">Fehler beim Hochladen</p>
-        )}
+        {uploadMutation.isError && <p className="text-xs text-red-500">Fehler beim Hochladen</p>}
         {uploadMutation.isSuccess && (
           <p className="text-xs text-green-500">Cover erfolgreich aktualisiert</p>
         )}
@@ -289,7 +380,10 @@ function AlbumArtworkTab({ albumId, coverUrl, onCoverUploaded }: {
   );
 }
 
-function AlbumInfoTab({ form, onOpenMusicBrainz }: {
+function AlbumInfoTab({
+  form,
+  onOpenMusicBrainz,
+}: {
   form: Record<string, string>;
   onOpenMusicBrainz?: () => void;
 }) {
@@ -298,24 +392,32 @@ function AlbumInfoTab({ form, onOpenMusicBrainz }: {
       {/* Statistics */}
       <div className="grid grid-cols-2 gap-4">
         <ReadonlyField label="Tracks gesamt" value={form.totalTracks ?? ''} />
-        <ReadonlyField label="Discs gesamt"  value={form.totalDiscs ?? ''} />
+        <ReadonlyField label="Discs gesamt" value={form.totalDiscs ?? ''} />
       </div>
-      
+
       {/* MusicBrainz */}
       <div className="pt-4 border-t border-border">
         <ReadonlyField label="MusicBrainz ID" value={form.musicbrainzId ?? ''} />
         {onOpenMusicBrainz && (
-          <Button type="button" variant="outline" className="w-full mt-4" onClick={onOpenMusicBrainz}>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full mt-4"
+            onClick={onOpenMusicBrainz}
+          >
             <Search className="h-4 w-4 mr-2" />
             Mit MusicBrainz verknüpfen
           </Button>
         )}
       </div>
-      
+
       {/* Hint */}
       <div className="rounded-md bg-muted/40 border border-border p-3 text-xs text-muted-foreground space-y-1 mt-6">
         <p className="font-medium text-foreground/70">Hinweis</p>
-        <p>Felder mit <Lock className="h-3 w-3 inline" /> wurden automatisch beim Scan befüllt. Sie können trotzdem manuell überschrieben werden.</p>
+        <p>
+          Felder mit <Lock className="h-3 w-3 inline" /> wurden automatisch beim Scan befüllt. Sie
+          können trotzdem manuell überschrieben werden.
+        </p>
       </div>
     </div>
   );
@@ -323,15 +425,21 @@ function AlbumInfoTab({ form, onOpenMusicBrainz }: {
 
 // ── Track tab panels ──────────────────────────────────────────────────────────
 
-function CheckboxField({ label, checked, onChange }: {
-  label: string; checked: boolean; onChange: (v: boolean) => void;
+function CheckboxField({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
 }) {
   return (
     <div className="flex items-center gap-2">
       <input
         type="checkbox"
         checked={checked}
-        onChange={e => onChange(e.target.checked)}
+        onChange={(e) => onChange(e.target.checked)}
         className="h-4 w-4 rounded border-border bg-background text-primary focus:ring-primary"
       />
       <label className="text-sm text-foreground">{label}</label>
@@ -339,34 +447,57 @@ function CheckboxField({ label, checked, onChange }: {
   );
 }
 
-function TrackGeneralTab({ form, onChange }: {
+function TrackGeneralTab({
+  form,
+  onChange,
+}: {
   form: Record<string, string>;
   onChange: (key: string, val: string) => void;
 }) {
   return (
     <div className="space-y-4">
-      <TextField label="Titel"   value={form.title ?? ''}       onChange={v => onChange('title', v)} />
-      <TextField label="Künstler" value={form.artistName ?? ''} onChange={v => onChange('artistName', v)} />
+      <TextField label="Titel" value={form.title ?? ''} onChange={(v) => onChange('title', v)} />
+      <TextField
+        label="Künstler"
+        value={form.artistName ?? ''}
+        onChange={(v) => onChange('artistName', v)}
+      />
       <div className="grid grid-cols-2 gap-4">
-        <NumberField label="Track-Nr." value={form.trackNumber ?? ''} onChange={v => onChange('trackNumber', v)} />
-        <NumberField label="Disc-Nr."  value={form.discNumber ?? ''}  onChange={v => onChange('discNumber', v)} />
+        <NumberField
+          label="Track-Nr."
+          value={form.trackNumber ?? ''}
+          onChange={(v) => onChange('trackNumber', v)}
+        />
+        <NumberField
+          label="Disc-Nr."
+          value={form.discNumber ?? ''}
+          onChange={(v) => onChange('discNumber', v)}
+        />
       </div>
-      <CheckboxField 
-        label="Explicit (unangemessene Inhalte)" 
-        checked={form.explicit === 'true'} 
-        onChange={v => onChange('explicit', String(v))} 
+      <CheckboxField
+        label="Explicit (unangemessene Inhalte)"
+        checked={form.explicit === 'true'}
+        onChange={(v) => onChange('explicit', String(v))}
       />
     </div>
   );
 }
 
-function TrackLyricsTab({ form, onChange }: {
+function TrackLyricsTab({
+  form,
+  onChange,
+}: {
   form: Record<string, string>;
   onChange: (key: string, val: string) => void;
 }) {
   return (
     <div className="flex flex-col h-full">
-      <TextareaField label="Lyrics" value={form.lyrics ?? ''} onChange={v => onChange('lyrics', v)} rows={14} />
+      <TextareaField
+        label="Lyrics"
+        value={form.lyrics ?? ''}
+        onChange={(v) => onChange('lyrics', v)}
+        rows={14}
+      />
     </div>
   );
 }
@@ -397,21 +528,21 @@ function TrackInfoTab({ form }: { form: Record<string, string> }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <ReadonlyField label="Format"     value={form.format ?? ''} />
-        <ReadonlyField label="Bitrate"    value={form.bitrate ? `${form.bitrate} kbps` : ''} />
+        <ReadonlyField label="Format" value={form.format ?? ''} />
+        <ReadonlyField label="Bitrate" value={form.bitrate ? `${form.bitrate} kbps` : ''} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <ReadonlyField label="Samplerate" value={form.sampleRate ? `${form.sampleRate} Hz` : ''} />
-        <ReadonlyField label="Kanäle"     value={form.channels ?? ''} />
+        <ReadonlyField label="Kanäle" value={form.channels ?? ''} />
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <ReadonlyField label="Dauer"      value={formatDurationMs(form.duration ?? '')} />
+        <ReadonlyField label="Dauer" value={formatDurationMs(form.duration ?? '')} />
         <ReadonlyField label="Dateigröße" value={formatFileSize(form.fileSize ?? '')} />
       </div>
-      
+
       {/* MusicBrainz ID */}
       <ReadonlyField label="MusicBrainz ID" value={form.musicbrainzId ?? ''} />
-      
+
       {/* Music Video Info */}
       <div className="pt-4 border-t border-border">
         <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">
@@ -420,20 +551,21 @@ function TrackInfoTab({ form }: { form: Record<string, string> }) {
         {form.musicVideoUrl ? (
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-4">
-              <ReadonlyField 
-                label="Quelle" 
-                value={form.musicVideoSource === 'musicbrainz' ? 'MusicBrainz' : 
-                       form.musicVideoSource === 'youtube' ? 'YouTube' : 
-                       form.musicVideoSource ?? 'Unbekannt'} 
+              <ReadonlyField
+                label="Quelle"
+                value={
+                  form.musicVideoSource === 'musicbrainz'
+                    ? 'MusicBrainz'
+                    : form.musicVideoSource === 'youtube'
+                      ? 'YouTube'
+                      : (form.musicVideoSource ?? 'Unbekannt')
+                }
               />
-              <ReadonlyField 
-                label="Video ID" 
-                value={getVideoId(form.musicVideoUrl) ?? '–'} 
-              />
+              <ReadonlyField label="Video ID" value={getVideoId(form.musicVideoUrl) ?? '–'} />
             </div>
             <div>
               <FieldLabel label="Video URL" />
-              <a 
+              <a
                 href={form.musicVideoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -444,9 +576,7 @@ function TrackInfoTab({ form }: { form: Record<string, string> }) {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground italic">
-            Kein Musikvideo verknüpft
-          </p>
+          <p className="text-sm text-muted-foreground italic">Kein Musikvideo verknüpft</p>
         )}
       </div>
 
@@ -465,95 +595,186 @@ function TrackInfoTab({ form }: { form: Record<string, string> }) {
 const FSK_OPTIONS = ['', 'FSK 0', 'FSK 6', 'FSK 12', 'FSK 16', 'FSK 18'];
 const US_RATING_OPTIONS = ['', 'G', 'PG', 'PG-13', 'R', 'NC-17'];
 
-function MovieGeneralTab({ form, onChange }: {
+function MovieGeneralTab({
+  form,
+  onChange,
+}: {
   form: Record<string, string>;
   onChange: (key: string, val: string) => void;
 }) {
   return (
     <div className="space-y-4">
-      <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} />
+      <TextField label="Titel" value={form.title ?? ''} onChange={(v) => onChange('title', v)} />
       <div className="grid grid-cols-2 gap-4">
-        <TextField label="Sortiertitel"   value={form.sortTitle ?? ''}     onChange={v => onChange('sortTitle', v)} />
-        <TextField label="Originaltitel"  value={form.originalTitle ?? ''} onChange={v => onChange('originalTitle', v)} />
+        <TextField
+          label="Sortiertitel"
+          value={form.sortTitle ?? ''}
+          onChange={(v) => onChange('sortTitle', v)}
+        />
+        <TextField
+          label="Originaltitel"
+          value={form.originalTitle ?? ''}
+          onChange={(v) => onChange('originalTitle', v)}
+        />
       </div>
       <div className="grid grid-cols-3 gap-4">
-        <NumberField label="Erscheinungsjahr" value={form.year ?? ''}        onChange={v => onChange('year', v)} />
-        <TextField   label="Erscheinungsdatum" value={form.releaseDate ?? ''} onChange={v => onChange('releaseDate', v)} placeholder="YYYY-MM-DD" />
-        <NumberField label="Laufzeit (Min.)"  value={form.runtime ?? ''}    onChange={v => onChange('runtime', v)} />
+        <NumberField
+          label="Erscheinungsjahr"
+          value={form.year ?? ''}
+          onChange={(v) => onChange('year', v)}
+        />
+        <TextField
+          label="Erscheinungsdatum"
+          value={form.releaseDate ?? ''}
+          onChange={(v) => onChange('releaseDate', v)}
+          placeholder="YYYY-MM-DD"
+        />
+        <NumberField
+          label="Laufzeit (Min.)"
+          value={form.runtime ?? ''}
+          onChange={(v) => onChange('runtime', v)}
+        />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <FieldLabel label="Altersfreigabe (FSK)" />
           <select
             value={form.fskRating ?? ''}
-            onChange={e => onChange('fskRating', e.target.value)}
+            onChange={(e) => onChange('fskRating', e.target.value)}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            {FSK_OPTIONS.map(o => <option key={o} value={o}>{o || '–'}</option>)}
+            {FSK_OPTIONS.map((o) => (
+              <option key={o} value={o}>
+                {o || '–'}
+              </option>
+            ))}
           </select>
         </div>
         <div>
           <FieldLabel label="US-Freigabe" />
           <select
             value={form.contentRating ?? ''}
-            onChange={e => onChange('contentRating', e.target.value)}
+            onChange={(e) => onChange('contentRating', e.target.value)}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            {US_RATING_OPTIONS.map(o => <option key={o} value={o}>{o || '–'}</option>)}
+            {US_RATING_OPTIONS.map((o) => (
+              <option key={o} value={o}>
+                {o || '–'}
+              </option>
+            ))}
           </select>
         </div>
       </div>
-      <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={4} />
-      <TextField label="Beschreibung Untertitel (Tagline)" value={form.tagline ?? ''} onChange={v => onChange('tagline', v)} />
+      <TextareaField
+        label="Beschreibung"
+        value={form.overview ?? ''}
+        onChange={(v) => onChange('overview', v)}
+        rows={4}
+      />
+      <TextField
+        label="Beschreibung Untertitel (Tagline)"
+        value={form.tagline ?? ''}
+        onChange={(v) => onChange('tagline', v)}
+      />
       <div className="grid grid-cols-2 gap-4">
-        <TextField label="Studio"     value={form.studio ?? ''}  onChange={v => onChange('studio', v)} />
-        <TextField label="Publisher"  value={form.network ?? ''} onChange={v => onChange('network', v)} />
+        <TextField
+          label="Studio"
+          value={form.studio ?? ''}
+          onChange={(v) => onChange('studio', v)}
+        />
+        <TextField
+          label="Publisher"
+          value={form.network ?? ''}
+          onChange={(v) => onChange('network', v)}
+        />
       </div>
     </div>
   );
 }
 
-function SeriesGeneralTab({ form, onChange }: {
+function SeriesGeneralTab({
+  form,
+  onChange,
+}: {
   form: Record<string, string>;
   onChange: (key: string, val: string) => void;
 }) {
   return (
     <div className="space-y-4">
-      <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} />
+      <TextField label="Titel" value={form.title ?? ''} onChange={(v) => onChange('title', v)} />
       <div className="grid grid-cols-2 gap-4">
-        <TextField label="Sortiertitel"  value={form.sortTitle ?? ''}     onChange={v => onChange('sortTitle', v)} />
-        <TextField label="Originaltitel" value={form.originalTitle ?? ''} onChange={v => onChange('originalTitle', v)} />
+        <TextField
+          label="Sortiertitel"
+          value={form.sortTitle ?? ''}
+          onChange={(v) => onChange('sortTitle', v)}
+        />
+        <TextField
+          label="Originaltitel"
+          value={form.originalTitle ?? ''}
+          onChange={(v) => onChange('originalTitle', v)}
+        />
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <NumberField label="Erscheinungsjahr"  value={form.year ?? ''}        onChange={v => onChange('year', v)} />
-        <TextField   label="Erscheinungsdatum" value={form.releaseDate ?? ''} onChange={v => onChange('releaseDate', v)} placeholder="YYYY-MM-DD" />
+        <NumberField
+          label="Erscheinungsjahr"
+          value={form.year ?? ''}
+          onChange={(v) => onChange('year', v)}
+        />
+        <TextField
+          label="Erscheinungsdatum"
+          value={form.releaseDate ?? ''}
+          onChange={(v) => onChange('releaseDate', v)}
+          placeholder="YYYY-MM-DD"
+        />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <FieldLabel label="Altersfreigabe (FSK)" />
           <select
             value={form.fskRating ?? ''}
-            onChange={e => onChange('fskRating', e.target.value)}
+            onChange={(e) => onChange('fskRating', e.target.value)}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            {FSK_OPTIONS.map(o => <option key={o} value={o}>{o || '–'}</option>)}
+            {FSK_OPTIONS.map((o) => (
+              <option key={o} value={o}>
+                {o || '–'}
+              </option>
+            ))}
           </select>
         </div>
         <div>
           <FieldLabel label="US-Freigabe" />
           <select
             value={form.contentRating ?? ''}
-            onChange={e => onChange('contentRating', e.target.value)}
+            onChange={(e) => onChange('contentRating', e.target.value)}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            {US_RATING_OPTIONS.map(o => <option key={o} value={o}>{o || '–'}</option>)}
+            {US_RATING_OPTIONS.map((o) => (
+              <option key={o} value={o}>
+                {o || '–'}
+              </option>
+            ))}
           </select>
         </div>
       </div>
-      <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={4} />
+      <TextareaField
+        label="Beschreibung"
+        value={form.overview ?? ''}
+        onChange={(v) => onChange('overview', v)}
+        rows={4}
+      />
       <div className="grid grid-cols-2 gap-4">
-        <TextField label="Studio"    value={form.studio ?? ''}  onChange={v => onChange('studio', v)} />
-        <TextField label="Publisher" value={form.network ?? ''} onChange={v => onChange('network', v)} placeholder="Netflix, Disney+ …" />
+        <TextField
+          label="Studio"
+          value={form.studio ?? ''}
+          onChange={(v) => onChange('studio', v)}
+        />
+        <TextField
+          label="Publisher"
+          value={form.network ?? ''}
+          onChange={(v) => onChange('network', v)}
+          placeholder="Netflix, Disney+ …"
+        />
       </div>
     </div>
   );
@@ -561,13 +782,25 @@ function SeriesGeneralTab({ form, onChange }: {
 
 // ── Image preview component ───────────────────────────────────────────────────
 
-function ImagePreviewField({ label, value, onChange }: {
-  label: string; value: string; onChange: (v: string) => void;
+function ImagePreviewField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
 }) {
   return (
     <div className="space-y-2">
       <FieldLabel label={label} />
-      <div className="rounded-lg overflow-hidden bg-zinc-900 border border-border flex items-center justify-center" style={{ aspectRatio: label.includes('ster') ? '2/3' : label.includes('Logo') ? '16/5' : '16/9', maxHeight: 180 }}>
+      <div
+        className="rounded-lg overflow-hidden bg-zinc-900 border border-border flex items-center justify-center"
+        style={{
+          aspectRatio: label.includes('ster') ? '2/3' : label.includes('Logo') ? '16/5' : '16/9',
+          maxHeight: 180,
+        }}
+      >
         {value ? (
           <img src={value} alt={label} className="h-full w-full object-contain" />
         ) : (
@@ -577,7 +810,7 @@ function ImagePreviewField({ label, value, onChange }: {
       <input
         type="text"
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         placeholder="URL …"
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
       />
@@ -585,31 +818,61 @@ function ImagePreviewField({ label, value, onChange }: {
   );
 }
 
-function MediaImagesTab({ form, onChange }: {
+function MediaImagesTab({
+  form,
+  onChange,
+}: {
   form: Record<string, string>;
   onChange: (key: string, val: string) => void;
 }) {
   return (
     <div className="space-y-6">
-      <ImagePreviewField label="Plakat (Poster)" value={form.posterPath ?? ''} onChange={v => onChange('posterPath', v)} />
-      <ImagePreviewField label="Hintergrundbild (Backdrop)" value={form.backdropPath ?? ''} onChange={v => onChange('backdropPath', v)} />
-      <ImagePreviewField label="Logo" value={form.logoPath ?? ''} onChange={v => onChange('logoPath', v)} />
+      <ImagePreviewField
+        label="Plakat (Poster)"
+        value={form.posterPath ?? ''}
+        onChange={(v) => onChange('posterPath', v)}
+      />
+      <ImagePreviewField
+        label="Hintergrundbild (Backdrop)"
+        value={form.backdropPath ?? ''}
+        onChange={(v) => onChange('backdropPath', v)}
+      />
+      <ImagePreviewField
+        label="Logo"
+        value={form.logoPath ?? ''}
+        onChange={(v) => onChange('logoPath', v)}
+      />
     </div>
   );
 }
 
-function MediaLinksTab({ form, onChange }: {
+function MediaLinksTab({
+  form,
+  onChange,
+}: {
   form: Record<string, string>;
   onChange: (key: string, val: string) => void;
 }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <NumberField label="TMDb ID" value={form.tmdbId ?? ''} onChange={v => onChange('tmdbId', v)} />
-        <TextField   label="IMDb ID" value={form.imdbId ?? ''} onChange={v => onChange('imdbId', v)} placeholder="tt0000000" />
+        <NumberField
+          label="TMDb ID"
+          value={form.tmdbId ?? ''}
+          onChange={(v) => onChange('tmdbId', v)}
+        />
+        <TextField
+          label="IMDb ID"
+          value={form.imdbId ?? ''}
+          onChange={(v) => onChange('imdbId', v)}
+          placeholder="tt0000000"
+        />
       </div>
       <div className="rounded-md bg-muted/40 border border-border p-3 text-xs text-muted-foreground mt-4">
-        <p>Anbieter-IDs werden für Bewertungen und externe Links verwendet. Verwende den TMDb-Verlinkungsmanager auf der Detailseite, um Metadaten automatisch zu laden.</p>
+        <p>
+          Anbieter-IDs werden für Bewertungen und externe Links verwendet. Verwende den
+          TMDb-Verlinkungsmanager auf der Detailseite, um Metadaten automatisch zu laden.
+        </p>
       </div>
     </div>
   );
@@ -622,19 +885,33 @@ interface MediaInfo {
   duration: number;
   size: number;
   video: {
-    codec: string; codecLongName: string;
-    width: number; height: number;
-    fps: number; bitrate: number;
-    pixFmt: string; profile?: string; level?: string;
+    codec: string;
+    codecLongName: string;
+    width: number;
+    height: number;
+    fps: number;
+    bitrate: number;
+    pixFmt: string;
+    profile?: string;
+    level?: string;
   } | null;
   audio: {
-    index: number; codec: string; codecLongName: string;
-    language?: string; channels: number;
-    sampleRate: number; bitrate: number; default: boolean;
+    index: number;
+    codec: string;
+    codecLongName: string;
+    language?: string;
+    channels: number;
+    sampleRate: number;
+    bitrate: number;
+    default: boolean;
   }[];
   subtitles: {
-    index: number; codec: string; language?: string;
-    title?: string; default: boolean; forced: boolean;
+    index: number;
+    codec: string;
+    language?: string;
+    title?: string;
+    default: boolean;
+    forced: boolean;
   }[];
 }
 
@@ -642,7 +919,9 @@ function fmtDuration(sec: number): string {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = Math.floor(sec % 60);
-  return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    : `${m}:${String(s).padStart(2, '0')}`;
 }
 
 function fmtSize(bytes: number): string {
@@ -661,8 +940,8 @@ function getResolutionLabel(w: number, h: number): string {
   if (h >= 2160) return '4K UHD';
   if (h >= 1440) return '1440p (QHD)';
   if (h >= 1080) return '1080p (Full HD)';
-  if (h >= 720)  return '720p (HD)';
-  if (h >= 480)  return '480p (SD)';
+  if (h >= 720) return '720p (HD)';
+  if (h >= 480) return '480p (SD)';
   return `${w}×${h}`;
 }
 
@@ -677,11 +956,26 @@ function getChannelLabel(ch: number): string {
 function getLangLabel(lang?: string): string {
   if (!lang || lang === 'und') return 'Unbekannt';
   const map: Record<string, string> = {
-    deu: 'Deutsch', ger: 'Deutsch', eng: 'Englisch', fra: 'Französisch',
-    fre: 'Französisch', spa: 'Spanisch', ita: 'Italienisch', jpn: 'Japanisch',
-    por: 'Portugiesisch', rus: 'Russisch', zho: 'Chinesisch', chi: 'Chinesisch',
-    ara: 'Arabisch', kor: 'Koreanisch', tur: 'Türkisch', nld: 'Niederländisch',
-    pol: 'Polnisch', swe: 'Schwedisch', nor: 'Norwegisch', dan: 'Dänisch',
+    deu: 'Deutsch',
+    ger: 'Deutsch',
+    eng: 'Englisch',
+    fra: 'Französisch',
+    fre: 'Französisch',
+    spa: 'Spanisch',
+    ita: 'Italienisch',
+    jpn: 'Japanisch',
+    por: 'Portugiesisch',
+    rus: 'Russisch',
+    zho: 'Chinesisch',
+    chi: 'Chinesisch',
+    ara: 'Arabisch',
+    kor: 'Koreanisch',
+    tur: 'Türkisch',
+    nld: 'Niederländisch',
+    pol: 'Polnisch',
+    swe: 'Schwedisch',
+    nor: 'Norwegisch',
+    dan: 'Dänisch',
   };
   return map[lang] ?? lang.toUpperCase();
 }
@@ -704,14 +998,12 @@ function SectionHeader({ label }: { label: string }) {
 }
 
 function MovieInfoTab({ mediaId, mediaType }: { mediaId: string; mediaType: 'movie' | 'series' }) {
-  const endpoint = mediaType === 'movie'
-    ? `/video/movies/${mediaId}/mediainfo`
-    : undefined; // series has no single file
+  const endpoint = mediaType === 'movie' ? `/video/movies/${mediaId}/mediainfo` : undefined; // series has no single file
 
   const { data, isLoading, isError } = useQuery<{ data: MediaInfo | null }>({
     queryKey: ['mediainfo', mediaId],
-    queryFn:  () => api.get(endpoint!),
-    enabled:  !!endpoint,
+    queryFn: () => api.get(endpoint!),
+    enabled: !!endpoint,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -746,21 +1038,32 @@ function MovieInfoTab({ mediaId, mediaType }: { mediaId: string; mediaType: 'mov
       {/* Container */}
       <div>
         <SectionHeader label="Datei" />
-        <InfoRow label="Container"   value={info.container.toUpperCase()} />
-        <InfoRow label="Dauer"       value={fmtDuration(info.duration)} />
-        <InfoRow label="Dateigröße"  value={fmtSize(info.size)} />
+        <InfoRow label="Container" value={info.container.toUpperCase()} />
+        <InfoRow label="Dauer" value={fmtDuration(info.duration)} />
+        <InfoRow label="Dateigröße" value={fmtSize(info.size)} />
       </div>
 
       {/* Video */}
       {info.video && (
         <div>
           <SectionHeader label="Video" />
-          <InfoRow label="Codec"       value={info.video.codecLongName || info.video.codec} />
-          <InfoRow label="Auflösung"   value={`${info.video.width}×${info.video.height} · ${getResolutionLabel(info.video.width, info.video.height)}`} />
-          <InfoRow label="Framerate"   value={`${info.video.fps.toFixed(3).replace(/\.?0+$/, '')} fps`} />
-          <InfoRow label="Bitrate"     value={fmtBitrate(info.video.bitrate)} />
-          <InfoRow label="Farbformat"  value={info.video.pixFmt} />
-          {info.video.profile && <InfoRow label="Profil" value={`${info.video.profile}${info.video.level ? ` · Level ${info.video.level}` : ''}`} />}
+          <InfoRow label="Codec" value={info.video.codecLongName || info.video.codec} />
+          <InfoRow
+            label="Auflösung"
+            value={`${info.video.width}×${info.video.height} · ${getResolutionLabel(info.video.width, info.video.height)}`}
+          />
+          <InfoRow
+            label="Framerate"
+            value={`${info.video.fps.toFixed(3).replace(/\.?0+$/, '')} fps`}
+          />
+          <InfoRow label="Bitrate" value={fmtBitrate(info.video.bitrate)} />
+          <InfoRow label="Farbformat" value={info.video.pixFmt} />
+          {info.video.profile && (
+            <InfoRow
+              label="Profil"
+              value={`${info.video.profile}${info.video.level ? ` · Level ${info.video.level}` : ''}`}
+            />
+          )}
         </div>
       )}
 
@@ -770,11 +1073,14 @@ function MovieInfoTab({ mediaId, mediaType }: { mediaId: string; mediaType: 'mov
           <SectionHeader label="Audio" />
           {info.audio.map((a, i) => (
             <div key={i} className={i > 0 ? 'mt-2 pt-2 border-t border-white/5' : ''}>
-              <InfoRow label={`Spur ${i + 1}${a.default ? ' (Standard)' : ''}`} value={getLangLabel(a.language)} />
-              <InfoRow label="Codec"   value={a.codecLongName || a.codec} />
-              <InfoRow label="Kanäle"  value={getChannelLabel(a.channels)} />
+              <InfoRow
+                label={`Spur ${i + 1}${a.default ? ' (Standard)' : ''}`}
+                value={getLangLabel(a.language)}
+              />
+              <InfoRow label="Codec" value={a.codecLongName || a.codec} />
+              <InfoRow label="Kanäle" value={getChannelLabel(a.channels)} />
               <InfoRow label="Bitrate" value={fmtBitrate(a.bitrate)} />
-              <InfoRow label="Sample"  value={`${a.sampleRate} Hz`} />
+              <InfoRow label="Sample" value={`${a.sampleRate} Hz`} />
             </div>
           ))}
         </div>
@@ -799,42 +1105,70 @@ function MovieInfoTab({ mediaId, mediaType }: { mediaId: string; mediaType: 'mov
 
 // ── Episode tab panels ────────────────────────────────────────────────────────
 
-function EpisodeGeneralTab({ form, onChange }: {
+function EpisodeGeneralTab({
+  form,
+  onChange,
+}: {
   form: Record<string, string>;
   onChange: (key: string, val: string) => void;
 }) {
   return (
     <div className="space-y-4">
-      <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} />
+      <TextField label="Titel" value={form.title ?? ''} onChange={(v) => onChange('title', v)} />
       <div className="grid grid-cols-2 gap-4">
-        <NumberField label="Folge-Nr."        value={form.number ?? ''}  onChange={v => onChange('number', v)} />
-        <NumberField label="Laufzeit (Min.)"  value={form.runtime ?? ''} onChange={v => onChange('runtime', v)} />
+        <NumberField
+          label="Folge-Nr."
+          value={form.number ?? ''}
+          onChange={(v) => onChange('number', v)}
+        />
+        <NumberField
+          label="Laufzeit (Min.)"
+          value={form.runtime ?? ''}
+          onChange={(v) => onChange('runtime', v)}
+        />
       </div>
-      <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={5} />
-      
+      <TextareaField
+        label="Beschreibung"
+        value={form.overview ?? ''}
+        onChange={(v) => onChange('overview', v)}
+        rows={5}
+      />
+
       {/* Technische Felder */}
       <div className="grid grid-cols-2 gap-4">
-        <TextField label="Codec" value={form.codec ?? ''} onChange={v => onChange('codec', v)} />
-        <TextField label="Auflösung" value={form.resolution ?? ''} onChange={v => onChange('resolution', v)} />
+        <TextField label="Codec" value={form.codec ?? ''} onChange={(v) => onChange('codec', v)} />
+        <TextField
+          label="Auflösung"
+          value={form.resolution ?? ''}
+          onChange={(v) => onChange('resolution', v)}
+        />
       </div>
-      
+
       {/* Thumbnail */}
-      <TextField label="Thumbnail URL" value={form.thumbnailPath ?? ''} onChange={v => onChange('thumbnailPath', v)} />
-      
+      <TextField
+        label="Thumbnail URL"
+        value={form.thumbnailPath ?? ''}
+        onChange={(v) => onChange('thumbnailPath', v)}
+      />
+
       {/* Status */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <FieldLabel label="Gesehen" />
           <select
             value={form.watched ?? 'false'}
-            onChange={e => onChange('watched', e.target.value)}
+            onChange={(e) => onChange('watched', e.target.value)}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
             <option value="false">Nein</option>
             <option value="true">Ja</option>
           </select>
         </div>
-        <NumberField label="Fortschritt (Sek.)" value={form.watchProgress ?? ''} onChange={v => onChange('watchProgress', v)} />
+        <NumberField
+          label="Fortschritt (Sek.)"
+          value={form.watchProgress ?? ''}
+          onChange={(v) => onChange('watchProgress', v)}
+        />
       </div>
     </div>
   );
@@ -861,8 +1195,8 @@ function EpisodeInfoTab({ form }: { form: Record<string, string> }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <ReadonlyField label="Codec"      value={form.codec ?? ''} />
-        <ReadonlyField label="Auflösung"  value={form.resolution ?? ''} />
+        <ReadonlyField label="Codec" value={form.codec ?? ''} />
+        <ReadonlyField label="Auflösung" value={form.resolution ?? ''} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <ReadonlyField label="Dateigröße" value={formatFileSize(form.fileSize ?? '')} />
@@ -886,19 +1220,35 @@ function EpisodeInfoTab({ form }: { form: Record<string, string> }) {
 
 // ── Audiobook tab panels ──────────────────────────────────────────────────────
 
-function AudiobookGeneralTab({ form, onChange }: {
+function AudiobookGeneralTab({
+  form,
+  onChange,
+}: {
   form: Record<string, string>;
   onChange: (key: string, val: string) => void;
 }) {
   return (
     <div className="space-y-4">
-      <TextField label="Titel" value={form.title ?? ''} onChange={v => onChange('title', v)} />
+      <TextField label="Titel" value={form.title ?? ''} onChange={(v) => onChange('title', v)} />
       <div className="grid grid-cols-2 gap-4">
-        <TextField   label="Autor" value={form.author ?? ''} onChange={v => onChange('author', v)} />
-        <NumberField label="Jahr"  value={form.year ?? ''}   onChange={v => onChange('year', v)} />
+        <TextField
+          label="Autor"
+          value={form.author ?? ''}
+          onChange={(v) => onChange('author', v)}
+        />
+        <NumberField label="Jahr" value={form.year ?? ''} onChange={(v) => onChange('year', v)} />
       </div>
-      <TextField label="Sprecher" value={form.narrator ?? ''} onChange={v => onChange('narrator', v)} />
-      <TextareaField label="Beschreibung" value={form.overview ?? ''} onChange={v => onChange('overview', v)} rows={5} />
+      <TextField
+        label="Sprecher"
+        value={form.narrator ?? ''}
+        onChange={(v) => onChange('narrator', v)}
+      />
+      <TextareaField
+        label="Beschreibung"
+        value={form.overview ?? ''}
+        onChange={(v) => onChange('overview', v)}
+        rows={5}
+      />
     </div>
   );
 }
@@ -928,7 +1278,12 @@ function AudiobookInfoTab({ form }: { form: Record<string, string> }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function MediaMetadataEditor({
-  isOpen, onClose, type, id, initialData, onOpenMusicBrainz,
+  isOpen,
+  onClose,
+  type,
+  id,
+  initialData,
+  onOpenMusicBrainz,
 }: MediaMetadataEditorProps) {
   const queryClient = useQueryClient();
   const tabs = getTabsForType(type);
@@ -945,16 +1300,26 @@ export function MediaMetadataEditor({
   });
 
   const handleChange = (key: string, val: string) => {
-    setForm(prev => ({ ...prev, [key]: val }));
+    setForm((prev) => ({ ...prev, [key]: val }));
   };
 
   // Whether the album was auto-enriched via MusicBrainz
-  const isLocked = !!(initialData.musicbrainzId);
+  const isLocked = !!initialData.musicbrainzId;
 
   // Build payload: only changed fields
   const buildPayload = () => {
     const changes: Record<string, unknown> = {};
-    const numericKeys = ['year', 'trackNumber', 'discNumber', 'runtime', 'number', 'tmdbId', 'watchProgress', 'totalTracks', 'totalDiscs'];
+    const numericKeys = [
+      'year',
+      'trackNumber',
+      'discNumber',
+      'runtime',
+      'number',
+      'tmdbId',
+      'watchProgress',
+      'totalTracks',
+      'totalDiscs',
+    ];
     const booleanKeys = ['watched'];
     for (const k of Object.keys(form)) {
       const newVal = form[k];
@@ -973,20 +1338,30 @@ export function MediaMetadataEditor({
   };
 
   const endpoint =
-    type === 'album'     ? `/albums/${id}` :
-    type === 'track'     ? `/tracks/${id}` :
-    type === 'movie'     ? `/video/movies/${id}` :
-    type === 'series'    ? `/video/series/${id}` :
-    type === 'episode'   ? `/video/episodes/${id}` :
-    `/audiobooks/${id}`;
+    type === 'album'
+      ? `/albums/${id}`
+      : type === 'track'
+        ? `/tracks/${id}`
+        : type === 'movie'
+          ? `/video/movies/${id}`
+          : type === 'series'
+            ? `/video/series/${id}`
+            : type === 'episode'
+              ? `/video/episodes/${id}`
+              : `/audiobooks/${id}`;
 
   const queryKeys: string[][] =
-    type === 'album'     ? [['album', id], ['albums']] :
-    type === 'track'     ? [['album'], ['tracks']] :
-    type === 'movie'     ? [['movie', id], ['movies']] :
-    type === 'series'    ? [['series', id]] :
-    type === 'episode'   ? [['series']] :
-    [['audiobook', id], ['audiobooks']];
+    type === 'album'
+      ? [['album', id], ['albums']]
+      : type === 'track'
+        ? [['album'], ['tracks']]
+        : type === 'movie'
+          ? [['movie', id], ['movies']]
+          : type === 'series'
+            ? [['series', id]]
+            : type === 'episode'
+              ? [['series']]
+              : [['audiobook', id], ['audiobooks']];
 
   const mutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => api.patch(endpoint, data),
@@ -1010,12 +1385,17 @@ export function MediaMetadataEditor({
   const title = (initialData.title as string) || type;
 
   const typeLabel =
-    type === 'album'     ? 'Album' :
-    type === 'track'     ? 'Track' :
-    type === 'movie'     ? 'Film' :
-    type === 'series'    ? 'Serie' :
-    type === 'episode'   ? 'Episode' :
-    'Hörbuch';
+    type === 'album'
+      ? 'Album'
+      : type === 'track'
+        ? 'Track'
+        : type === 'movie'
+          ? 'Film'
+          : type === 'series'
+            ? 'Serie'
+            : type === 'episode'
+              ? 'Episode'
+              : 'Hörbuch';
 
   if (!isOpen) return null;
 
@@ -1026,11 +1406,12 @@ export function MediaMetadataEditor({
 
       {/* Modal - Fixed size for consistency */}
       <div className="relative bg-background border border-border rounded-lg shadow-xl w-[900px] h-[650px] flex flex-col">
-
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">{typeLabel}-Metadaten</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+              {typeLabel}-Metadaten
+            </p>
             <h2 className="text-base font-semibold truncate max-w-lg">{title}</h2>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 shrink-0">
@@ -1042,7 +1423,7 @@ export function MediaMetadataEditor({
         <div className="flex flex-1 overflow-hidden">
           {/* Left sidebar */}
           <nav className="w-36 shrink-0 border-r border-border flex flex-col gap-1 p-2 pt-3">
-            {tabs.map(tab => {
+            {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
@@ -1086,9 +1467,7 @@ export function MediaMetadataEditor({
             {type === 'track' && activeTab === 'lyrics' && (
               <TrackLyricsTab form={form} onChange={handleChange} />
             )}
-            {type === 'track' && activeTab === 'info' && (
-              <TrackInfoTab form={form} />
-            )}
+            {type === 'track' && activeTab === 'info' && <TrackInfoTab form={form} />}
 
             {/* Movie tabs */}
             {type === 'movie' && activeTab === 'general' && (
@@ -1122,17 +1501,13 @@ export function MediaMetadataEditor({
             {type === 'episode' && activeTab === 'general' && (
               <EpisodeGeneralTab form={form} onChange={handleChange} />
             )}
-            {type === 'episode' && activeTab === 'info' && (
-              <EpisodeInfoTab form={form} />
-            )}
+            {type === 'episode' && activeTab === 'info' && <EpisodeInfoTab form={form} />}
 
             {/* Audiobook tabs */}
             {type === 'audiobook' && activeTab === 'general' && (
               <AudiobookGeneralTab form={form} onChange={handleChange} />
             )}
-            {type === 'audiobook' && activeTab === 'info' && (
-              <AudiobookInfoTab form={form} />
-            )}
+            {type === 'audiobook' && activeTab === 'info' && <AudiobookInfoTab form={form} />}
           </div>
         </div>
 
@@ -1141,7 +1516,8 @@ export function MediaMetadataEditor({
           <div className="text-xs text-muted-foreground space-y-0.5">
             {(type === 'album' || type === 'track') && (
               <p className="flex items-center gap-1 text-muted-foreground/70">
-                Änderungen werden nur in der Datenbank gespeichert · Audiodateien bleiben unverändert
+                Änderungen werden nur in der Datenbank gespeichert · Audiodateien bleiben
+                unverändert
               </p>
             )}
             {isLocked && (type === 'album' || type === 'track') && (
@@ -1164,7 +1540,8 @@ export function MediaMetadataEditor({
 
         {mutation.isError && (
           <p className="text-xs text-red-500 px-6 pb-3">
-            Fehler: {mutation.error instanceof Error ? mutation.error.message : 'Unbekannter Fehler'}
+            Fehler:{' '}
+            {mutation.error instanceof Error ? mutation.error.message : 'Unbekannter Fehler'}
           </p>
         )}
       </div>

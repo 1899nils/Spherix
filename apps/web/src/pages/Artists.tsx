@@ -37,8 +37,7 @@ function ArtistCard({ artist }: { artist: ArtistWithRelations }) {
 export function Artists() {
   const { data, isLoading } = useQuery({
     queryKey: ['artists'],
-    queryFn: () =>
-      api.get<PaginatedResponse<ArtistWithRelations>>('/artists?pageSize=100'),
+    queryFn: () => api.get<PaginatedResponse<ArtistWithRelations>>('/artists?pageSize=100'),
   });
 
   const artists = data?.data ?? [];

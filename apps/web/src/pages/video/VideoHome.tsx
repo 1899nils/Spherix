@@ -3,15 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { VideoScanButton, UnmatchedBadge } from '@/components/video/VideoScanButton';
-import { 
-  Film, 
-  Tv, 
-  Clock, 
-  Star, 
-  FolderSearch,
-  AlertCircle,
-  ChevronRight
-} from 'lucide-react';
+import { Film, Tv, Clock, Star, FolderSearch, AlertCircle, ChevronRight } from 'lucide-react';
 
 interface UnmatchedCountResponse {
   data: { count: number };
@@ -30,7 +22,8 @@ export function VideoHome() {
     queryFn: () => api.get<UnmatchedCountResponse>('/video/series/unmatched/count'),
   });
 
-  const totalUnmatched = (unmatchedMovies.data?.data?.count ?? 0) + (unmatchedSeries.data?.data?.count ?? 0);
+  const totalUnmatched =
+    (unmatchedMovies.data?.data?.count ?? 0) + (unmatchedSeries.data?.data?.count ?? 0);
 
   const menuItems = [
     {
@@ -86,21 +79,22 @@ export function VideoHome() {
             <h3 className="font-medium text-amber-400">Nicht zugeordnete Titel</h3>
             <p className="text-sm text-amber-400/80 mt-1">
               {unmatchedMovies.data?.data?.count ?? 0} Filme und{' '}
-              {unmatchedSeries.data?.data?.count ?? 0} Serien konnten nicht mit TMDb verknüpft werden.
+              {unmatchedSeries.data?.data?.count ?? 0} Serien konnten nicht mit TMDb verknüpft
+              werden.
             </p>
             <div className="flex gap-2 mt-3">
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
                 onClick={() => navigate('/video/movies?unmatched=true')}
               >
                 <Film className="h-4 w-4 mr-2" />
                 Filme anzeigen
               </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
                 onClick={() => navigate('/video/series?unmatched=true')}
               >
@@ -120,7 +114,9 @@ export function VideoHome() {
             onClick={() => navigate(item.path)}
             className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all text-left group"
           >
-            <div className={`w-12 h-12 rounded-xl ${item.bgColor} flex items-center justify-center shrink-0`}>
+            <div
+              className={`w-12 h-12 rounded-xl ${item.bgColor} flex items-center justify-center shrink-0`}
+            >
               <item.icon className={`h-6 w-6 ${item.color}`} />
             </div>
             <div className="flex-1 min-w-0">

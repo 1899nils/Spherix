@@ -5,11 +5,7 @@ import type { Request, Response, NextFunction } from 'express';
  * Returns 401 if no active session exists.
  * Attaches userId to the request for downstream use.
  */
-export function requireAuth(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void {
+export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const userId = (req.session as unknown as Record<string, unknown>)?.userId as string | undefined;
   if (!userId) {
     res.status(401).json({ error: 'Authentication required' });

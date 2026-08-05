@@ -46,9 +46,7 @@ async function getParseFile(): Promise<(path: string) => Promise<IAudioMetadata>
     };
     if (typeof mm.parseFile !== 'function') {
       const available = Object.keys(mm).join(', ');
-      throw new Error(
-        `music-metadata did not export parseFile. Available exports: ${available}`,
-      );
+      throw new Error(`music-metadata did not export parseFile. Available exports: ${available}`);
     }
     _parseFile = mm.parseFile;
   }
@@ -78,17 +76,17 @@ export interface ExtractedMetadata {
 /**
  * Extracts audio metadata from a file using music-metadata.
  */
-export async function extractMetadata(
-  filePath: string,
-): Promise<ExtractedMetadata> {
+export async function extractMetadata(filePath: string): Promise<ExtractedMetadata> {
   const stat = await fs.stat(filePath);
   let metadata: IAudioMetadata | null = null;
-  
+
   try {
     const parseFile = await getParseFile();
     metadata = await parseFile(filePath);
   } catch (error) {
-    logger.warn(`Failed to parse metadata for ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    logger.warn(
+      `Failed to parse metadata for ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
     // Fallback to basic info from filename/stats
     return {
       title: path.basename(filePath, path.extname(filePath)),
@@ -136,10 +134,10 @@ export async function extractMetadata(
   }
 
   // Try embedded cover first, then fall back to cover image file in the same folder
-let coverUrl = await saveCoverArt(common.picture);
-if (!coverUrl) {
-  coverUrl = await saveFolderCover(filePath);
-}
+  let coverUrl = await saveCoverArt(common.picture);
+  if (!coverUrl) {
+    coverUrl = await saveFolderCover(filePath);
+  }
 
   const ext = path.extname(filePath).slice(1).toLowerCase();
   const audioFormat = format.container || ext || 'unknown';

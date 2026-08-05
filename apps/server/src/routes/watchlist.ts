@@ -29,7 +29,10 @@ async function enrichWithMusicBrainz(artist: string, title: string) {
 router.get('/', async (req, res) => {
   try {
     const userId = await getUserId(req);
-    if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
     const items = await prisma.watchlistItem.findMany({
       where: { userId },
@@ -54,18 +57,28 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const userId = await getUserId(req);
-    if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
-    const { title, artist, source = 'radio', coverUrl, albumTitle, duration, mbRecordingId } =
-      req.body as {
-        title: string;
-        artist: string;
-        source?: string;
-        coverUrl?: string;
-        albumTitle?: string;
-        duration?: number;
-        mbRecordingId?: string;
-      };
+    const {
+      title,
+      artist,
+      source = 'radio',
+      coverUrl,
+      albumTitle,
+      duration,
+      mbRecordingId,
+    } = req.body as {
+      title: string;
+      artist: string;
+      source?: string;
+      coverUrl?: string;
+      albumTitle?: string;
+      duration?: number;
+      mbRecordingId?: string;
+    };
 
     if (!title || !artist) {
       res.status(400).json({ error: 'title and artist are required' });
@@ -89,10 +102,12 @@ router.post('/', async (req, res) => {
     // Enrich asynchronously (don't block the response)
     void enrichWithMusicBrainz(artist, title).then(async (enriched) => {
       if (Object.keys(enriched).length === 0) return;
-      await prisma.watchlistItem.update({
-        where: { id: item.id },
-        data: enriched,
-      }).catch(() => {});
+      await prisma.watchlistItem
+        .update({
+          where: { id: item.id },
+          data: enriched,
+        })
+        .catch(() => {});
     });
 
     res.status(201).json({ data: item });
@@ -105,11 +120,17 @@ router.post('/', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const userId = await getUserId(req);
-    if (!userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
     const { id } = req.params;
     const item = await prisma.watchlistItem.findFirst({ where: { id, userId } });
-    if (!item) { res.status(404).json({ error: 'Not found' }); return; }
+    if (!item) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
 
     await prisma.watchlistItem.delete({ where: { id } });
     res.json({ ok: true });

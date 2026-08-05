@@ -52,7 +52,6 @@ interface ServerSettingsData {
   };
 }
 
-
 function StatusDot({ status }: { status: string }) {
   const color = status === 'ok' || status === 'ready' ? 'bg-green-500' : 'bg-red-500';
   return <span className={`inline-block h-2 w-2 rounded-full ${color}`} />;
@@ -80,7 +79,9 @@ function ScanCard({
   const [pathSaved, setPathSaved] = useState(false);
   const pathChanged = localPath !== path;
 
-  useEffect(() => { setLocalPath(path); }, [path]);
+  useEffect(() => {
+    setLocalPath(path);
+  }, [path]);
 
   const handleSavePath = async () => {
     setIsSavingPath(true);
@@ -124,12 +125,13 @@ function ScanCard({
             disabled={isSavingPath || !pathChanged}
             title="Pfad speichern"
           >
-            {isSavingPath
-              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              : pathSaved
-                ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
-                : <Save className="h-3.5 w-3.5" />
-            }
+            {isSavingPath ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : pathSaved ? (
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
           </Button>
         </div>
         <p className="text-xs text-zinc-600">
@@ -145,12 +147,14 @@ function ScanCard({
               <CheckCircle2 className="h-3.5 w-3.5" /> Scan gestartet
             </p>
           )}
-          {pathChanged && (
-            <p className="text-xs text-amber-400">Pfad nicht gespeichert</p>
-          )}
+          {pathChanged && <p className="text-xs text-amber-400">Pfad nicht gespeichert</p>}
         </div>
         <Button variant="outline" size="sm" onClick={onScan} disabled={isPending || pathChanged}>
-          {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+          {isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-1" />
+          )}
           {isPending ? 'Scannt…' : 'Scannen'}
         </Button>
       </div>
@@ -178,7 +182,10 @@ export function Settings() {
   });
 
   const [localPublicUrl, setLocalPublicUrl] = useState('');
-  const [settingsFeedback, setSettingsFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [settingsFeedback, setSettingsFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (settingsData?.data) {
@@ -187,8 +194,12 @@ export function Settings() {
   }, [settingsData]);
 
   const saveSettings = useMutation({
-    mutationFn: (data: { publicUrl?: string; musicPath?: string; videoPath?: string; audiobookPath?: string }) =>
-      api.put('/settings', data),
+    mutationFn: (data: {
+      publicUrl?: string;
+      musicPath?: string;
+      videoPath?: string;
+      audiobookPath?: string;
+    }) => api.put('/settings', data),
     onSuccess: () => {
       setSettingsFeedback({ type: 'success', message: 'Einstellungen gespeichert!' });
       refetchSettings();
@@ -207,12 +218,22 @@ export function Settings() {
   const { data: lastfmData, refetch: refetchLastfm } = useQuery({
     queryKey: ['lastfm-status'],
     queryFn: () =>
-      api.get<ApiData<{ connected: boolean; username: string | null; apiKey: string | null; apiSecret: string | null }>>('/lastfm/status'),
+      api.get<
+        ApiData<{
+          connected: boolean;
+          username: string | null;
+          apiKey: string | null;
+          apiSecret: string | null;
+        }>
+      >('/lastfm/status'),
   });
 
   const [localApiKey, setLocalApiKey] = useState('');
   const [localApiSecret, setLocalApiSecret] = useState('');
-  const [lastfmFeedback, setLastfmFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [lastfmFeedback, setLastfmFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -225,7 +246,10 @@ export function Settings() {
       window.history.replaceState({}, '', window.location.pathname);
     } else if (lastfmParam === 'error') {
       setActiveTab('musik');
-      setLastfmFeedback({ type: 'error', message: 'Last.fm Verbindung fehlgeschlagen. Bitte versuche es erneut.' });
+      setLastfmFeedback({
+        type: 'error',
+        message: 'Last.fm Verbindung fehlgeschlagen. Bitte versuche es erneut.',
+      });
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
@@ -250,7 +274,8 @@ export function Settings() {
   });
 
   const testLastfmConfig = useMutation({
-    mutationFn: (data: { apiKey: string; apiSecret: string }) => api.post('/lastfm/test-config', data),
+    mutationFn: (data: { apiKey: string; apiSecret: string }) =>
+      api.post('/lastfm/test-config', data),
     onSuccess: () => {
       setLastfmFeedback({ type: 'success', message: 'API-Daten sind gültig!' });
       setTimeout(() => setLastfmFeedback(null), 3000);
@@ -266,7 +291,10 @@ export function Settings() {
       window.location.href = res.data.url;
     },
     onError: (err: Error) => {
-      setLastfmFeedback({ type: 'error', message: `Verbindung fehlgeschlagen: ${err.message}. Bitte speichere zuerst API Key und Secret.` });
+      setLastfmFeedback({
+        type: 'error',
+        message: `Verbindung fehlgeschlagen: ${err.message}. Bitte speichere zuerst API Key und Secret.`,
+      });
     },
   });
 
@@ -283,7 +311,10 @@ export function Settings() {
   });
 
   const [localTmdbApiKey, setLocalTmdbApiKey] = useState('');
-  const [tmdbFeedback, setTmdbFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [tmdbFeedback, setTmdbFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (tmdbData?.data) {
@@ -322,7 +353,10 @@ export function Settings() {
   });
 
   const [localMdblistApiKey, setLocalMdblistApiKey] = useState('');
-  const [mdblistFeedback, setMdblistFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [mdblistFeedback, setMdblistFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   const saveMdblistConfig = useMutation({
     mutationFn: (data: { apiKey: string }) => api.post('/mdblist/config', data),
@@ -352,11 +386,15 @@ export function Settings() {
 
   const { data: traktData, refetch: refetchTrakt } = useQuery({
     queryKey: ['trakt-status'],
-    queryFn: () => api.get<ApiData<{ configured: boolean; clientId: string | null }>>('/trakt/status'),
+    queryFn: () =>
+      api.get<ApiData<{ configured: boolean; clientId: string | null }>>('/trakt/status'),
   });
 
   const [localTraktClientId, setLocalTraktClientId] = useState('');
-  const [traktFeedback, setTraktFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [traktFeedback, setTraktFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (traktData?.data) {
@@ -391,11 +429,15 @@ export function Settings() {
 
   const { data: youtubeData, refetch: refetchYoutube } = useQuery({
     queryKey: ['youtube-status'],
-    queryFn: () => api.get<ApiData<{ configured: boolean; apiKey: string | null }>>('/youtube/status'),
+    queryFn: () =>
+      api.get<ApiData<{ configured: boolean; apiKey: string | null }>>('/youtube/status'),
   });
 
   const [localYoutubeApiKey, setLocalYoutubeApiKey] = useState('');
-  const [youtubeFeedback, setYoutubeFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [youtubeFeedback, setYoutubeFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (youtubeData?.data) {
@@ -443,11 +485,17 @@ export function Settings() {
 
   const { data: piData, refetch: refetchPi } = useQuery({
     queryKey: ['podcastindex-status'],
-    queryFn: () => api.get<ApiData<{ configured: boolean; apiKey: string | null; secretConfigured: boolean }>>('/podcastindex/status'),
+    queryFn: () =>
+      api.get<ApiData<{ configured: boolean; apiKey: string | null; secretConfigured: boolean }>>(
+        '/podcastindex/status',
+      ),
   });
   const [localPiApiKey, setLocalPiApiKey] = useState('');
   const [localPiApiSecret, setLocalPiApiSecret] = useState('');
-  const [piFeedback, setPiFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [piFeedback, setPiFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (piData?.data) {
@@ -457,7 +505,8 @@ export function Settings() {
   }, [piData]);
 
   const savePiConfig = useMutation({
-    mutationFn: (data: { apiKey: string; apiSecret: string }) => api.post('/podcastindex/config', data),
+    mutationFn: (data: { apiKey: string; apiSecret: string }) =>
+      api.post('/podcastindex/config', data),
     onSuccess: () => {
       refetchPi();
       setPiFeedback({ type: 'success', message: 'PodcastIndex API-Keys gespeichert!' });
@@ -471,7 +520,10 @@ export function Settings() {
   const testPiConfig = useMutation({
     mutationFn: () => api.post('/podcastindex/test', {}),
     onSuccess: () => {
-      setPiFeedback({ type: 'success', message: 'Verbindung erfolgreich — API-Keys funktionieren!' });
+      setPiFeedback({
+        type: 'success',
+        message: 'Verbindung erfolgreich — API-Keys funktionieren!',
+      });
       setTimeout(() => setPiFeedback(null), 4000);
     },
     onError: (err: Error) => {
@@ -496,39 +548,39 @@ export function Settings() {
   // ─── Tab bar ─────────────────────────────────────────────────────────────────
 
   const tabs: { id: Tab; label: string; adminOnly?: boolean }[] = [
-    { id: 'general',   label: 'Grundeinstellungen', adminOnly: true },
-    { id: 'musik',     label: 'Musik' },
-    { id: 'video',     label: 'Video' },
+    { id: 'general', label: 'Grundeinstellungen', adminOnly: true },
+    { id: 'musik', label: 'Musik' },
+    { id: 'video', label: 'Video' },
     { id: 'audiobook', label: 'Hörbücher' },
-    { id: 'users',     label: 'Benutzer', adminOnly: true },
+    { id: 'users', label: 'Benutzer', adminOnly: true },
   ];
 
   return (
     <div className="max-w-2xl mx-auto text-white space-y-6">
-
       {/* ─── Tab Navigation ──────────────────────────────────────────────────── */}
 
       <div className="flex border-b border-white/10">
-        {tabs.filter((t) => !t.adminOnly || currentUser?.isAdmin).map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
-              activeTab === tab.id
-                ? 'text-white border-blue-500'
-                : 'text-zinc-400 border-transparent hover:text-zinc-200'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {tabs
+          .filter((t) => !t.adminOnly || currentUser?.isAdmin)
+          .map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                activeTab === tab.id
+                  ? 'text-white border-blue-500'
+                  : 'text-zinc-400 border-transparent hover:text-zinc-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
       </div>
 
       {/* ─── Grundeinstellungen ──────────────────────────────────────────────── */}
 
       {activeTab === 'general' && (
         <div className="space-y-6">
-
           <section className="space-y-4">
             <h2 className="text-lg font-semibold">Server Konfiguration</h2>
             <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
@@ -540,24 +592,31 @@ export function Settings() {
                 <input
                   type="url"
                   value={localPublicUrl}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalPublicUrl(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setLocalPublicUrl(e.target.value)
+                  }
                   className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
                   placeholder="z.B. http://192.168.1.100:1234"
                 />
                 <p className="text-xs text-zinc-500">
-                  Die URL unter der Spherix erreichbar ist. Wird für OAuth-Callbacks (z.B. Last.fm) benötigt.
+                  Die URL unter der Spherix erreichbar ist. Wird für OAuth-Callbacks (z.B. Last.fm)
+                  benötigt.
                 </p>
               </div>
 
               {settingsFeedback && (
-                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
-                  settingsFeedback.type === 'success'
-                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                }`}>
-                  {settingsFeedback.type === 'success'
-                    ? <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    : <AlertCircle className="h-4 w-4 shrink-0" />}
+                <div
+                  className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                    settingsFeedback.type === 'success'
+                      ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                      : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                  }`}
+                >
+                  {settingsFeedback.type === 'success' ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                  )}
                   {settingsFeedback.message}
                 </div>
               )}
@@ -568,22 +627,28 @@ export function Settings() {
                 onClick={() => saveSettings.mutate({ publicUrl: localPublicUrl })}
                 disabled={saveSettings.isPending}
               >
-                {saveSettings.isPending
-                  ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  : <Save className="h-4 w-4 mr-2" />}
+                {saveSettings.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
                 Speichern
               </Button>
             </div>
 
             {serverInfo && (
               <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-3">
-                <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500">Server Status</h3>
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                  Server Status
+                </h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-black/20">
                     <Server className="h-4 w-4 text-zinc-400 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-xs text-zinc-500">Umgebung</p>
-                      <p className="text-sm font-medium truncate">{serverInfo.nodeEnv} · Port {serverInfo.port}</p>
+                      <p className="text-sm font-medium truncate">
+                        {serverInfo.nodeEnv} · Port {serverInfo.port}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-black/20">
@@ -612,7 +677,8 @@ export function Settings() {
                       <div className="min-w-0">
                         <p className="text-xs text-zinc-500">Musik-Bibliothek</p>
                         <p className="text-sm font-medium">
-                          {stats.tracks.toLocaleString('de-DE')} Titel · {stats.albums.toLocaleString('de-DE')} Alben
+                          {stats.tracks.toLocaleString('de-DE')} Titel ·{' '}
+                          {stats.albums.toLocaleString('de-DE')} Alben
                         </p>
                       </div>
                     </div>
@@ -635,18 +701,21 @@ export function Settings() {
 
       {activeTab === 'musik' && (
         <div className="space-y-6">
-
           <section className="space-y-4">
             <h2 className="text-lg font-semibold">Last.fm Scrobbling</h2>
             <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
-              <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500">API Konfiguration</h3>
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                API Konfiguration
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-xs text-zinc-400 font-medium">API Key</label>
                   <input
                     type="password"
                     value={localApiKey}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalApiKey(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLocalApiKey(e.target.value)
+                    }
                     className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
                     placeholder="Last.fm API Key"
                   />
@@ -656,7 +725,9 @@ export function Settings() {
                   <input
                     type="password"
                     value={localApiSecret}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalApiSecret(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLocalApiSecret(e.target.value)
+                    }
                     className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
                     placeholder="Last.fm API Secret"
                   />
@@ -664,14 +735,18 @@ export function Settings() {
               </div>
 
               {lastfmFeedback && (
-                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
-                  lastfmFeedback.type === 'success'
-                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                }`}>
-                  {lastfmFeedback.type === 'success'
-                    ? <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    : <AlertCircle className="h-4 w-4 shrink-0" />}
+                <div
+                  className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                    lastfmFeedback.type === 'success'
+                      ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                      : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                  }`}
+                >
+                  {lastfmFeedback.type === 'success' ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                  )}
                   {lastfmFeedback.message}
                 </div>
               )}
@@ -680,7 +755,9 @@ export function Settings() {
                 <Button
                   size="sm"
                   className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
-                  onClick={() => saveLastfmConfig.mutate({ apiKey: localApiKey, apiSecret: localApiSecret })}
+                  onClick={() =>
+                    saveLastfmConfig.mutate({ apiKey: localApiKey, apiSecret: localApiSecret })
+                  }
                   disabled={saveLastfmConfig.isPending || !localApiKey || !localApiSecret}
                 >
                   {saveLastfmConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -689,7 +766,9 @@ export function Settings() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => testLastfmConfig.mutate({ apiKey: localApiKey, apiSecret: localApiSecret })}
+                  onClick={() =>
+                    testLastfmConfig.mutate({ apiKey: localApiKey, apiSecret: localApiSecret })
+                  }
                   disabled={testLastfmConfig.isPending || !localApiKey || !localApiSecret}
                 >
                   {testLastfmConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -735,91 +814,115 @@ export function Settings() {
             </div>
           </section>
 
-          {currentUser?.isAdmin && (<section className="space-y-4">
-            <h2 className="text-lg font-semibold">YouTube Musikvideos</h2>
-            <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
-              <div className="flex items-start gap-4">
-                <div className="h-12 w-12 bg-red-600/10 rounded-xl flex items-center justify-center shrink-0">
-                  <svg className="h-6 w-6 text-red-600" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                  </svg>
+          {currentUser?.isAdmin && (
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold">YouTube Musikvideos</h2>
+              <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="h-12 w-12 bg-red-600/10 rounded-xl flex items-center justify-center shrink-0">
+                    <svg className="h-6 w-6 text-red-600" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-white">Musikvideo-Suche</p>
+                    <p className="text-sm text-zinc-400">
+                      {youtubeData?.data?.configured
+                        ? 'API-Key konfiguriert — Musikvideos werden automatisch gesucht.'
+                        : 'Hinterlege deinen YouTube API-Key, um Musikvideos für Songs zu finden.'}
+                    </p>
+                  </div>
+                  {youtubeData?.data?.configured && (
+                    <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-3 py-1 shrink-0">
+                      Konfiguriert ✓
+                    </span>
+                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-white">Musikvideo-Suche</p>
-                  <p className="text-sm text-zinc-400">
-                    {youtubeData?.data?.configured
-                      ? 'API-Key konfiguriert — Musikvideos werden automatisch gesucht.'
-                      : 'Hinterlege deinen YouTube API-Key, um Musikvideos für Songs zu finden.'}
+
+                <div className="space-y-2">
+                  <label className="text-xs text-zinc-400 font-medium">API-Key</label>
+                  <input
+                    type="password"
+                    value={localYoutubeApiKey}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLocalYoutubeApiKey(e.target.value)
+                    }
+                    placeholder={
+                      youtubeData?.data?.configured ? '••••••••••••••••' : 'YouTube Data API v3 Key'
+                    }
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
+                  />
+                  <p className="text-xs text-zinc-500">
+                    Erstelle einen API-Key in der{' '}
+                    <a
+                      href="https://console.cloud.google.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:underline"
+                    >
+                      Google Cloud Console
+                    </a>{' '}
+                    und aktiviere die YouTube Data API v3.
                   </p>
                 </div>
-                {youtubeData?.data?.configured && (
-                  <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-3 py-1 shrink-0">
-                    Konfiguriert ✓
-                  </span>
+
+                {youtubeFeedback && (
+                  <div
+                    className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                      youtubeFeedback.type === 'success'
+                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    }`}
+                  >
+                    {youtubeFeedback.type === 'success' ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                    )}
+                    {youtubeFeedback.message}
+                  </div>
                 )}
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-xs text-zinc-400 font-medium">API-Key</label>
-                <input
-                  type="password"
-                  value={localYoutubeApiKey}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalYoutubeApiKey(e.target.value)}
-                  placeholder={youtubeData?.data?.configured ? '••••••••••••••••' : 'YouTube Data API v3 Key'}
-                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
-                />
-                <p className="text-xs text-zinc-500">
-                  Erstelle einen API-Key in der <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Google Cloud Console</a> und aktiviere die YouTube Data API v3.
-                </p>
-              </div>
-
-              {youtubeFeedback && (
-                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
-                  youtubeFeedback.type === 'success'
-                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                }`}>
-                  {youtubeFeedback.type === 'success'
-                    ? <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    : <AlertCircle className="h-4 w-4 shrink-0" />}
-                  {youtubeFeedback.message}
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  size="sm"
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
-                  onClick={() => saveYoutubeConfig.mutate({ apiKey: localYoutubeApiKey })}
-                  disabled={saveYoutubeConfig.isPending || !localYoutubeApiKey}
-                >
-                  {saveYoutubeConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                  Speichern
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => testYoutubeConfig.mutate({ apiKey: localYoutubeApiKey })}
-                  disabled={testYoutubeConfig.isPending || !localYoutubeApiKey}
-                >
-                  {testYoutubeConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                  Verbindung testen
-                </Button>
-                {youtubeData?.data?.configured && (
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
+                    onClick={() => saveYoutubeConfig.mutate({ apiKey: localYoutubeApiKey })}
+                    disabled={saveYoutubeConfig.isPending || !localYoutubeApiKey}
+                  >
+                    {saveYoutubeConfig.isPending && (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    )}
+                    Speichern
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => disconnectYoutube.mutate()}
-                    disabled={disconnectYoutube.isPending}
-                    className="text-red-400 hover:text-red-300"
+                    onClick={() => testYoutubeConfig.mutate({ apiKey: localYoutubeApiKey })}
+                    disabled={testYoutubeConfig.isPending || !localYoutubeApiKey}
                   >
-                    {disconnectYoutube.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                    Entfernen
+                    {testYoutubeConfig.isPending && (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    )}
+                    Verbindung testen
                   </Button>
-                )}
+                  {youtubeData?.data?.configured && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => disconnectYoutube.mutate()}
+                      disabled={disconnectYoutube.isPending}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      {disconnectYoutube.isPending && (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      )}
+                      Entfernen
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
           )}
 
           <section className="space-y-4">
@@ -828,7 +931,7 @@ export function Settings() {
               <div className="flex items-start gap-4">
                 <div className="h-12 w-12 bg-blue-600/10 rounded-xl flex items-center justify-center shrink-0">
                   <svg className="h-6 w-6 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -852,7 +955,9 @@ export function Settings() {
                   <input
                     type="text"
                     value={localPiApiKey}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalPiApiKey(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLocalPiApiKey(e.target.value)
+                    }
                     placeholder="API Key"
                     className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
                   />
@@ -867,26 +972,42 @@ export function Settings() {
                   <input
                     type="password"
                     value={localPiApiSecret}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalPiApiSecret(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLocalPiApiSecret(e.target.value)
+                    }
                     placeholder={piData?.data?.secretConfigured ? '••••••••••••••••' : 'API Secret'}
                     className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
                   />
                 </div>
               </div>
               <p className="text-xs text-zinc-500">
-                Kostenlosen Account und API-Keys erstellen unter <a href="https://api.podcastindex.org" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">api.podcastindex.org</a>.
-                {piData?.data?.secretConfigured && ' Das Secret bleibt gespeichert wenn das Feld leer gelassen wird.'}
+                Kostenlosen Account und API-Keys erstellen unter{' '}
+                <a
+                  href="https://api.podcastindex.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:underline"
+                >
+                  api.podcastindex.org
+                </a>
+                .
+                {piData?.data?.secretConfigured &&
+                  ' Das Secret bleibt gespeichert wenn das Feld leer gelassen wird.'}
               </p>
 
               {piFeedback && (
-                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
-                  piFeedback.type === 'success'
-                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                }`}>
-                  {piFeedback.type === 'success'
-                    ? <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    : <AlertCircle className="h-4 w-4 shrink-0" />}
+                <div
+                  className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                    piFeedback.type === 'success'
+                      ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                      : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                  }`}
+                >
+                  {piFeedback.type === 'success' ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                  )}
                   {piFeedback.message}
                 </div>
               )}
@@ -895,8 +1016,14 @@ export function Settings() {
                 <Button
                   size="sm"
                   className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
-                  onClick={() => savePiConfig.mutate({ apiKey: localPiApiKey, apiSecret: localPiApiSecret })}
-                  disabled={savePiConfig.isPending || !localPiApiKey || (!localPiApiSecret && !piData?.data?.secretConfigured)}
+                  onClick={() =>
+                    savePiConfig.mutate({ apiKey: localPiApiKey, apiSecret: localPiApiSecret })
+                  }
+                  disabled={
+                    savePiConfig.isPending ||
+                    !localPiApiKey ||
+                    (!localPiApiSecret && !piData?.data?.secretConfigured)
+                  }
                 >
                   {savePiConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
                   Speichern
@@ -916,20 +1043,20 @@ export function Settings() {
             </div>
           </section>
 
-          {currentUser?.isAdmin && (<section className="space-y-4">
-            <h2 className="text-lg font-semibold">Musik-Mediathek</h2>
-            <ScanCard
-              icon={<Music className="h-4 w-4 text-zinc-400" />}
-              label="Musik"
-              path={settingsData?.data?.paths?.music ?? '/music'}
-              onPathSave={(p) => saveSettings.mutateAsync({ musicPath: p })}
-              isPending={scanMusic.isPending}
-              isSuccess={scanMusic.isSuccess}
-              onScan={() => scanMusic.mutate()}
-            />
-          </section>
+          {currentUser?.isAdmin && (
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold">Musik-Mediathek</h2>
+              <ScanCard
+                icon={<Music className="h-4 w-4 text-zinc-400" />}
+                label="Musik"
+                path={settingsData?.data?.paths?.music ?? '/music'}
+                onPathSave={(p) => saveSettings.mutateAsync({ musicPath: p })}
+                isPending={scanMusic.isPending}
+                isSuccess={scanMusic.isSuccess}
+                onScan={() => scanMusic.mutate()}
+              />
+            </section>
           )}
-
         </div>
       )}
 
@@ -937,229 +1064,256 @@ export function Settings() {
 
       {activeTab === 'video' && (
         <div className="space-y-6">
+          {currentUser?.isAdmin && (
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold">The Movie Database (TMDb)</h2>
+              <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="h-12 w-12 bg-blue-500/10 rounded-xl flex items-center justify-center shrink-0">
+                    <Clapperboard className="h-6 w-6 text-blue-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-white">Metadaten für Filme &amp; Serien</p>
+                    <p className="text-sm text-zinc-400">
+                      {tmdbData?.data?.configured
+                        ? 'API-Key konfiguriert — Metadaten werden beim nächsten Scan abgerufen.'
+                        : 'Hinterlege deinen API-Key, um Filmbeschreibungen, Poster und Bewertungen automatisch zu laden.'}
+                    </p>
+                  </div>
+                  {tmdbData?.data?.configured && (
+                    <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-3 py-1 shrink-0">
+                      Konfiguriert ✓
+                    </span>
+                  )}
+                </div>
 
-          {currentUser?.isAdmin && (<section className="space-y-4">
-            <h2 className="text-lg font-semibold">The Movie Database (TMDb)</h2>
-            <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
-              <div className="flex items-start gap-4">
-                <div className="h-12 w-12 bg-blue-500/10 rounded-xl flex items-center justify-center shrink-0">
-                  <Clapperboard className="h-6 w-6 text-blue-400" />
+                <div className="space-y-2">
+                  <label className="text-xs text-zinc-400 font-medium">API-Key</label>
+                  <input
+                    type="password"
+                    value={localTmdbApiKey}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLocalTmdbApiKey(e.target.value)
+                    }
+                    placeholder="TMDb API-Key"
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
+                  />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-white">Metadaten für Filme &amp; Serien</p>
-                  <p className="text-sm text-zinc-400">
-                    {tmdbData?.data?.configured
-                      ? 'API-Key konfiguriert — Metadaten werden beim nächsten Scan abgerufen.'
-                      : 'Hinterlege deinen API-Key, um Filmbeschreibungen, Poster und Bewertungen automatisch zu laden.'}
-                  </p>
-                </div>
-                {tmdbData?.data?.configured && (
-                  <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-3 py-1 shrink-0">
-                    Konfiguriert ✓
-                  </span>
+
+                {tmdbFeedback && (
+                  <div
+                    className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                      tmdbFeedback.type === 'success'
+                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    }`}
+                  >
+                    {tmdbFeedback.type === 'success' ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                    )}
+                    {tmdbFeedback.message}
+                  </div>
                 )}
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-xs text-zinc-400 font-medium">API-Key</label>
-                <input
-                  type="password"
-                  value={localTmdbApiKey}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalTmdbApiKey(e.target.value)}
-                  placeholder="TMDb API-Key"
-                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
-                />
-              </div>
-
-              {tmdbFeedback && (
-                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
-                  tmdbFeedback.type === 'success'
-                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                }`}>
-                  {tmdbFeedback.type === 'success'
-                    ? <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    : <AlertCircle className="h-4 w-4 shrink-0" />}
-                  {tmdbFeedback.message}
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
+                    onClick={() => saveTmdbConfig.mutate({ apiKey: localTmdbApiKey })}
+                    disabled={saveTmdbConfig.isPending || !localTmdbApiKey}
+                  >
+                    {saveTmdbConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                    Speichern
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => testTmdbConfig.mutate({ apiKey: localTmdbApiKey })}
+                    disabled={testTmdbConfig.isPending || !localTmdbApiKey}
+                  >
+                    {testTmdbConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                    Verbindung testen
+                  </Button>
                 </div>
-              )}
-
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  size="sm"
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
-                  onClick={() => saveTmdbConfig.mutate({ apiKey: localTmdbApiKey })}
-                  disabled={saveTmdbConfig.isPending || !localTmdbApiKey}
-                >
-                  {saveTmdbConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                  Speichern
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => testTmdbConfig.mutate({ apiKey: localTmdbApiKey })}
-                  disabled={testTmdbConfig.isPending || !localTmdbApiKey}
-                >
-                  {testTmdbConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                  Verbindung testen
-                </Button>
               </div>
-            </div>
-          </section>
+            </section>
           )}
 
-          {currentUser?.isAdmin && (<section className="space-y-4">
-            <h2 className="text-lg font-semibold">MDBList</h2>
-            <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
-              <div className="flex items-start gap-4">
-                <div className="h-12 w-12 bg-yellow-500/10 rounded-xl flex items-center justify-center shrink-0">
-                  <Star className="h-6 w-6 text-yellow-400" />
+          {currentUser?.isAdmin && (
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold">MDBList</h2>
+              <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="h-12 w-12 bg-yellow-500/10 rounded-xl flex items-center justify-center shrink-0">
+                    <Star className="h-6 w-6 text-yellow-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-white">Bewertungen via MDBList</p>
+                    <p className="text-sm text-zinc-400">
+                      {mdblistData?.data?.configured
+                        ? 'API-Key konfiguriert — IMDB, Rotten Tomatoes & Metacritic werden täglich aktualisiert (max. 950 Anfragen/Tag).'
+                        : 'Hinterlege deinen MDBList API-Key für IMDB-, Rotten-Tomatoes- und Metacritic-Bewertungen. Kostenlos unter mdblist.com/api.'}
+                    </p>
+                  </div>
+                  {mdblistData?.data?.configured && (
+                    <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-3 py-1 shrink-0">
+                      Konfiguriert ✓
+                    </span>
+                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-white">Bewertungen via MDBList</p>
-                  <p className="text-sm text-zinc-400">
-                    {mdblistData?.data?.configured
-                      ? 'API-Key konfiguriert — IMDB, Rotten Tomatoes & Metacritic werden täglich aktualisiert (max. 950 Anfragen/Tag).'
-                      : 'Hinterlege deinen MDBList API-Key für IMDB-, Rotten-Tomatoes- und Metacritic-Bewertungen. Kostenlos unter mdblist.com/api.'}
-                  </p>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-zinc-400 font-medium">API-Key</label>
+                  <input
+                    type="password"
+                    value={localMdblistApiKey}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLocalMdblistApiKey(e.target.value)
+                    }
+                    placeholder={
+                      mdblistData?.data?.configured ? '••••••••••••••••••••' : 'MDBList API-Key'
+                    }
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 transition-all"
+                  />
                 </div>
-                {mdblistData?.data?.configured && (
-                  <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-3 py-1 shrink-0">
-                    Konfiguriert ✓
-                  </span>
+
+                {mdblistFeedback && (
+                  <div
+                    className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                      mdblistFeedback.type === 'success'
+                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    }`}
+                  >
+                    {mdblistFeedback.type === 'success' ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                    )}
+                    {mdblistFeedback.message}
+                  </div>
                 )}
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-xs text-zinc-400 font-medium">API-Key</label>
-                <input
-                  type="password"
-                  value={localMdblistApiKey}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalMdblistApiKey(e.target.value)}
-                  placeholder={mdblistData?.data?.configured ? '••••••••••••••••••••' : 'MDBList API-Key'}
-                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 transition-all"
-                />
-              </div>
-
-              {mdblistFeedback && (
-                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
-                  mdblistFeedback.type === 'success'
-                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                }`}>
-                  {mdblistFeedback.type === 'success'
-                    ? <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    : <AlertCircle className="h-4 w-4 shrink-0" />}
-                  {mdblistFeedback.message}
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    size="sm"
+                    className="bg-yellow-600 hover:bg-yellow-500 text-white font-bold"
+                    onClick={() => saveMdblistConfig.mutate({ apiKey: localMdblistApiKey })}
+                    disabled={saveMdblistConfig.isPending || !localMdblistApiKey}
+                  >
+                    {saveMdblistConfig.isPending && (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    )}
+                    Speichern
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => testMdblistConfig.mutate({ apiKey: localMdblistApiKey })}
+                    disabled={testMdblistConfig.isPending || !localMdblistApiKey}
+                  >
+                    {testMdblistConfig.isPending && (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    )}
+                    Verbindung testen
+                  </Button>
                 </div>
-              )}
-
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  size="sm"
-                  className="bg-yellow-600 hover:bg-yellow-500 text-white font-bold"
-                  onClick={() => saveMdblistConfig.mutate({ apiKey: localMdblistApiKey })}
-                  disabled={saveMdblistConfig.isPending || !localMdblistApiKey}
-                >
-                  {saveMdblistConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                  Speichern
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => testMdblistConfig.mutate({ apiKey: localMdblistApiKey })}
-                  disabled={testMdblistConfig.isPending || !localMdblistApiKey}
-                >
-                  {testMdblistConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                  Verbindung testen
-                </Button>
               </div>
-            </div>
-          </section>
+            </section>
           )}
 
-          {currentUser?.isAdmin && (<section className="space-y-4">
-            <h2 className="text-lg font-semibold">Trakt.tv</h2>
-            <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
-              <div className="flex items-start gap-4">
-                <div className="h-12 w-12 bg-red-500/10 rounded-xl flex items-center justify-center shrink-0">
-                  <Clapperboard className="h-6 w-6 text-red-400" />
+          {currentUser?.isAdmin && (
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold">Trakt.tv</h2>
+              <div className="rounded-xl border border-white/5 p-6 bg-white/5 space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="h-12 w-12 bg-red-500/10 rounded-xl flex items-center justify-center shrink-0">
+                    <Clapperboard className="h-6 w-6 text-red-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-white">Community-Bewertungen via Trakt</p>
+                    <p className="text-sm text-zinc-400">
+                      {traktData?.data?.configured
+                        ? 'Client ID konfiguriert — Trakt-Bewertungen werden beim nächsten Refresh abgerufen.'
+                        : 'Hinterlege deine Trakt Client ID, um Community-Bewertungen für Filme zu laden. Kostenlos unter trakt.tv/oauth/applications.'}
+                    </p>
+                  </div>
+                  {traktData?.data?.configured && (
+                    <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-3 py-1 shrink-0">
+                      Konfiguriert ✓
+                    </span>
+                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-white">Community-Bewertungen via Trakt</p>
-                  <p className="text-sm text-zinc-400">
-                    {traktData?.data?.configured
-                      ? 'Client ID konfiguriert — Trakt-Bewertungen werden beim nächsten Refresh abgerufen.'
-                      : 'Hinterlege deine Trakt Client ID, um Community-Bewertungen für Filme zu laden. Kostenlos unter trakt.tv/oauth/applications.'}
-                  </p>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-zinc-400 font-medium">Client ID</label>
+                  <input
+                    type="password"
+                    value={localTraktClientId}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLocalTraktClientId(e.target.value)
+                    }
+                    placeholder="Trakt Client ID"
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-red-500 transition-all"
+                  />
                 </div>
-                {traktData?.data?.configured && (
-                  <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-3 py-1 shrink-0">
-                    Konfiguriert ✓
-                  </span>
+
+                {traktFeedback && (
+                  <div
+                    className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                      traktFeedback.type === 'success'
+                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    }`}
+                  >
+                    {traktFeedback.type === 'success' ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                    )}
+                    {traktFeedback.message}
+                  </div>
                 )}
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-xs text-zinc-400 font-medium">Client ID</label>
-                <input
-                  type="password"
-                  value={localTraktClientId}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalTraktClientId(e.target.value)}
-                  placeholder="Trakt Client ID"
-                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-red-500 transition-all"
-                />
-              </div>
-
-              {traktFeedback && (
-                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
-                  traktFeedback.type === 'success'
-                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                }`}>
-                  {traktFeedback.type === 'success'
-                    ? <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    : <AlertCircle className="h-4 w-4 shrink-0" />}
-                  {traktFeedback.message}
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    size="sm"
+                    className="bg-red-600 hover:bg-red-500 text-white font-bold"
+                    onClick={() => saveTraktConfig.mutate({ clientId: localTraktClientId })}
+                    disabled={saveTraktConfig.isPending || !localTraktClientId}
+                  >
+                    {saveTraktConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                    Speichern
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => testTraktConfig.mutate({ clientId: localTraktClientId })}
+                    disabled={testTraktConfig.isPending || !localTraktClientId}
+                  >
+                    {testTraktConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                    Verbindung testen
+                  </Button>
                 </div>
-              )}
-
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  size="sm"
-                  className="bg-red-600 hover:bg-red-500 text-white font-bold"
-                  onClick={() => saveTraktConfig.mutate({ clientId: localTraktClientId })}
-                  disabled={saveTraktConfig.isPending || !localTraktClientId}
-                >
-                  {saveTraktConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                  Speichern
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => testTraktConfig.mutate({ clientId: localTraktClientId })}
-                  disabled={testTraktConfig.isPending || !localTraktClientId}
-                >
-                  {testTraktConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                  Verbindung testen
-                </Button>
               </div>
-            </div>
-          </section>
+            </section>
           )}
 
-          {currentUser?.isAdmin && (<section className="space-y-4">
-            <h2 className="text-lg font-semibold">Video-Mediathek</h2>
-            <ScanCard
-              icon={<Clapperboard className="h-4 w-4 text-zinc-400" />}
-              label="Filme & Serien"
-              path={settingsData?.data?.paths?.video ?? '/videos'}
-              onPathSave={(p) => saveSettings.mutateAsync({ videoPath: p })}
-              isPending={scanVideo.isPending}
-              isSuccess={scanVideo.isSuccess}
-              onScan={() => scanVideo.mutate()}
-            />
-          </section>
+          {currentUser?.isAdmin && (
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold">Video-Mediathek</h2>
+              <ScanCard
+                icon={<Clapperboard className="h-4 w-4 text-zinc-400" />}
+                label="Filme & Serien"
+                path={settingsData?.data?.paths?.video ?? '/videos'}
+                onPathSave={(p) => saveSettings.mutateAsync({ videoPath: p })}
+                isPending={scanVideo.isPending}
+                isSuccess={scanVideo.isSuccess}
+                onScan={() => scanVideo.mutate()}
+              />
+            </section>
           )}
         </div>
       )}
@@ -1168,27 +1322,26 @@ export function Settings() {
 
       {activeTab === 'audiobook' && (
         <div className="space-y-6">
-          {currentUser?.isAdmin && (<section className="space-y-4">
-            <h2 className="text-lg font-semibold">Hörbücher-Mediathek</h2>
-            <ScanCard
-              icon={<BookOpen className="h-4 w-4 text-zinc-400" />}
-              label="Hörbücher"
-              path={settingsData?.data?.paths?.audiobook ?? '/audiobooks'}
-              onPathSave={(p) => saveSettings.mutateAsync({ audiobookPath: p })}
-              isPending={scanAudiobooks.isPending}
-              isSuccess={scanAudiobooks.isSuccess}
-              onScan={() => scanAudiobooks.mutate()}
-            />
-          </section>
+          {currentUser?.isAdmin && (
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold">Hörbücher-Mediathek</h2>
+              <ScanCard
+                icon={<BookOpen className="h-4 w-4 text-zinc-400" />}
+                label="Hörbücher"
+                path={settingsData?.data?.paths?.audiobook ?? '/audiobooks'}
+                onPathSave={(p) => saveSettings.mutateAsync({ audiobookPath: p })}
+                isPending={scanAudiobooks.isPending}
+                isSuccess={scanAudiobooks.isSuccess}
+                onScan={() => scanAudiobooks.mutate()}
+              />
+            </section>
           )}
         </div>
       )}
 
       {/* ─── Benutzer (Admin only) ────────────────────────────────────────────── */}
 
-      {activeTab === 'users' && currentUser?.isAdmin && (
-        <UsersTab currentUserId={currentUser.id} />
-      )}
+      {activeTab === 'users' && currentUser?.isAdmin && <UsersTab currentUserId={currentUser.id} />}
     </div>
   );
 }
@@ -1238,8 +1391,13 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
   });
 
   const updateUser = useMutation({
-    mutationFn: (data: { id: string; username: string; email: string; isAdmin: boolean; password?: string }) =>
-      api.patch(`/auth/users/${data.id}`, data),
+    mutationFn: (data: {
+      id: string;
+      username: string;
+      email: string;
+      isAdmin: boolean;
+      password?: string;
+    }) => api.patch(`/auth/users/${data.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['auth-users'] });
       setEditUser(null);
@@ -1252,8 +1410,16 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
-    if (!newUsername || !newPassword) { setFormError('Benutzername und Passwort erforderlich'); return; }
-    createUser.mutate({ username: newUsername, email: newEmail, password: newPassword, isAdmin: newIsAdmin });
+    if (!newUsername || !newPassword) {
+      setFormError('Benutzername und Passwort erforderlich');
+      return;
+    }
+    createUser.mutate({
+      username: newUsername,
+      email: newEmail,
+      password: newPassword,
+      isAdmin: newIsAdmin,
+    });
   };
 
   const users = usersData?.data ?? [];
@@ -1326,7 +1492,11 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
                   className="bg-blue-600 hover:bg-blue-500 text-white"
                   disabled={createUser.isPending}
                 >
-                  {createUser.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <UserPlus className="h-4 w-4 mr-1" />}
+                  {createUser.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <UserPlus className="h-4 w-4 mr-1" />
+                  )}
                   Anlegen
                 </Button>
               </div>
@@ -1419,7 +1589,10 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
               onSubmit={(e) => {
                 e.preventDefault();
                 setEditError('');
-                if (!editUsername) { setEditError('Benutzername erforderlich'); return; }
+                if (!editUsername) {
+                  setEditError('Benutzername erforderlich');
+                  return;
+                }
                 updateUser.mutate({
                   id: editUser.id,
                   username: editUsername,
@@ -1480,7 +1653,11 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
                   className="bg-blue-600 hover:bg-blue-500 text-white"
                   disabled={updateUser.isPending}
                 >
-                  {updateUser.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Pencil className="h-4 w-4 mr-1" />}
+                  {updateUser.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <Pencil className="h-4 w-4 mr-1" />
+                  )}
                   Speichern
                 </Button>
               </div>

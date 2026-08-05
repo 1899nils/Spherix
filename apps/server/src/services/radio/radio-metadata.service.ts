@@ -278,7 +278,9 @@ class RadioPollerManager {
 
       state.currentParsed = parsed;
       this.notifyListeners(userId, parsed);
-      logger.info(`Radio track detected: "${rawTitle}" → ${parsed.artist} – ${parsed.title}`, { userId });
+      logger.info(`Radio track detected: "${rawTitle}" → ${parsed.artist} – ${parsed.title}`, {
+        userId,
+      });
 
       // 1) Send now-playing immediately with ICY-parsed names — zero lag
       void this.sendNowPlayingDirect(userId, { artist: parsed.artist, track: parsed.title });
@@ -324,7 +326,8 @@ class RadioPollerManager {
 
       // Build canonical artist string, preserving join phrases (e.g. " feat. ")
       const canonicalArtist =
-        recording['artist-credit']?.map((c) => c.name + (c.joinphrase ?? '')).join('') ?? parsed.artist;
+        recording['artist-credit']?.map((c) => c.name + (c.joinphrase ?? '')).join('') ??
+        parsed.artist;
 
       const resolved: ResolvedTrack = {
         artist: canonicalArtist,
@@ -376,11 +379,10 @@ class RadioPollerManager {
       });
       if (!settings?.lastfmSessionKey) return;
 
-      await lastfmService.updateNowPlaying(
-        settings.lastfmSessionKey,
-        track,
-        { apiKey: settings.lastfmApiKey, apiSecret: settings.lastfmApiSecret },
-      );
+      await lastfmService.updateNowPlaying(settings.lastfmSessionKey, track, {
+        apiKey: settings.lastfmApiKey,
+        apiSecret: settings.lastfmApiSecret,
+      });
       logger.debug(`Radio now-playing sent: ${track.artist} – ${track.track}`, { userId });
     } catch (err) {
       logger.warn('Radio: failed to update Last.fm now playing', { userId, error: String(err) });

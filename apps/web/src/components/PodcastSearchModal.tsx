@@ -56,7 +56,10 @@ export function PodcastSearchModal({ onClose }: Props) {
         </div>
 
         {/* Search bar */}
-        <form onSubmit={handleSearch} className="flex gap-2 px-6 py-4 border-b border-border shrink-0">
+        <form
+          onSubmit={handleSearch}
+          className="flex gap-2 px-6 py-4 border-b border-border shrink-0"
+        >
           <input
             autoFocus
             type="text"
@@ -66,15 +69,17 @@ export function PodcastSearchModal({ onClose }: Props) {
             className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           />
           <Button type="submit" size="sm" disabled={searching || !query.trim()}>
-            {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            {searching ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="h-4 w-4" />
+            )}
           </Button>
         </form>
 
         {/* Results */}
         <div className="overflow-y-auto flex-1 px-4 py-2">
-          {searchError && (
-            <p className="text-sm text-red-500 px-2 py-4">{searchError}</p>
-          )}
+          {searchError && <p className="text-sm text-red-500 px-2 py-4">{searchError}</p>}
 
           {!searching && results.length === 0 && !searchError && (
             <p className="text-sm text-muted-foreground text-center py-12">
@@ -85,8 +90,7 @@ export function PodcastSearchModal({ onClose }: Props) {
           {results.map((item) => {
             const alreadySubscribed = subscribed.has(item.feedUrl);
             const isSubscribing =
-              subscribeMutation.isPending &&
-              subscribeMutation.variables?.feedUrl === item.feedUrl;
+              subscribeMutation.isPending && subscribeMutation.variables?.feedUrl === item.feedUrl;
 
             return (
               <div
@@ -102,7 +106,9 @@ export function PodcastSearchModal({ onClose }: Props) {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="h-full w-full flex items-center justify-center text-2xl">🎙️</div>
+                    <div className="h-full w-full flex items-center justify-center text-2xl">
+                      🎙️
+                    </div>
                   )}
                 </div>
 

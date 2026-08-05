@@ -130,7 +130,7 @@ export async function probeMedia(filePath: string): Promise<MediaInfo | null> {
  */
 export function canDirectPlay(
   mediaInfo: MediaInfo,
-  clientCaps: ClientCapabilities
+  clientCaps: ClientCapabilities,
 ): { playable: boolean; reason?: string } {
   if (!mediaInfo.video) {
     return { playable: false, reason: 'No video stream' };
@@ -186,7 +186,7 @@ export function canDirectPlay(
  */
 export function getTranscodeSettings(
   mediaInfo: MediaInfo,
-  clientCaps: ClientCapabilities
+  clientCaps: ClientCapabilities,
 ): {
   videoCodec: 'h264' | 'hevc';
   audioCodec: 'aac' | 'opus';

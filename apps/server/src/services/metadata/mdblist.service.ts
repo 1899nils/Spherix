@@ -43,10 +43,7 @@ interface MdblistResponse {
  * Fetch IMDb, Rotten Tomatoes, and Metacritic ratings from MDBList.
  * Returns all-null on any error so callers can treat this as best-effort.
  */
-export async function fetchMdblistRatings(
-  imdbId: string,
-  apiKey: string,
-): Promise<MdblistRatings> {
+export async function fetchMdblistRatings(imdbId: string, apiKey: string): Promise<MdblistRatings> {
   const empty: MdblistRatings = {
     imdbRating: null,
     rottenTomatoesScore: null,
@@ -65,25 +62,31 @@ export async function fetchMdblistRatings(
     const data = (await res.json()) as MdblistResponse;
     if (data.response === false || !data.ratings) return empty;
 
-    const find = (source: string) =>
-      data.ratings!.find((r) => r.source === source) ?? null;
+    const find = (source: string) => data.ratings!.find((r) => r.source === source) ?? null;
 
-    const imdbEntry            = find('imdb');
-    const rtEntry              = find('tomatoes');
-    const rtAudienceEntry      = find('tomatoesaudience');
-    const metacriticEntry      = find('metacritic');
-    const letterboxdEntry      = find('letterboxd');
+    const imdbEntry = find('imdb');
+    const rtEntry = find('tomatoes');
+    const rtAudienceEntry = find('tomatoesaudience');
+    const metacriticEntry = find('metacritic');
+    const letterboxdEntry = find('letterboxd');
 
-    const imdbRating                    = imdbEntry?.value ?? null;
-    const rottenTomatoesScore           = rtEntry?.value != null ? Math.round(rtEntry.value) : null;
-    const rottenTomatoesAudienceScore   = rtAudienceEntry?.value != null ? Math.round(rtAudienceEntry.value) : null;
-    const metacriticScore               = metacriticEntry?.value != null ? Math.round(metacriticEntry.value) : null;
+    const imdbRating = imdbEntry?.value ?? null;
+    const rottenTomatoesScore = rtEntry?.value != null ? Math.round(rtEntry.value) : null;
+    const rottenTomatoesAudienceScore =
+      rtAudienceEntry?.value != null ? Math.round(rtAudienceEntry.value) : null;
+    const metacriticScore =
+      metacriticEntry?.value != null ? Math.round(metacriticEntry.value) : null;
     // Letterboxd value is already on a 0–5 scale; round to 2 decimal places
-    const letterboxdScore               = letterboxdEntry?.value != null
-      ? Math.round(letterboxdEntry.value * 100) / 100
-      : null;
+    const letterboxdScore =
+      letterboxdEntry?.value != null ? Math.round(letterboxdEntry.value * 100) / 100 : null;
 
-    return { imdbRating, rottenTomatoesScore, rottenTomatoesAudienceScore, metacriticScore, letterboxdScore };
+    return {
+      imdbRating,
+      rottenTomatoesScore,
+      rottenTomatoesAudienceScore,
+      metacriticScore,
+      letterboxdScore,
+    };
   } catch {
     return empty;
   }

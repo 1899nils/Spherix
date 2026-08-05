@@ -138,14 +138,12 @@ function formatDuration(seconds: number): string {
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
-  
+
   if (hrs > 0) {
     return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
-
-
 
 function getDeviceIcon(device: string) {
   const d = device.toLowerCase();
@@ -156,18 +154,25 @@ function getDeviceIcon(device: string) {
 
 function getStateIcon(state: string) {
   switch (state) {
-    case 'playing': return Play;
-    case 'paused': return Pause;
-    default: return Activity;
+    case 'playing':
+      return Play;
+    case 'paused':
+      return Pause;
+    default:
+      return Activity;
   }
 }
 
 function getStateColor(state: string): string {
   switch (state) {
-    case 'playing': return 'text-green-400';
-    case 'paused': return 'text-amber-400';
-    case 'buffering': return 'text-blue-400';
-    default: return 'text-white';
+    case 'playing':
+      return 'text-green-400';
+    case 'paused':
+      return 'text-amber-400';
+    case 'buffering':
+      return 'text-blue-400';
+    default:
+      return 'text-white';
   }
 }
 
@@ -307,9 +312,12 @@ export function StatusDashboard() {
       id: 'video-local',
       type: 'video',
       title: activeVideo.title,
-      subtitle: activeVideo.type === 'episode' && activeVideo.seriesTitle
-        ? activeVideo.seriesTitle
-        : activeVideo.type === 'movie' ? 'Film' : 'Video',
+      subtitle:
+        activeVideo.type === 'episode' && activeVideo.seriesTitle
+          ? activeVideo.seriesTitle
+          : activeVideo.type === 'movie'
+            ? 'Film'
+            : 'Video',
       userName,
       isPlaying: videoStorePlaying,
       seek: videoTime,
@@ -317,8 +325,8 @@ export function StatusDashboard() {
     });
   }
 
-  const localPlayingCount = localActivities.filter(a => a.isPlaying).length;
-  const videoPlayingCount = sessions.filter(s => s.state === 'playing').length;
+  const localPlayingCount = localActivities.filter((a) => a.isPlaying).length;
+  const videoPlayingCount = sessions.filter((s) => s.state === 'playing').length;
   const activeCount = localPlayingCount + videoPlayingCount;
 
   useEffect(() => {
@@ -366,7 +374,9 @@ export function StatusDashboard() {
             <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
               <button
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  activeTab === 'activity' ? 'bg-section-accent text-white' : 'text-white/60 hover:text-white'
+                  activeTab === 'activity'
+                    ? 'bg-section-accent text-white'
+                    : 'text-white/60 hover:text-white'
                 }`}
                 onClick={() => setActiveTab('activity')}
               >
@@ -375,7 +385,9 @@ export function StatusDashboard() {
               </button>
               <button
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  activeTab === 'system' ? 'bg-section-accent text-white' : 'text-white/60 hover:text-white'
+                  activeTab === 'system'
+                    ? 'bg-section-accent text-white'
+                    : 'text-white/60 hover:text-white'
                 }`}
                 onClick={() => setActiveTab('system')}
               >
@@ -384,7 +396,9 @@ export function StatusDashboard() {
               </button>
               <button
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors relative ${
-                  activeTab === 'queue' ? 'bg-section-accent text-white' : 'text-white/60 hover:text-white'
+                  activeTab === 'queue'
+                    ? 'bg-section-accent text-white'
+                    : 'text-white/60 hover:text-white'
                 }`}
                 onClick={() => setActiveTab('queue')}
               >
@@ -398,7 +412,9 @@ export function StatusDashboard() {
               </button>
               <button
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  activeTab === 'history' ? 'bg-section-accent text-white' : 'text-white/60 hover:text-white'
+                  activeTab === 'history'
+                    ? 'bg-section-accent text-white'
+                    : 'text-white/60 hover:text-white'
                 }`}
                 onClick={() => setActiveTab('history')}
               >
@@ -418,7 +434,6 @@ export function StatusDashboard() {
 
           {/* Content */}
           <div className="max-h-[450px] overflow-y-auto">
-            
             {/* ACTIVITY TAB */}
             {activeTab === 'activity' && (
               <>
@@ -430,7 +445,9 @@ export function StatusDashboard() {
                         <Cpu className="h-3.5 w-3.5" />
                         <span className="text-xs">CPU</span>
                       </div>
-                      <p className={`text-lg font-semibold ${system.cpu.load > 80 ? 'text-red-400' : system.cpu.load > 50 ? 'text-amber-400' : 'text-green-400'}`}>
+                      <p
+                        className={`text-lg font-semibold ${system.cpu.load > 80 ? 'text-red-400' : system.cpu.load > 50 ? 'text-amber-400' : 'text-green-400'}`}
+                      >
                         {system.cpu.load}%
                       </p>
                     </div>
@@ -439,7 +456,9 @@ export function StatusDashboard() {
                         <MemoryStick className="h-3.5 w-3.5" />
                         <span className="text-xs">RAM</span>
                       </div>
-                      <p className={`text-lg font-semibold ${system.memory.percentage > 80 ? 'text-red-400' : system.memory.percentage > 50 ? 'text-amber-400' : 'text-green-400'}`}>
+                      <p
+                        className={`text-lg font-semibold ${system.memory.percentage > 80 ? 'text-red-400' : system.memory.percentage > 50 ? 'text-amber-400' : 'text-green-400'}`}
+                      >
                         {system.memory.percentage}%
                       </p>
                     </div>
@@ -449,7 +468,7 @@ export function StatusDashboard() {
                         <span className="text-xs">Direct</span>
                       </div>
                       <p className="text-lg font-semibold text-green-400">
-                        {sessions.filter(s => s.transcodeInfo?.videoDecision === 'direct').length}
+                        {sessions.filter((s) => s.transcodeInfo?.videoDecision === 'direct').length}
                       </p>
                     </div>
                     <div className="p-3 text-center">
@@ -458,7 +477,10 @@ export function StatusDashboard() {
                         <span className="text-xs">Transcode</span>
                       </div>
                       <p className="text-lg font-semibold text-amber-400">
-                        {sessions.filter(s => s.transcodeInfo?.videoDecision === 'transcode').length}
+                        {
+                          sessions.filter((s) => s.transcodeInfo?.videoDecision === 'transcode')
+                            .length
+                        }
                       </p>
                     </div>
                   </div>
@@ -491,36 +513,53 @@ export function StatusDashboard() {
                       };
                       const Icon = icons[activity.type];
                       const color = colors[activity.type];
-                      const progress = activity.duration > 0 ? (activity.seek / activity.duration) * 100 : 0;
+                      const progress =
+                        activity.duration > 0 ? (activity.seek / activity.duration) * 100 : 0;
                       return (
                         <div key={activity.id} className="p-4 hover:bg-white/5 transition-colors">
                           <div className="flex items-start gap-3">
-                            <div className={`w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0`}>
+                            <div
+                              className={`w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0`}
+                            >
                               <Icon className={`h-5 w-5 ${color}`} />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <h4 className="font-medium text-white truncate">{activity.title}</h4>
-                                {activity.isPlaying
-                                  ? <Play className="h-3.5 w-3.5 text-green-400 shrink-0" />
-                                  : <Pause className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
+                                <h4 className="font-medium text-white truncate">
+                                  {activity.title}
+                                </h4>
+                                {activity.isPlaying ? (
+                                  <Play className="h-3.5 w-3.5 text-green-400 shrink-0" />
+                                ) : (
+                                  <Pause className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                                )}
                               </div>
-                              <p className="text-xs text-muted-foreground truncate">{activity.subtitle}</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {activity.subtitle}
+                              </p>
                               <p className="text-xs text-white/40 truncate">{activity.userName}</p>
                               <div className="flex items-center gap-2 mt-1.5">
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/50">{labels[activity.type]}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/50">
+                                  {labels[activity.type]}
+                                </span>
                                 {activity.duration > 0 && (
                                   <>
                                     <span className="text-xs font-mono text-white/50">
-                                      {formatDuration(activity.seek)} / {formatDuration(activity.duration)}
+                                      {formatDuration(activity.seek)} /{' '}
+                                      {formatDuration(activity.duration)}
                                     </span>
                                     <div className="flex-1 h-1 bg-white/20 rounded-full overflow-hidden">
-                                      <div className="h-full bg-section-accent" style={{ width: `${progress}%` }} />
+                                      <div
+                                        className="h-full bg-section-accent"
+                                        style={{ width: `${progress}%` }}
+                                      />
                                     </div>
                                   </>
                                 )}
                                 {activity.type === 'radio' && (
-                                  <span className="text-xs text-blue-400 animate-pulse">● Live</span>
+                                  <span className="text-xs text-blue-400 animate-pulse">
+                                    ● Live
+                                  </span>
                                 )}
                               </div>
                             </div>
@@ -545,21 +584,29 @@ export function StatusDashboard() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <h4 className="font-medium text-white truncate">{session.mediaTitle}</h4>
+                              <h4 className="font-medium text-white truncate">
+                                {session.mediaTitle}
+                              </h4>
                               {(() => {
                                 const Icon = getStateIcon(session.state);
                                 const color = getStateColor(session.state);
                                 return <Icon className={`h-3.5 w-3.5 ${color}`} />;
                               })()}
                             </div>
-                            <p className="text-xs text-muted-foreground">{session.userName} • {session.device}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {session.userName} • {session.device}
+                            </p>
                           </div>
                           <div className="text-right shrink-0">
                             <p className="text-xs font-mono text-white/80">
-                              {formatDuration(session.position)} / {formatDuration(session.duration)}
+                              {formatDuration(session.position)} /{' '}
+                              {formatDuration(session.duration)}
                             </p>
                             <div className="w-20 h-1 bg-white/20 rounded-full mt-1 overflow-hidden">
-                              <div className="h-full bg-section-accent" style={{ width: `${(session.position / session.duration) * 100}%` }} />
+                              <div
+                                className="h-full bg-section-accent"
+                                style={{ width: `${(session.position / session.duration) * 100}%` }}
+                              />
                             </div>
                           </div>
                         </div>
@@ -568,20 +615,36 @@ export function StatusDashboard() {
                           <div className="space-y-1 pl-[52px] text-xs">
                             <div className="flex items-center gap-2">
                               <span className="text-muted-foreground w-12">Video</span>
-                              <span className="text-white/60">{session.transcodeInfo.videoCodec}</span>
+                              <span className="text-white/60">
+                                {session.transcodeInfo.videoCodec}
+                              </span>
                               <span className="text-white/30">→</span>
                               {session.transcodeInfo.videoDecision === 'direct' ? (
                                 <span className="text-green-400">Direct Stream</span>
                               ) : (
-                                <span className="text-amber-400">Transcode {session.transcodeProgress !== undefined && `(${session.transcodeProgress}%)`}</span>
+                                <span className="text-amber-400">
+                                  Transcode{' '}
+                                  {session.transcodeProgress !== undefined &&
+                                    `(${session.transcodeProgress}%)`}
+                                </span>
                               )}
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-muted-foreground w-12">Audio</span>
-                              <span className="text-white/60">{session.transcodeInfo.audioCodec}</span>
+                              <span className="text-white/60">
+                                {session.transcodeInfo.audioCodec}
+                              </span>
                               <span className="text-white/30">→</span>
-                              <span className={session.transcodeInfo.audioDecision === 'direct' ? 'text-green-400' : 'text-amber-400'}>
-                                {session.transcodeInfo.audioDecision === 'direct' ? 'Direct' : 'Transcode'}
+                              <span
+                                className={
+                                  session.transcodeInfo.audioDecision === 'direct'
+                                    ? 'text-green-400'
+                                    : 'text-amber-400'
+                                }
+                              >
+                                {session.transcodeInfo.audioDecision === 'direct'
+                                  ? 'Direct'
+                                  : 'Transcode'}
                               </span>
                             </div>
                           </div>
@@ -610,7 +673,9 @@ export function StatusDashboard() {
                       <Cpu className="h-4 w-4 text-blue-400" />
                       <span className="font-medium text-sm">CPU</span>
                     </div>
-                    <span className={`text-sm font-semibold ${detailedSystem.cpu.load > 80 ? 'text-red-400' : detailedSystem.cpu.load > 50 ? 'text-amber-400' : 'text-green-400'}`}>
+                    <span
+                      className={`text-sm font-semibold ${detailedSystem.cpu.load > 80 ? 'text-red-400' : detailedSystem.cpu.load > 50 ? 'text-amber-400' : 'text-green-400'}`}
+                    >
                       {detailedSystem.cpu.load}% ({detailedSystem.cpu.cores} Cores)
                     </span>
                   </div>
@@ -632,15 +697,19 @@ export function StatusDashboard() {
                       <MemoryStick className="h-4 w-4 text-purple-400" />
                       <span className="font-medium text-sm">Arbeitsspeicher</span>
                     </div>
-                    <span className="text-sm text-white/60">{detailedSystem.memory.used} / {detailedSystem.memory.total}</span>
+                    <span className="text-sm text-white/60">
+                      {detailedSystem.memory.used} / {detailedSystem.memory.total}
+                    </span>
                   </div>
                   <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className={`h-full rounded-full ${detailedSystem.memory.percentage > 80 ? 'bg-red-500' : detailedSystem.memory.percentage > 50 ? 'bg-amber-500' : 'bg-green-500'}`}
                       style={{ width: `${detailedSystem.memory.percentage}%` }}
                     />
                   </div>
-                  <p className="text-xs text-white/40 mt-1">{detailedSystem.memory.percentage}% belegt</p>
+                  <p className="text-xs text-white/40 mt-1">
+                    {detailedSystem.memory.percentage}% belegt
+                  </p>
                 </div>
 
                 {/* Disk */}
@@ -650,15 +719,19 @@ export function StatusDashboard() {
                       <HardDrive className="h-4 w-4 text-cyan-400" />
                       <span className="font-medium text-sm">Speicherplatz</span>
                     </div>
-                    <span className="text-sm text-white/60">{detailedSystem.disk.used} / {detailedSystem.disk.total}</span>
+                    <span className="text-sm text-white/60">
+                      {detailedSystem.disk.used} / {detailedSystem.disk.total}
+                    </span>
                   </div>
                   <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className={`h-full rounded-full ${detailedSystem.disk.percentage > 90 ? 'bg-red-500' : detailedSystem.disk.percentage > 70 ? 'bg-amber-500' : 'bg-green-500'}`}
                       style={{ width: `${detailedSystem.disk.percentage}%` }}
                     />
                   </div>
-                  <p className="text-xs text-white/40 mt-1">{detailedSystem.disk.percentage}% belegt • {detailedSystem.disk.free} frei</p>
+                  <p className="text-xs text-white/40 mt-1">
+                    {detailedSystem.disk.percentage}% belegt • {detailedSystem.disk.free} frei
+                  </p>
                 </div>
 
                 {/* Network */}
@@ -670,11 +743,15 @@ export function StatusDashboard() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-muted-foreground">Download</p>
-                      <p className="text-sm font-medium text-green-400">{detailedSystem.network.rxSec}</p>
+                      <p className="text-sm font-medium text-green-400">
+                        {detailedSystem.network.rxSec}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Upload</p>
-                      <p className="text-sm font-medium text-blue-400">{detailedSystem.network.txSec}</p>
+                      <p className="text-sm font-medium text-blue-400">
+                        {detailedSystem.network.txSec}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -703,22 +780,33 @@ export function StatusDashboard() {
                     {queue.map((item) => (
                       <div key={item.id} className="bg-white/5 rounded-lg p-3">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-sm text-white truncate">{item.mediaTitle}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            item.status === 'processing' ? 'bg-amber-500/20 text-amber-400' : 
-                            item.status === 'pending' ? 'bg-blue-500/20 text-blue-400' :
-                            item.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                            'bg-red-500/20 text-red-400'
-                          }`}>
-                            {item.status === 'processing' ? 'Verarbeitet' : 
-                             item.status === 'pending' ? 'Wartet' :
-                             item.status === 'completed' ? 'Fertig' : 'Fehler'}
+                          <span className="font-medium text-sm text-white truncate">
+                            {item.mediaTitle}
+                          </span>
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full ${
+                              item.status === 'processing'
+                                ? 'bg-amber-500/20 text-amber-400'
+                                : item.status === 'pending'
+                                  ? 'bg-blue-500/20 text-blue-400'
+                                  : item.status === 'completed'
+                                    ? 'bg-green-500/20 text-green-400'
+                                    : 'bg-red-500/20 text-red-400'
+                            }`}
+                          >
+                            {item.status === 'processing'
+                              ? 'Verarbeitet'
+                              : item.status === 'pending'
+                                ? 'Wartet'
+                                : item.status === 'completed'
+                                  ? 'Fertig'
+                                  : 'Fehler'}
                           </span>
                         </div>
                         {item.status === 'processing' && (
                           <div className="space-y-1">
                             <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                              <div 
+                              <div
                                 className="h-full bg-amber-500 rounded-full transition-all"
                                 style={{ width: `${item.progress}%` }}
                               />
@@ -749,13 +837,19 @@ export function StatusDashboard() {
                           <Monitor className="h-4 w-4 text-white/40 shrink-0" />
                           <div className="min-w-0">
                             <p className="text-sm text-white truncate">{item.mediaTitle}</p>
-                            <p className="text-xs text-muted-foreground">{item.userName} • {item.device}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.userName} • {item.device}
+                            </p>
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            item.decision === 'direct' ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'
-                          }`}>
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full ${
+                              item.decision === 'direct'
+                                ? 'bg-green-500/20 text-green-400'
+                                : 'bg-amber-500/20 text-amber-400'
+                            }`}
+                          >
                             {item.decision === 'direct' ? 'Direct' : 'Transcode'}
                           </span>
                           <p className="text-xs text-white/40 mt-1">

@@ -41,9 +41,10 @@ export function TmdbSearchModal({ isOpen, onClose, type, item }: TmdbSearchModal
 
   const linkMutation = useMutation({
     mutationFn: async (tmdbId: number) => {
-      const endpoint = type === 'movie' 
-        ? `/video/movies/${item!.id}/link-tmdb` 
-        : `/video/series/${item!.id}/link-tmdb`;
+      const endpoint =
+        type === 'movie'
+          ? `/video/movies/${item!.id}/link-tmdb`
+          : `/video/series/${item!.id}/link-tmdb`;
       return api.post(endpoint, { tmdbId });
     },
     onSuccess: () => {
@@ -56,9 +57,10 @@ export function TmdbSearchModal({ isOpen, onClose, type, item }: TmdbSearchModal
 
   const unlinkMutation = useMutation({
     mutationFn: async () => {
-      const endpoint = type === 'movie' 
-        ? `/video/movies/${item!.id}/unlink-tmdb` 
-        : `/video/series/${item!.id}/unlink-tmdb`;
+      const endpoint =
+        type === 'movie'
+          ? `/video/movies/${item!.id}/unlink-tmdb`
+          : `/video/series/${item!.id}/unlink-tmdb`;
       return api.post(endpoint, {});
     },
     onSuccess: () => {
@@ -87,7 +89,11 @@ export function TmdbSearchModal({ isOpen, onClose, type, item }: TmdbSearchModal
             <div className="flex items-start gap-4">
               <div className="shrink-0 w-16 aspect-[2/3] bg-white/10 rounded overflow-hidden">
                 {item.posterPath ? (
-                  <img src={item.posterPath} alt={item.title} className="w-full h-full object-cover" />
+                  <img
+                    src={item.posterPath}
+                    alt={item.title}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-white/30">
                     {type === 'movie' ? <Film className="h-6 w-6" /> : <Tv className="h-6 w-6" />}
@@ -172,14 +178,18 @@ export function TmdbSearchModal({ isOpen, onClose, type, item }: TmdbSearchModal
                 >
                   <div className="shrink-0 w-12 aspect-[2/3] bg-white/10 rounded overflow-hidden">
                     {result.posterPath ? (
-                      <img 
-                        src={result.posterPath} 
-                        alt={result.title} 
-                        className="w-full h-full object-cover" 
+                      <img
+                        src={result.posterPath}
+                        alt={result.title}
+                        className="w-full h-full object-cover"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-white/30">
-                        {type === 'movie' ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
+                        {type === 'movie' ? (
+                          <Film className="h-4 w-4" />
+                        ) : (
+                          <Tv className="h-4 w-4" />
+                        )}
                       </div>
                     )}
                   </div>
@@ -193,10 +203,14 @@ export function TmdbSearchModal({ isOpen, onClose, type, item }: TmdbSearchModal
                       </div>
                       <Button
                         size="sm"
-                        variant={hasTmdbLink && item?.tmdbId === result.tmdbId ? 'secondary' : 'default'}
+                        variant={
+                          hasTmdbLink && item?.tmdbId === result.tmdbId ? 'secondary' : 'default'
+                        }
                         className="shrink-0"
                         onClick={() => linkMutation.mutate(result.tmdbId)}
-                        disabled={linkMutation.isPending || (hasTmdbLink && item?.tmdbId === result.tmdbId)}
+                        disabled={
+                          linkMutation.isPending || (hasTmdbLink && item?.tmdbId === result.tmdbId)
+                        }
                       >
                         {linkMutation.isPending ? (
                           <Loader2 className="h-3 w-3 animate-spin" />

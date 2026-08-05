@@ -23,7 +23,7 @@ export async function searchLyrics(
   trackTitle: string,
   artistName: string,
   albumName?: string,
-  duration?: number
+  duration?: number,
 ): Promise<LrclibLyrics | null> {
   const cacheKey = `lrclib:search:${artistName}:${trackTitle}:${albumName ?? ''}:${duration ?? ''}`;
 
@@ -39,7 +39,7 @@ export async function searchLyrics(
 
       try {
         const response = await fetch(`${LRCLIB_BASE}/search?${params}`, {
-          headers: { 'Accept': 'application/json' },
+          headers: { Accept: 'application/json' },
           signal: AbortSignal.timeout(10_000),
         });
 
@@ -48,61 +48,56 @@ export async function searchLyrics(
           throw new Error(`LRCLIB error: ${response.status}`);
         }
 
-        const data = await response.json() as { results: LrclibLyrics[] };
-        
+        const data = (await response.json()) as { results: LrclibLyrics[] };
+
         // Return best match (first result)
         if (data.results && data.results.length > 0) {
           return data.results[0];
         }
         return null;
       } catch (error) {
-        logger.warn('LRCLIB search failed', { 
-          track: trackTitle, 
+        logger.warn('LRCLIB search failed', {
+          track: trackTitle,
           artist: artistName,
-          error: String(error) 
+          error: String(error),
         });
         return null;
       }
     },
-    CACHE_TTLS.lrclib
+    CACHE_TTLS.lrclib,
   );
 }
 
 /**
  * Get lyrics by MusicBrainz recording ID
  */
-export async function getLyricsByRecordingId(
-  recordingId: string
-): Promise<LrclibLyrics | null> {
+export async function getLyricsByRecordingId(recordingId: string): Promise<LrclibLyrics | null> {
   const cacheKey = `lrclib:mbid:${recordingId}`;
 
   return getCached(
     cacheKey,
     async () => {
       try {
-        const response = await fetch(
-          `${LRCLIB_BASE}/get/${recordingId}`,
-          {
-            headers: { 'Accept': 'application/json' },
-            signal: AbortSignal.timeout(10_000),
-          }
-        );
+        const response = await fetch(`${LRCLIB_BASE}/get/${recordingId}`, {
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(10_000),
+        });
 
         if (!response.ok) {
           if (response.status === 404) return null;
           throw new Error(`LRCLIB error: ${response.status}`);
         }
 
-        return await response.json() as LrclibLyrics;
+        return (await response.json()) as LrclibLyrics;
       } catch (error) {
-        logger.warn('LRCLIB fetch by MBID failed', { 
+        logger.warn('LRCLIB fetch by MBID failed', {
           recordingId,
-          error: String(error) 
+          error: String(error),
         });
         return null;
       }
     },
-    CACHE_TTLS.lrclib
+    CACHE_TTLS.lrclib,
   );
 }
 
@@ -116,29 +111,26 @@ export async function getLyricsByIsrc(isrc: string): Promise<LrclibLyrics | null
     cacheKey,
     async () => {
       try {
-        const response = await fetch(
-          `${LRCLIB_BASE}/get/isrc/${isrc}`,
-          {
-            headers: { 'Accept': 'application/json' },
-            signal: AbortSignal.timeout(10_000),
-          }
-        );
+        const response = await fetch(`${LRCLIB_BASE}/get/isrc/${isrc}`, {
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(10_000),
+        });
 
         if (!response.ok) {
           if (response.status === 404) return null;
           throw new Error(`LRCLIB error: ${response.status}`);
         }
 
-        return await response.json() as LrclibLyrics;
+        return (await response.json()) as LrclibLyrics;
       } catch (error) {
-        logger.warn('LRCLIB fetch by ISRC failed', { 
+        logger.warn('LRCLIB fetch by ISRC failed', {
           isrc,
-          error: String(error) 
+          error: String(error),
         });
         return null;
       }
     },
-    CACHE_TTLS.lrclib
+    CACHE_TTLS.lrclib,
   );
 }
 

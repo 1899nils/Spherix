@@ -26,14 +26,8 @@ export async function processAndSaveCover(
   await fs.mkdir(dir, { recursive: true });
 
   const [buf500, buf300] = await Promise.all([
-    sharp(inputBuffer)
-      .resize(500, 500, { fit: 'cover' })
-      .jpeg({ quality: 90 })
-      .toBuffer(),
-    sharp(inputBuffer)
-      .resize(300, 300, { fit: 'cover' })
-      .jpeg({ quality: 85 })
-      .toBuffer(),
+    sharp(inputBuffer).resize(500, 500, { fit: 'cover' }).jpeg({ quality: 90 }).toBuffer(),
+    sharp(inputBuffer).resize(300, 300, { fit: 'cover' }).jpeg({ quality: 85 }).toBuffer(),
   ]);
 
   const file500 = 'cover-500.jpg';
@@ -88,24 +82,36 @@ export async function downloadAndSaveCover(
       });
 
       if (res.status === 503 || res.status === 429) {
-        logger.warn(`Cover download got ${res.status}, retrying...`, { imageUrl: safeUrl, albumId });
+        logger.warn(`Cover download got ${res.status}, retrying...`, {
+          imageUrl: safeUrl,
+          albumId,
+        });
         continue;
       }
 
       if (!res.ok) {
-        logger.warn(`Failed to download cover art: ${res.status} ${res.statusText}`, { imageUrl: safeUrl, albumId });
+        logger.warn(`Failed to download cover art: ${res.status} ${res.statusText}`, {
+          imageUrl: safeUrl,
+          albumId,
+        });
         return null;
       }
 
       const contentType = res.headers.get('content-type') ?? '';
       if (!contentType.startsWith('image/')) {
-        logger.warn(`Cover art response is not an image: ${contentType}`, { imageUrl: safeUrl, albumId });
+        logger.warn(`Cover art response is not an image: ${contentType}`, {
+          imageUrl: safeUrl,
+          albumId,
+        });
         return null;
       }
 
       const buffer = Buffer.from(await res.arrayBuffer());
       if (buffer.length < 100) {
-        logger.warn(`Cover art response too small (${buffer.length} bytes)`, { imageUrl: safeUrl, albumId });
+        logger.warn(`Cover art response too small (${buffer.length} bytes)`, {
+          imageUrl: safeUrl,
+          albumId,
+        });
         return null;
       }
 
@@ -113,7 +119,10 @@ export async function downloadAndSaveCover(
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (attempt < maxRetries && (msg.includes('timeout') || msg.includes('fetch failed'))) {
-        logger.warn(`Cover download attempt ${attempt + 1} failed, retrying`, { imageUrl: safeUrl, error: msg });
+        logger.warn(`Cover download attempt ${attempt + 1} failed, retrying`, {
+          imageUrl: safeUrl,
+          error: msg,
+        });
         continue;
       }
       logger.warn('Error downloading cover art', { imageUrl: safeUrl, albumId, error: msg });

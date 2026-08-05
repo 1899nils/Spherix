@@ -47,7 +47,7 @@ export async function getCachedMusicVideo(trackId: string): Promise<MusicVideoRe
   // Check if cache is still valid
   const cacheExpiry = new Date(track.musicVideoCheckedAt);
   cacheExpiry.setDate(cacheExpiry.getDate() + VIDEO_CACHE_DAYS);
-  
+
   if (new Date() > cacheExpiry) {
     return null; // Cache expired
   }
@@ -61,10 +61,7 @@ export async function getCachedMusicVideo(trackId: string): Promise<MusicVideoRe
 /**
  * Save music video result to database
  */
-export async function saveMusicVideo(
-  trackId: string, 
-  result: MusicVideoResult
-): Promise<void> {
+export async function saveMusicVideo(trackId: string, result: MusicVideoResult): Promise<void> {
   await prisma.track.update({
     where: { id: trackId },
     data: {
@@ -79,8 +76,8 @@ export async function saveMusicVideo(
  * Search for music video on MusicBrainz
  */
 export async function searchMusicBrainz(
-  trackTitle: string, 
-  artistName: string
+  trackTitle: string,
+  artistName: string,
 ): Promise<MusicVideoResult | null> {
   try {
     // Search for recordings with video relationships
@@ -133,9 +130,9 @@ export async function searchMusicBrainz(
  * Search for music video on YouTube
  */
 export async function searchYouTube(
-  trackTitle: string, 
+  trackTitle: string,
   artistName: string,
-  apiKey?: string
+  apiKey?: string,
 ): Promise<MusicVideoResult | null> {
   if (!apiKey) {
     logger.debug('YouTube API key not configured, skipping music video search');
@@ -156,7 +153,7 @@ export async function searchYouTube(
 
     const response = await fetch(
       `https://www.googleapis.com/youtube/v3/search?${params.toString()}`,
-      { signal: AbortSignal.timeout(10_000) }
+      { signal: AbortSignal.timeout(10_000) },
     );
 
     if (!response.ok) {
@@ -172,7 +169,7 @@ export async function searchYouTube(
     interface YouTubeResponse {
       items?: YouTubeItem[];
     }
-    const data = await response.json() as YouTubeResponse;
+    const data = (await response.json()) as YouTubeResponse;
 
     if (!data.items || data.items.length === 0) {
       return null;
@@ -205,7 +202,7 @@ export async function findMusicVideo(
   options: {
     userId?: string;
     forceRefresh?: boolean;
-  } = {}
+  } = {},
 ): Promise<MusicVideoResult | null> {
   // Check cache first (unless force refresh)
   if (!options.forceRefresh) {
@@ -219,7 +216,7 @@ export async function findMusicVideo(
   // Try MusicBrainz first
   logger.debug('Searching MusicBrainz for music video', { trackId, trackTitle, artistName });
   let result = await searchMusicBrainz(trackTitle, artistName);
-  
+
   if (result) {
     await saveMusicVideo(trackId, result);
     return result;
@@ -230,7 +227,7 @@ export async function findMusicVideo(
   if (youtubeApiKey) {
     logger.debug('Searching YouTube for music video', { trackId });
     result = await searchYouTube(trackTitle, artistName, youtubeApiKey);
-    
+
     if (result) {
       await saveMusicVideo(trackId, result);
       return result;

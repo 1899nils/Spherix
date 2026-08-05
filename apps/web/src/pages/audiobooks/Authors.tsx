@@ -50,7 +50,9 @@ export function AudiobooksAuthors() {
                     {author.name.charAt(0).toUpperCase()}
                   </span>
                 </div>
-                <span className="font-medium group-hover:text-white transition-colors">{author.name}</span>
+                <span className="font-medium group-hover:text-white transition-colors">
+                  {author.name}
+                </span>
               </div>
               <span className="text-xs text-muted-foreground">
                 {author.count} {author.count === 1 ? 'Hörbuch' : 'Hörbücher'}

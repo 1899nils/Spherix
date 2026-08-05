@@ -145,8 +145,7 @@ export function MusicBrainzLinkModal({
     error: candidatesError,
   } = useQuery({
     queryKey: ['musicbrainz-candidates', albumId],
-    queryFn: () =>
-      api.get<{ data: MatchResult }>(`/albums/${albumId}/musicbrainz-candidates`),
+    queryFn: () => api.get<{ data: MatchResult }>(`/albums/${albumId}/musicbrainz-candidates`),
   });
 
   const candidates = candidatesData?.data;
@@ -220,9 +219,7 @@ export function MusicBrainzLinkModal({
           <div className="flex items-center gap-2">
             <span className="font-medium truncate">{candidate.release.title}</span>
             <ConfidenceBadge confidence={candidate.confidence} />
-            {isAutoMatch && (
-              <span className="text-xs text-primary font-medium">Empfohlen</span>
-            )}
+            {isAutoMatch && <span className="text-xs text-primary font-medium">Empfohlen</span>}
           </div>
           <p className="text-sm text-muted-foreground truncate mt-0.5">
             <ReleaseArtist release={candidate.release} />
@@ -309,7 +306,10 @@ export function MusicBrainzLinkModal({
         : toStr;
 
     return (
-      <div key={key} className="grid grid-cols-[100px_1fr_auto_1fr] gap-2 items-center text-sm py-1.5">
+      <div
+        key={key}
+        className="grid grid-cols-[100px_1fr_auto_1fr] gap-2 items-center text-sm py-1.5"
+      >
         <span className="text-muted-foreground text-xs font-medium">
           {FIELD_LABELS[key] || key}
         </span>
@@ -464,9 +464,7 @@ export function MusicBrainzLinkModal({
             <h3 className="text-sm font-semibold mb-2">Album-Änderungen</h3>
             {hasAlbumChanges ? (
               <div className="rounded-lg border border-border p-3 space-y-0.5">
-                {Object.entries(albumChanges).map(([key, change]) =>
-                  renderChangeRow(key, change),
-                )}
+                {Object.entries(albumChanges).map(([key, change]) => renderChangeRow(key, change))}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Keine Album-Änderungen.</p>

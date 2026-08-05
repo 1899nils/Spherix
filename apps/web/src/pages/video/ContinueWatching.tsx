@@ -97,9 +97,7 @@ export function ContinueWatching() {
                 subtitle={`S${String(ep.seasonNumber).padStart(2, '0')}E${String(ep.episodeNumber).padStart(2, '0')} · ${ep.title}`}
                 imageUrl={ep.season.series.posterPath}
                 progress={
-                  ep.runtime && ep.watchProgress
-                    ? ep.watchProgress / (ep.runtime * 60)
-                    : undefined
+                  ep.runtime && ep.watchProgress ? ep.watchProgress / (ep.runtime * 60) : undefined
                 }
                 aspect="poster"
                 fallbackIcon={<Tv className="h-12 w-12" />}

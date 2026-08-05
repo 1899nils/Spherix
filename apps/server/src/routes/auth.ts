@@ -38,9 +38,7 @@ export async function verifyPassword(
   // Auto-upgrade: replace legacy hash with bcrypt in background
   if (userId) {
     const newHash = await hashPassword(plain);
-    prisma.user
-      .update({ where: { id: userId }, data: { passwordHash: newHash } })
-      .catch(() => {});
+    prisma.user.update({ where: { id: userId }, data: { passwordHash: newHash } }).catch(() => {});
   }
 
   return true;
@@ -235,8 +233,7 @@ router.patch('/users/:id', requireAdmin, async (req, res, next) => {
 router.put('/users/:id/password', async (req, res, next) => {
   try {
     const currentUserId = (req.session as unknown as Record<string, unknown>).userId as
-      | string
-      | undefined;
+      string | undefined;
     if (!currentUserId) {
       res.status(401).json({ error: 'Nicht angemeldet' });
       return;

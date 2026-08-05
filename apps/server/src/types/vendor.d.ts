@@ -8,12 +8,14 @@ declare module 'node-id3' {
     partOfSet?: string; // disc number
     genre?: string;
     unsynchronisedLyrics?: { language?: string; text: string };
-    image?: {
-      mime: string;
-      type: { id: number; name?: string };
-      description?: string;
-      imageBuffer: Buffer;
-    } | string;
+    image?:
+      | {
+          mime: string;
+          type: { id: number; name?: string };
+          description?: string;
+          imageBuffer: Buffer;
+        }
+      | string;
     [key: string]: unknown;
   }
 
@@ -56,11 +58,7 @@ declare module 'flac-metadata' {
 
   namespace data {
     class MetaDataBlockVorbisComment {
-      static create(
-        isLast: boolean,
-        vendor: string,
-        comments: string[],
-      ): { publish(): Buffer };
+      static create(isLast: boolean, vendor: string, comments: string[]): { publish(): Buffer };
     }
 
     class MetaDataBlockPicture {

@@ -17,20 +17,32 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (next !== confirm) { setError('Passwörter stimmen nicht überein'); return; }
-    if (next.length < 4) { setError('Mindestens 4 Zeichen erforderlich'); return; }
+    if (next !== confirm) {
+      setError('Passwörter stimmen nicht überein');
+      return;
+    }
+    if (next.length < 4) {
+      setError('Mindestens 4 Zeichen erforderlich');
+      return;
+    }
     setLoading(true);
     try {
       // Verify current password by re-authenticating
       const loginRes = await fetch('/api/auth/login', {
-        method: 'POST', credentials: 'include',
+        method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: user?.username, password: current }),
       });
-      if (!loginRes.ok) { setError('Aktuelles Passwort ist falsch'); setLoading(false); return; }
+      if (!loginRes.ok) {
+        setError('Aktuelles Passwort ist falsch');
+        setLoading(false);
+        return;
+      }
 
       const res = await fetch(`/api/auth/users/${user?.id}/password`, {
-        method: 'PUT', credentials: 'include',
+        method: 'PUT',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: next }),
       });
@@ -175,7 +187,10 @@ export function Header() {
                 </div>
                 <div className="py-1">
                   <button
-                    onClick={() => { setMenuOpen(false); setShowChangePassword(true); }}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setShowChangePassword(true);
+                    }}
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors"
                   >
                     <KeyRound className="h-4 w-4" />
@@ -195,9 +210,7 @@ export function Header() {
         </div>
       </header>
 
-      {showChangePassword && (
-        <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
-      )}
+      {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
     </>
   );
 }

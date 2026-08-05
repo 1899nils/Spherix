@@ -7,17 +7,29 @@ const SECTIONS: {
   id: AppSection;
   label: string;
   icon: React.ElementType;
-  accent: string;    // used for inline style on the active indicator
-  accentBg: string;  // tailwind-safe class: needs to be literal
+  accent: string; // used for inline style on the active indicator
+  accentBg: string; // tailwind-safe class: needs to be literal
 }[] = [
-  { id: 'music',     label: 'Musik',      icon: Music,        accent: 'hsl(357 92% 47%)', accentBg: 'music' },
-  { id: 'video',     label: 'Video',      icon: Clapperboard, accent: 'hsl(255 92% 76%)', accentBg: 'video' },
-  { id: 'audiobook', label: 'Hörbücher',  icon: BookOpen,     accent: 'hsl(45 93% 47%)',  accentBg: 'audiobook' },
+  { id: 'music', label: 'Musik', icon: Music, accent: 'hsl(357 92% 47%)', accentBg: 'music' },
+  {
+    id: 'video',
+    label: 'Video',
+    icon: Clapperboard,
+    accent: 'hsl(255 92% 76%)',
+    accentBg: 'video',
+  },
+  {
+    id: 'audiobook',
+    label: 'Hörbücher',
+    icon: BookOpen,
+    accent: 'hsl(45 93% 47%)',
+    accentBg: 'audiobook',
+  },
 ];
 
 const ROOT_ROUTES: Record<AppSection, string> = {
-  music:     '/music/browse',
-  video:     '/video/recently-added',
+  music: '/music/browse',
+  video: '/video/recently-added',
   audiobook: '/audiobooks/recent',
 };
 
@@ -48,9 +60,7 @@ export function SectionSwitcher({ collapsed }: Props) {
               style={isActive ? { color: accent } : undefined}
               className={cn(
                 'h-9 w-9 flex items-center justify-center rounded-lg transition-all',
-                isActive
-                  ? 'bg-white/10'
-                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5',
+                isActive ? 'bg-white/10' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5',
               )}
             >
               <Icon className="h-5 w-5" />

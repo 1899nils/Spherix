@@ -15,10 +15,10 @@ interface MusicVideoData {
   title?: string;
 }
 
-export function MusicVideoIndicator({ 
-  track, 
+export function MusicVideoIndicator({
+  track,
   onSwitchToVideo,
-  isPlayingVideo = false 
+  isPlayingVideo = false,
 }: MusicVideoIndicatorProps) {
   // All hooks first - no exceptions!
   const [videoData, setVideoData] = useState<MusicVideoData | null>(null);
@@ -44,9 +44,7 @@ export function MusicVideoIndicator({
   }
 
   if (isLoading) {
-    return (
-      <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />
-    );
+    return <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />;
   }
 
   if (!videoData) {
@@ -58,7 +56,7 @@ export function MusicVideoIndicator({
     setIsLoading(true);
     try {
       const response = await api.get<{ data: MusicVideoData }>(
-        `/tracks/${track.id}/musicvideo${force ? '?refresh=true' : ''}`
+        `/tracks/${track.id}/musicvideo${force ? '?refresh=true' : ''}`,
       );
       setVideoData(response.data);
     } catch {
@@ -69,7 +67,7 @@ export function MusicVideoIndicator({
   };
 
   return (
-    <div 
+    <div
       className="relative inline-flex items-center"
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
@@ -77,9 +75,7 @@ export function MusicVideoIndicator({
       <button
         onClick={() => onSwitchToVideo?.()}
         className={`flex items-center gap-1 px-2 py-1 rounded transition-colors ${
-          isPlayingVideo 
-            ? 'bg-red-600 text-white' 
-            : 'bg-muted/50 hover:bg-muted text-foreground'
+          isPlayingVideo ? 'bg-red-600 text-white' : 'bg-muted/50 hover:bg-muted text-foreground'
         }`}
       >
         <Video className="h-3.5 w-3.5" />
@@ -89,8 +85,12 @@ export function MusicVideoIndicator({
       {showTooltip && (
         <div className="absolute bottom-full left-0 mb-2 w-64 bg-popover border rounded-lg shadow-lg p-3 z-50">
           <p className="text-xs text-muted-foreground mb-2">
-            Quelle: {videoData.source === 'musicbrainz' ? 'MusicBrainz' : 
-                     videoData.source === 'youtube' ? 'YouTube' : videoData.source}
+            Quelle:{' '}
+            {videoData.source === 'musicbrainz'
+              ? 'MusicBrainz'
+              : videoData.source === 'youtube'
+                ? 'YouTube'
+                : videoData.source}
           </p>
           <div className="flex gap-2">
             <a

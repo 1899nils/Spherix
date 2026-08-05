@@ -23,8 +23,17 @@ import { searchMovie, searchSeries, fetchGenreMap } from '../metadata/tmdb.servi
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const VIDEO_EXTENSIONS = new Set([
-  '.mp4', '.m4v', '.mkv', '.webm', '.avi',
-  '.mov', '.wmv', '.ts',  '.ogv', '.3gp', '.flv',
+  '.mp4',
+  '.m4v',
+  '.mkv',
+  '.webm',
+  '.avi',
+  '.mov',
+  '.wmv',
+  '.ts',
+  '.ogv',
+  '.3gp',
+  '.flv',
 ]);
 
 /** Season directory patterns: Season 01, Staffel 01, S01, Saison 1 … */
@@ -35,7 +44,7 @@ const EPISODE_FILE_RE = /[Ss](\d{1,3})[Ee](\d{1,3})|(\d{1,2})x(\d{2})/;
 
 /** Poster/cover image candidates — ordered by preference */
 const POSTER_NAMES = ['poster', 'folder', 'cover', 'fanart', 'banner', 'show'];
-const POSTER_EXTS  = ['.jpg', '.jpeg', '.png', '.webp'];
+const POSTER_EXTS = ['.jpg', '.jpeg', '.png', '.webp'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -51,7 +60,7 @@ async function walkVideoFiles(dir: string): Promise<string[]> {
   for (const e of entries) {
     const full = path.join(dir, e.name);
     if (e.isDirectory()) {
-      results.push(...await walkVideoFiles(full));
+      results.push(...(await walkVideoFiles(full)));
     } else if (e.isFile() && VIDEO_EXTENSIONS.has(path.extname(e.name).toLowerCase())) {
       results.push(full);
     }
@@ -68,7 +77,7 @@ function parseYear(str: string): number | null {
 /** Strip year, codec tags, quality markers — return clean title */
 function cleanName(name: string): string {
   return name
-    .replace(/\.\w{2,4}$/, '')               // remove extension
+    .replace(/\.\w{2,4}$/, '') // remove extension
     .replace(/\b(19\d{2}|20\d{2})\b.*/s, '') // strip year and everything after
     .replace(/[._]/g, ' ')
     .replace(/\s{2,}/g, ' ')
@@ -87,9 +96,11 @@ async function findPoster(dirs: string[]): Promise<string | null> {
         try {
           const data = await fs.readFile(candidate);
           const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
-          const url  = await saveCoverArt([{ data: new Uint8Array(data), format: mime }]);
+          const url = await saveCoverArt([{ data: new Uint8Array(data), format: mime }]);
           if (url) return url;
-        } catch { /* file not found — try next */ }
+        } catch {
+          /* file not found — try next */
+        }
       }
     }
   }
@@ -134,12 +145,12 @@ async function enrichMovie(
   await prisma.movie.update({
     where: { id: movieId },
     data: {
-      tmdbId:      hit.tmdbId,
-      overview:    hit.overview || undefined,
-      posterPath:  localPoster ?? hit.posterPath ?? undefined,
+      tmdbId: hit.tmdbId,
+      overview: hit.overview || undefined,
+      posterPath: localPoster ?? hit.posterPath ?? undefined,
       backdropPath: hit.backdropPath ?? undefined,
-      rating:      hit.rating || undefined,
-      genres:      genres.length > 0 ? { connect: genres } : undefined,
+      rating: hit.rating || undefined,
+      genres: genres.length > 0 ? { connect: genres } : undefined,
     },
   });
 }
@@ -158,12 +169,12 @@ async function enrichSeries(
   await prisma.series.update({
     where: { id: seriesId },
     data: {
-      tmdbId:      hit.tmdbId,
-      overview:    hit.overview || undefined,
-      posterPath:  localPoster ?? hit.posterPath ?? undefined,
+      tmdbId: hit.tmdbId,
+      overview: hit.overview || undefined,
+      posterPath: localPoster ?? hit.posterPath ?? undefined,
       backdropPath: hit.backdropPath ?? undefined,
-      rating:      hit.rating || undefined,
-      genres:      genres.length > 0 ? { connect: genres } : undefined,
+      rating: hit.rating || undefined,
+      genres: genres.length > 0 ? { connect: genres } : undefined,
     },
   });
 }
@@ -171,33 +182,38 @@ async function enrichSeries(
 // ─── Main scanner ─────────────────────────────────────────────────────────────
 
 export interface VideoScanProgress {
-  phase:    'discovering' | 'scanning' | 'cleanup' | 'done' | 'error';
-  total:    number;
-  done:     number;
-  movies:   number;
+  phase: 'discovering' | 'scanning' | 'cleanup' | 'done' | 'error';
+  total: number;
+  done: number;
+  movies: number;
   episodes: number;
-  skipped:  number;
-  errors:   number;
+  skipped: number;
+  errors: number;
   message?: string;
 }
 
 export async function scanVideoLibrary(overridePath?: string): Promise<VideoScanProgress> {
   const rootPath = overridePath ?? env.videoPath;
   const progress: VideoScanProgress = {
-    phase: 'discovering', total: 0, done: 0,
-    movies: 0, episodes: 0, skipped: 0, errors: 0,
+    phase: 'discovering',
+    total: 0,
+    done: 0,
+    movies: 0,
+    episodes: 0,
+    skipped: 0,
+    errors: 0,
   };
 
   if (!fsSync.existsSync(rootPath)) {
     logger.warn(`[VideoScanner] VIDEO_PATH does not exist: ${rootPath}`);
-    progress.phase   = 'done';
+    progress.phase = 'done';
     progress.message = `VIDEO_PATH (${rootPath}) not found — skipping`;
     return progress;
   }
 
   // Fetch TMDb API key from the first user that has one configured
   const tmdbSettings = await prisma.userSettings.findFirst({
-    where:  { tmdbApiKey: { not: null } },
+    where: { tmdbApiKey: { not: null } },
     select: { tmdbApiKey: true },
   });
   const tmdbApiKey = tmdbSettings?.tmdbApiKey ?? null;
@@ -217,51 +233,60 @@ export async function scanVideoLibrary(overridePath?: string): Promise<VideoScan
     scannedPaths.add(filePath);
     try {
       // ── Determine if episode or movie by directory structure ───────────
-      const parts     = filePath.replace(rootPath, '').split(path.sep).filter(Boolean);
+      const parts = filePath.replace(rootPath, '').split(path.sep).filter(Boolean);
       // parts example: ["Breaking Bad", "Season 01", "S01E01 - Pilot.mp4"]
       //           or:  ["Movie Title (2023).mp4"]
       //           or:  ["Movie Title (2023)", "Movie Title (2023).mp4"]
 
-      const filename    = parts[parts.length - 1];
-      const parentDir   = parts.length >= 2 ? parts[parts.length - 2] : '';
+      const filename = parts[parts.length - 1];
+      const parentDir = parts.length >= 2 ? parts[parts.length - 2] : '';
       const grandParent = parts.length >= 3 ? parts[parts.length - 3] : '';
 
-      const seasonDirMatch  = SEASON_DIR_RE.exec(parentDir);
+      const seasonDirMatch = SEASON_DIR_RE.exec(parentDir);
       const episodeFileMatch = EPISODE_FILE_RE.exec(filename);
 
       const isEpisode = !!(seasonDirMatch || episodeFileMatch);
 
       if (isEpisode) {
         // ── Episode ───────────────────────────────────────────────────────
-        const existing = await prisma.episode.findUnique({ where: { filePath }, select: { id: true } });
-        if (existing) { progress.skipped++; progress.done++; continue; }
+        const existing = await prisma.episode.findUnique({
+          where: { filePath },
+          select: { id: true },
+        });
+        if (existing) {
+          progress.skipped++;
+          progress.done++;
+          continue;
+        }
 
-        const seasonNum  = parseInt(
-          seasonDirMatch?.[1] ??
-          episodeFileMatch?.[1] ??
-          episodeFileMatch?.[3] ?? '1',
+        const seasonNum = parseInt(
+          seasonDirMatch?.[1] ?? episodeFileMatch?.[1] ?? episodeFileMatch?.[3] ?? '1',
           10,
         );
-        const episodeNum = parseInt(
-          episodeFileMatch?.[2] ?? episodeFileMatch?.[4] ?? '1',
-          10,
-        );
+        const episodeNum = parseInt(episodeFileMatch?.[2] ?? episodeFileMatch?.[4] ?? '1', 10);
 
         // Series name: grandparent dir (when inside Season XX) or parent dir
         const seriesName = cleanName(seasonDirMatch ? grandParent : parentDir) || 'Unknown Series';
-        const epTitle    = cleanName(filename.replace(EPISODE_FILE_RE, '').replace(/^[\s\-–_]+/, '')) ||
-                           `Episode ${episodeNum}`;
+        const epTitle =
+          cleanName(filename.replace(EPISODE_FILE_RE, '').replace(/^[\s\-–_]+/, '')) ||
+          `Episode ${episodeNum}`;
 
-        const probe      = await probeVideo(filePath);
-        const seriesDir  = path.join(rootPath, ...parts.slice(0, seasonDirMatch ? parts.length - 2 : parts.length - 1));
-        const seasonDir  = path.dirname(filePath);
+        const probe = await probeVideo(filePath);
+        const seriesDir = path.join(
+          rootPath,
+          ...parts.slice(0, seasonDirMatch ? parts.length - 2 : parts.length - 1),
+        );
+        const seasonDir = path.dirname(filePath);
         const posterPath = await findPoster([seriesDir, seasonDir]);
 
         // Upsert series
-        let series = await prisma.series.findFirst({ where: { title: seriesName }, select: { id: true, tmdbId: true } });
+        let series = await prisma.series.findFirst({
+          where: { title: seriesName },
+          select: { id: true, tmdbId: true },
+        });
         if (!series) {
           series = await prisma.series.create({
-            data:   { title: seriesName, sortTitle: seriesName.toLowerCase(), posterPath },
+            data: { title: seriesName, sortTitle: seriesName.toLowerCase(), posterPath },
             select: { id: true, tmdbId: true },
           });
           if (tmdbApiKey && !series.tmdbId) {
@@ -277,7 +302,7 @@ export async function scanVideoLibrary(overridePath?: string): Promise<VideoScan
 
         // Upsert season
         const season = await prisma.season.upsert({
-          where:  { seriesId_number: { seriesId: series.id, number: seasonNum } },
+          where: { seriesId_number: { seriesId: series.id, number: seasonNum } },
           update: {},
           create: { seriesId: series.id, number: seasonNum },
         });
@@ -285,42 +310,48 @@ export async function scanVideoLibrary(overridePath?: string): Promise<VideoScan
         // Create episode
         await prisma.episode.create({
           data: {
-            seasonId:  season.id,
-            number:    episodeNum,
-            title:     epTitle,
+            seasonId: season.id,
+            number: episodeNum,
+            title: epTitle,
             filePath,
-            fileSize:  probe.fileSize,
-            codec:     probe.codec,
+            fileSize: probe.fileSize,
+            codec: probe.codec,
             resolution: probe.resolution,
-            runtime:   probe.runtime,
+            runtime: probe.runtime,
           },
         });
 
         progress.episodes++;
       } else {
         // ── Movie ─────────────────────────────────────────────────────────
-        const existing = await prisma.movie.findUnique({ where: { filePath }, select: { id: true } });
-        if (existing) { progress.skipped++; progress.done++; continue; }
+        const existing = await prisma.movie.findUnique({
+          where: { filePath },
+          select: { id: true },
+        });
+        if (existing) {
+          progress.skipped++;
+          progress.done++;
+          continue;
+        }
 
         const movieDirName = parts.length >= 2 ? parts[parts.length - 2] : '';
-        const baseName     = cleanName(movieDirName || filename);
-        const title        = baseName || 'Unknown Title';
-        const year         = parseYear(movieDirName || filename);
-        const probe        = await probeVideo(filePath);
-        const movieDir     = path.dirname(filePath);
-        const posterPath   = await findPoster([movieDir]) ??
-                             await saveFolderCover(filePath);
+        const baseName = cleanName(movieDirName || filename);
+        const title = baseName || 'Unknown Title';
+        const year = parseYear(movieDirName || filename);
+        const probe = await probeVideo(filePath);
+        const movieDir = path.dirname(filePath);
+        const posterPath = (await findPoster([movieDir])) ?? (await saveFolderCover(filePath));
 
         const movie = await prisma.movie.create({
           data: {
             title,
-            sortTitle:   title.toLowerCase(),
+            sortTitle: title.toLowerCase(),
             year,
             filePath,
-            fileSize:    probe.fileSize,
-            codec:       probe.codec,
-            resolution:  probe.resolution,
-            runtime:     probe.runtime,
+            fileSize: probe.fileSize,
+            codec: probe.codec,
+            resolution: probe.resolution,
+            runtime: probe.runtime,
             posterPath,
           },
           select: { id: true },
@@ -347,26 +378,26 @@ export async function scanVideoLibrary(overridePath?: string): Promise<VideoScan
   progress.phase = 'cleanup';
 
   const dbMovies = await prisma.movie.findMany({
-    where:  { filePath: { startsWith: rootPath } },
+    where: { filePath: { startsWith: rootPath } },
     select: { id: true, filePath: true },
   });
-  const orphanMovies = dbMovies.filter(m => !scannedPaths.has(m.filePath)).map(m => m.id);
+  const orphanMovies = dbMovies.filter((m) => !scannedPaths.has(m.filePath)).map((m) => m.id);
   if (orphanMovies.length > 0) {
     await prisma.movie.deleteMany({ where: { id: { in: orphanMovies } } });
     logger.info(`[VideoScanner] Removed ${orphanMovies.length} missing movie records`);
   }
 
   const dbEpisodes = await prisma.episode.findMany({
-    where:  { filePath: { startsWith: rootPath } },
+    where: { filePath: { startsWith: rootPath } },
     select: { id: true, filePath: true },
   });
-  const orphanEpisodes = dbEpisodes.filter(e => !scannedPaths.has(e.filePath)).map(e => e.id);
+  const orphanEpisodes = dbEpisodes.filter((e) => !scannedPaths.has(e.filePath)).map((e) => e.id);
   if (orphanEpisodes.length > 0) {
     await prisma.episode.deleteMany({ where: { id: { in: orphanEpisodes } } });
     logger.info(`[VideoScanner] Removed ${orphanEpisodes.length} missing episode records`);
   }
 
-  progress.phase   = 'done';
+  progress.phase = 'done';
   progress.message =
     `Scan complete — movies: ${progress.movies}, episodes: ${progress.episodes}, ` +
     `skipped: ${progress.skipped}, errors: ${progress.errors}`;

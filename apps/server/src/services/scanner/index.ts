@@ -3,6 +3,16 @@ export { scanQueue, enqueueScan, startScanWorker, stopScanWorker } from './scann
 export { scannerEvents, type ScanProgress } from './scanner.events.js';
 export { extractMetadata } from './metadata.service.js';
 export { scanVideoLibrary } from './videoScanner.js';
-export { videoScanQueue, enqueueVideoScan, startVideoScanWorker, stopVideoScanWorker } from './videoScannerQueue.js';
+export {
+  videoScanQueue,
+  enqueueVideoScan,
+  startVideoScanWorker,
+  stopVideoScanWorker,
+} from './videoScannerQueue.js';
 export { scanAudiobookLibrary } from './audiobookScanner.js';
-export { audiobookScanQueue, enqueueAudiobookScan, startAudiobookScanWorker, stopAudiobookScanWorker } from './audiobookScannerQueue.js';
+export {
+  audiobookScanQueue,
+  enqueueAudiobookScan,
+  startAudiobookScanWorker,
+  stopAudiobookScanWorker,
+} from './audiobookScannerQueue.js';

@@ -16,11 +16,7 @@ router.get('/', async (req, res, next) => {
 
     const playlists = await prisma.playlist.findMany({
       where: { userId },
-      orderBy: [
-        { isPinned: 'desc' },
-        { lastPlayedAt: 'desc' },
-        { createdAt: 'desc' },
-      ],
+      orderBy: [{ isPinned: 'desc' }, { lastPlayedAt: 'desc' }, { createdAt: 'desc' }],
       include: {
         _count: { select: { tracks: true } },
       },
@@ -111,7 +107,9 @@ router.get('/:id', async (req, res, next) => {
             track: {
               include: {
                 artist: { select: { id: true, name: true } },
-                album: { select: { id: true, title: true, coverUrl: true, year: true, label: true } },
+                album: {
+                  select: { id: true, title: true, coverUrl: true, year: true, label: true },
+                },
               },
             },
           },
@@ -168,7 +166,7 @@ router.post('/:id/tracks', async (req, res, next) => {
   try {
     const { id } = req.params;
     const { trackIds } = req.body as { trackIds?: string[] };
-    
+
     if (!trackIds || !Array.isArray(trackIds) || trackIds.length === 0) {
       res.status(400).json({ error: 'trackIds array is required' });
       return;
@@ -178,7 +176,7 @@ router.post('/:id/tracks', async (req, res, next) => {
       where: { id },
       include: { tracks: { orderBy: { position: 'desc' }, take: 1 } },
     });
-    
+
     if (!playlist) {
       res.status(404).json({ error: 'Playlist not found' });
       return;

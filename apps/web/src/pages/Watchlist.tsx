@@ -55,9 +55,7 @@ export function Watchlist() {
 
   if (isLoading) {
     return (
-      <div className="p-8 flex items-center justify-center text-white/40">
-        Lade Merkliste…
-      </div>
+      <div className="p-8 flex items-center justify-center text-white/40">Lade Merkliste…</div>
     );
   }
 
@@ -67,7 +65,9 @@ export function Watchlist() {
         <Bookmark className="h-6 w-6 text-white/60" />
         <h1 className="text-2xl font-bold text-white">Merkliste</h1>
         {items.length > 0 && (
-          <span className="text-sm text-white/40 ml-1">{items.length} {items.length === 1 ? 'Song' : 'Songs'}</span>
+          <span className="text-sm text-white/40 ml-1">
+            {items.length} {items.length === 1 ? 'Song' : 'Songs'}
+          </span>
         )}
       </div>
 
@@ -108,9 +108,7 @@ export function Watchlist() {
                   <p className="text-sm font-medium text-white truncate">{item.title}</p>
                   <p className="text-xs text-white/50 truncate">
                     {item.artist}
-                    {albumTitle && (
-                      <span className="text-white/30"> · {albumTitle}</span>
-                    )}
+                    {albumTitle && <span className="text-white/30"> · {albumTitle}</span>}
                   </p>
                 </div>
 

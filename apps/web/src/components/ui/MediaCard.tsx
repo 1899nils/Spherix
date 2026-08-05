@@ -31,10 +31,7 @@ export function MediaCard({
   return (
     <button
       onClick={onClick}
-      className={cn(
-        'group flex flex-col gap-2 text-left w-full focus:outline-none',
-        className,
-      )}
+      className={cn('group flex flex-col gap-2 text-left w-full focus:outline-none', className)}
     >
       {/* Artwork */}
       <div

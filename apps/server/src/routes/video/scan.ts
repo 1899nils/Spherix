@@ -40,10 +40,10 @@ router.get('/history', async (req, res, next) => {
 router.post('/trigger', requireAdmin, async (req, res, next) => {
   try {
     const { path: overridePath } = req.body as { path?: string };
-    
+
     const jobId = await enqueueVideoScan(overridePath);
     logger.info(`[VideoScan] Manual scan triggered by user, jobId: ${jobId}`);
-    
+
     res.json({
       data: {
         success: true,
