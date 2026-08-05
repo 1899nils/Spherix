@@ -65,30 +65,49 @@ import {
 
 const app = express();
 
-// ── CORS allowlist ────────────────────────────────────────────────────────────
+// ── CORS ──────────────────────────────────────────────────────────────────────
 // `origin: true` would reflect *any* requesting origin, and combined with
 // `credentials: true` that lets any website make authenticated cross-origin
 // requests against this API (and read the JSON response) using a logged-in
-// user's session cookie. Only allow known origins instead: the configured
-// PUBLIC_URL, explicit CORS_ORIGINS overrides, and the local Vite dev servers.
-const allowedOrigins = new Set(
+// user's session cookie. So a request's origin is only allowed when either:
+//   1. it matches the Host the request actually came in on — the normal case
+//      for the all-in-one image, where frontend + API share one origin
+//      (whatever that happens to be: a LAN IP, a custom domain, behind a
+//      reverse proxy...). Browsers sometimes send an Origin header even for
+//      same-origin requests, so this has to be checked dynamically rather
+//      than relying on PUBLIC_URL being configured.
+//   2. it's in the explicit allowlist (PUBLIC_URL, CORS_ORIGINS, or the local
+//      Vite dev servers) — for setups where frontend and API are genuinely on
+//      different origins.
+// Note: an origin that matches neither must be rejected via `callback(null,
+// false)`, NOT `callback(new Error(...))`. The `cors` package's internals
+// call `next(err)` only when an actual error is passed — passing one here
+// turns "browser will politely ignore this response" into a hard 500 for
+// every request whose Origin header isn't in the allowlist, including
+// same-origin ones on any host that doesn't happen to match PUBLIC_URL
+// exactly (which is unset by default). `callback(null, false)` just omits
+// the CORS headers, which only affects requests that are genuinely
+// cross-origin from the browser's point of view.
+const explicitAllowedOrigins = new Set(
   [env.publicUrl, 'http://localhost:5173', 'http://localhost:4173', ...env.corsOrigins].filter(
     Boolean,
   ),
 );
 
 app.use(
-  cors({
-    origin(origin, callback) {
-      // No Origin header means a same-origin browser request or a non-browser
-      // client (curl, another server) — CORS doesn't apply, always allow.
-      if (!origin || allowedOrigins.has(origin)) {
-        callback(null, true);
-        return;
+  cors((req, callback) => {
+    const origin = req.headers.origin;
+    let allowed = true;
+    if (origin) {
+      let sameOrigin = false;
+      try {
+        sameOrigin = new URL(origin).host === req.headers.host;
+      } catch {
+        sameOrigin = false;
       }
-      callback(new Error(`Origin "${origin}" is not allowed by CORS`));
-    },
-    credentials: true,
+      allowed = sameOrigin || explicitAllowedOrigins.has(origin);
+    }
+    callback(null, { origin: allowed, credentials: true });
   }),
 );
 app.use(cookieParser());
