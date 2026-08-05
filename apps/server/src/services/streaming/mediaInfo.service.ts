@@ -292,17 +292,31 @@ export function getDefaultClientCapabilities(): ClientCapabilities {
 }
 
 /**
- * Parse client capabilities from request headers or query params
+ * Parse client capabilities from request headers or query params.
+ *
+ * Both sources are supported because not every request that needs this can
+ * set a custom header: the initial `/stream/info` call from the player can
+ * (and does), but once that call decides an HLS transcode is needed, hls.js
+ * issues its own request for the playlist and doesn't forward custom
+ * headers — so that follow-up request re-derives capabilities from
+ * scratch unless we hand them along some other way. The player embeds the
+ * same JSON as a `caps` query param in the returned HLS playlist URL for
+ * exactly this reason; without it, the second request would silently fall
+ * back to the (Chrome-oriented) defaults and could redirect back to direct
+ * play on a container/codec the requesting browser can't actually decode.
  */
 export function parseClientCapabilities(req: Request): ClientCapabilities {
   const defaults = getDefaultClientCapabilities();
 
-  // Check for custom header
   const capsHeaderRaw = req.headers['x-client-capabilities'];
   const capsHeader = Array.isArray(capsHeaderRaw) ? capsHeaderRaw[0] : capsHeaderRaw;
-  if (capsHeader) {
+  const capsQueryRaw = req.query?.caps;
+  const capsQuery = typeof capsQueryRaw === 'string' ? capsQueryRaw : undefined;
+
+  const raw = capsHeader ?? capsQuery;
+  if (raw) {
     try {
-      const parsed = JSON.parse(capsHeader);
+      const parsed = JSON.parse(raw);
       return {
         ...defaults,
         ...parsed,

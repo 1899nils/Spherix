@@ -84,7 +84,11 @@ router.get('/info/:type/:id', async (req, res, next) => {
       streamUrl = `/api/video/stream/audio/${type}/${id}?track=${trackIdx}`;
     } else {
       // Video codec or container is incompatible — full HLS transcode needed.
-      streamUrl = `/api/video/stream/hls/${type}/${id}/playlist.m3u8`;
+      // hls.js will request this playlist URL itself and doesn't forward the
+      // X-Client-Capabilities header, so the same detected capabilities are
+      // embedded as a query param — see parseClientCapabilities() for why.
+      const capsParam = encodeURIComponent(JSON.stringify(clientCaps));
+      streamUrl = `/api/video/stream/hls/${type}/${id}/playlist.m3u8?caps=${capsParam}`;
     }
 
     res.json({

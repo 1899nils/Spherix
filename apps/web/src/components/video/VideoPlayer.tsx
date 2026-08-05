@@ -3,6 +3,7 @@ import Hls from 'hls.js';
 import { useVideoPlayerStore } from '@/stores/videoPlayerStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { formatDuration } from '@/lib/utils';
+import { clientCapabilitiesHeader } from '@/lib/clientCapabilities';
 import {
   Play,
   Pause,
@@ -221,7 +222,10 @@ export function VideoPlayer({
 
     const controller = new AbortController();
 
-    fetch(`/api/video/stream/info/${mediaType}/${mediaId}`, { signal: controller.signal })
+    fetch(`/api/video/stream/info/${mediaType}/${mediaId}`, {
+      signal: controller.signal,
+      headers: { 'x-client-capabilities': clientCapabilitiesHeader() },
+    })
       .then((r) => r.json())
       .then((json) => {
         if (controller.signal.aborted) return;
