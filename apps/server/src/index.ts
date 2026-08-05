@@ -49,6 +49,11 @@ import mdblistRouter from './routes/mdblist.js';
 import { generateCsrfToken, doubleCsrfProtection } from './middleware/csrf.js';
 import { requireAdmin } from './middleware/requireAdmin.js';
 import { startRatingsScheduler, stopRatingsScheduler } from './services/ratings/ratingsScheduler.js';
+import {
+  startTranscodeCleanupScheduler,
+  stopTranscodeCleanupScheduler,
+  killAllActiveTranscodes,
+} from './services/streaming/transcode.service.js';
 
 const app = express();
 
@@ -347,6 +352,7 @@ async function main() {
   startVideoScanWorker();
   startAudiobookScanWorker();
   startRatingsScheduler();
+  startTranscodeCleanupScheduler();
 
   const server = app.listen(env.port, () => {
     logger.info(`Server running on port ${env.port} [${env.nodeEnv}]`);
@@ -356,6 +362,8 @@ async function main() {
   const shutdown = async () => {
     logger.info('Shutting down...');
     stopRatingsScheduler();
+    stopTranscodeCleanupScheduler();
+    killAllActiveTranscodes();
     await Promise.all([stopScanWorker(), stopVideoScanWorker(), stopAudiobookScanWorker()]);
     server.close();
     process.exit(0);

@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
+import { readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { env } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
@@ -259,21 +260,95 @@ export function cancelTranscodeJob(jobId: string): boolean {
 }
 
 /**
- * Clean up old transcode files
+ * Clean up old transcode output directories.
+ *
+ * This scans the transcode directory on disk directly rather than only the
+ * in-memory `activeJobs` map, because that map is empty after every server
+ * restart — without a disk-level pass, HLS segment/playlist files from any
+ * job that was still around at restart time would never be removed and
+ * would accumulate on disk indefinitely.
+ *
+ * A directory is only removed once its embedded timestamp is older than
+ * `maxAgeHours` AND it isn't tracked as a currently pending/processing job
+ * (never delete out from under an active transcode).
  */
-export function cleanupOldTranscodes(maxAgeHours: number = 24): void {
-  getTranscodeDirectory();
+export async function cleanupOldTranscodes(maxAgeHours: number = 24): Promise<void> {
+  const dir = getTranscodeDirectory();
   const now = Date.now();
-  
-  // Clean up completed/failed jobs older than maxAgeHours
-  for (const [jobId, job] of activeJobs.entries()) {
-    if (job.status === 'completed' || job.status === 'failed') {
-      const jobTime = parseInt(jobId.split('_').pop() || '0');
-      if (now - jobTime > maxAgeHours * 60 * 60 * 1000) {
-        activeJobs.delete(jobId);
-        // Note: File cleanup would require fs-extra or similar
-        logger.debug(`Cleaned up old transcode job ${jobId}`);
-      }
+  const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
+
+  let entries: string[];
+  try {
+    entries = await readdir(dir);
+  } catch (error) {
+    logger.warn('Failed to read transcode directory during cleanup', { error });
+    return;
+  }
+
+  for (const jobId of entries) {
+    if (!jobId.startsWith('transcode_')) continue;
+
+    const job = activeJobs.get(jobId);
+    if (job && (job.status === 'pending' || job.status === 'processing')) {
+      continue; // still transcoding — never touch its files
+    }
+
+    const jobTime = parseInt(jobId.split('_').pop() || '0', 10);
+    // No parseable timestamp (unexpected folder name) is treated as stale
+    // rather than kept forever.
+    const age = jobTime > 0 ? now - jobTime : Infinity;
+    if (age <= maxAgeMs) continue;
+
+    try {
+      await rm(join(dir, jobId), { recursive: true, force: true });
+      activeJobs.delete(jobId);
+      logger.info(`Cleaned up old transcode output: ${jobId}`);
+    } catch (error) {
+      logger.warn(`Failed to remove old transcode directory ${jobId}`, { error });
+    }
+  }
+}
+
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Start the periodic transcode-cleanup job: runs once immediately (to catch
+ * anything orphaned by a crash/restart) and then on a fixed interval.
+ */
+export function startTranscodeCleanupScheduler(
+  intervalHours: number = 6,
+  maxAgeHours: number = 24,
+): void {
+  const run = () => {
+    cleanupOldTranscodes(maxAgeHours).catch((error) =>
+      logger.error('Transcode cleanup run failed', { error }),
+    );
+  };
+
+  run();
+  cleanupTimer = setInterval(run, intervalHours * 60 * 60 * 1000);
+  logger.info(
+    `[TranscodeCleanup] Started (every ${intervalHours}h, removing output older than ${maxAgeHours}h)`,
+  );
+}
+
+export function stopTranscodeCleanupScheduler(): void {
+  if (cleanupTimer) {
+    clearInterval(cleanupTimer);
+    cleanupTimer = null;
+    logger.info('[TranscodeCleanup] Stopped');
+  }
+}
+
+/**
+ * Kill every ffmpeg process still running for an active job. Called on
+ * graceful server shutdown so transcodes don't turn into orphaned processes
+ * that keep writing to a directory nothing tracks anymore.
+ */
+export function killAllActiveTranscodes(): void {
+  for (const job of activeJobs.values()) {
+    if (job.process) {
+      job.process.kill('SIGTERM');
     }
   }
 }
