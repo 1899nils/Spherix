@@ -119,6 +119,81 @@ export function findJobForMedia(mediaId: string): TranscodeJob | undefined {
   return best;
 }
 
+/** VAAPI render node to try. Standard path for the first GPU. */
+const VAAPI_DEVICE = '/dev/dri/renderD128';
+
+/**
+ * Whether GPU encoding is usable, determined once by actually trying it.
+ * `null` until probed.
+ */
+let hwAccelAvailable: boolean | null = null;
+
+/**
+ * Probe for working VAAPI hardware encoding by running a tiny real encode.
+ *
+ * Deliberately not just an existence check on the render node: the device
+ * can be present while the driver, permissions or ffmpeg build make
+ * encoding fail, and discovering that on a viewer's first play would mean
+ * a dead stream rather than a slow one. Doing a throwaway encode is the
+ * only answer that can't be wrong, and it happens once per process.
+ */
+export async function detectHardwareAcceleration(): Promise<boolean> {
+  if (hwAccelAvailable !== null) return hwAccelAvailable;
+
+  if (!existsSync(VAAPI_DEVICE)) {
+    logger.info(
+      `[Transcode] No GPU render node at ${VAAPI_DEVICE} — encoding on CPU. ` +
+        'Pass the device into the container (e.g. `--device /dev/dri`) to enable GPU encoding.',
+    );
+    hwAccelAvailable = false;
+    return false;
+  }
+
+  hwAccelAvailable = await new Promise<boolean>((resolve) => {
+    const probe = spawn('ffmpeg', [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-vaapi_device',
+      VAAPI_DEVICE,
+      '-f',
+      'lavfi',
+      '-i',
+      'testsrc=size=64x64:rate=1:duration=1',
+      '-vf',
+      'format=nv12,hwupload',
+      '-c:v',
+      'h264_vaapi',
+      '-f',
+      'null',
+      '-',
+    ]);
+    let stderr = '';
+    probe.stderr.on('data', (d) => {
+      stderr += d.toString();
+    });
+    probe.on('close', (code) => {
+      if (code === 0) {
+        resolve(true);
+      } else {
+        logger.info(`[Transcode] GPU encoding unavailable, using CPU: ${stderr.trim()}`);
+        resolve(false);
+      }
+    });
+    probe.on('error', () => resolve(false));
+  });
+
+  if (hwAccelAvailable) {
+    logger.info(`[Transcode] GPU encoding enabled via VAAPI (${VAAPI_DEVICE})`);
+  }
+  return hwAccelAvailable;
+}
+
+/** Synchronous view of the probe result; false until detection has run. */
+function isHwAccelReady(): boolean {
+  return hwAccelAvailable === true;
+}
+
 export interface TranscodePlan {
   /** Copy the video stream untouched instead of re-encoding it. */
   copyVideo: boolean;
@@ -375,6 +450,10 @@ function buildFfmpegArgs(
   copyAudio = false,
   segmentType: 'ts' | 'fmp4' = 'ts',
 ): string[] {
+  // GPU encoding is only worth setting up when we're actually encoding —
+  // a stream copy doesn't touch the codec at all.
+  const useHwAccel = !copyVideo && isHwAccelReady();
+
   const args: string[] = [
     '-hide_banner',
     '-y', // Overwrite output files
@@ -384,6 +463,22 @@ function buildFfmpegArgs(
     // presentation timestamps and normalise them to start at zero.
     '-fflags',
     '+genpts',
+  ];
+
+  if (useHwAccel) {
+    // Decode and keep frames on the GPU, so the encoder below never has to
+    // copy them back to system memory.
+    args.push(
+      '-hwaccel',
+      'vaapi',
+      '-hwaccel_device',
+      VAAPI_DEVICE,
+      '-hwaccel_output_format',
+      'vaapi',
+    );
+  }
+
+  args.push(
     '-i',
     input,
     '-avoid_negative_ts',
@@ -402,7 +497,7 @@ function buildFfmpegArgs(
     '-1',
     '-map_chapters',
     '-1',
-  ];
+  );
 
   if (copyVideo) {
     // Video is already browser-compatible — copy the stream directly.
@@ -414,48 +509,71 @@ function buildFfmpegArgs(
       args.push('-tag:v', 'hvc1');
     }
   } else {
-    // Always libx264 — see getTranscodeSettings() for why the target is
-    // fixed to H.264 rather than following the client's decode ability.
-    const preset = 'veryfast';
-    args.push(
-      '-c:v',
-      'libx264',
-      '-preset',
-      preset,
-      // CRF with a bitrate ceiling rather than a hard target bitrate: the
-      // encoder only spends bits where the picture needs them, which is
-      // both faster and better looking than forcing a constant rate.
-      '-crf',
-      '23',
-      '-maxrate',
-      settings.videoBitrate.toString(),
-      '-bufsize',
-      Math.round(settings.videoBitrate * 2).toString(),
-      '-profile:v',
-      'high',
-      '-pix_fmt',
-      'yuv420p', // For browser compatibility
-      // Keyframe every segment so HLS can cut cleanly on segment
-      // boundaries — without this ffmpeg has to wait for the source's own
-      // keyframes, producing irregular segments that stutter on playback.
-      '-force_key_frames',
-      `expr:gte(t,n_forced*${SEGMENT_DURATION})`,
-      '-sc_threshold',
-      '0',
-    );
-
     // Only scale when the source is actually larger than the client's
     // ceiling. The previous unconditional `-s WxH` re-scaled every single
-    // frame even when the source already fit — pure wasted CPU, and it
+    // frame even when the source already fit — pure wasted CPU — and it
     // ignored aspect ratio, since maxResolution is just a bounding box.
     const srcW = mediaInfo.video?.width ?? 0;
     const srcH = mediaInfo.video?.height ?? 0;
     const maxW = settings.maxResolution.width;
     const maxH = settings.maxResolution.height;
-    if (srcW > maxW || srcH > maxH) {
-      // -2 keeps the aspect ratio and rounds to an even dimension, which
-      // yuv420p requires.
-      args.push('-vf', `scale='min(${maxW},iw)':-2`);
+    const needsScaling = srcW > maxW || srcH > maxH;
+
+    if (useHwAccel) {
+      // GPU encode. Note this deliberately does NOT set -crf or -pix_fmt:
+      // h264_vaapi has no CRF mode, and the frames are already in GPU
+      // memory in the driver's own format — forcing a pixel format would
+      // pull them back to system memory and undo the point of the exercise.
+      if (needsScaling) {
+        // Scaling stays on the GPU too.
+        args.push('-vf', `scale_vaapi=w=${maxW}:h=-2`);
+      }
+      args.push(
+        '-c:v',
+        'h264_vaapi',
+        '-b:v',
+        settings.videoBitrate.toString(),
+        '-maxrate',
+        settings.videoBitrate.toString(),
+        '-profile:v',
+        'high',
+        '-force_key_frames',
+        `expr:gte(t,n_forced*${SEGMENT_DURATION})`,
+      );
+    } else {
+      // Always libx264 — see getTranscodeSettings() for why the target is
+      // fixed to H.264 rather than following the client's decode ability.
+      if (needsScaling) {
+        // -2 keeps the aspect ratio and rounds to an even dimension, which
+        // yuv420p requires.
+        args.push('-vf', `scale='min(${maxW},iw)':-2`);
+      }
+      args.push(
+        '-c:v',
+        'libx264',
+        '-preset',
+        'veryfast',
+        // CRF with a bitrate ceiling rather than a hard target bitrate: the
+        // encoder only spends bits where the picture needs them, which is
+        // both faster and better looking than forcing a constant rate.
+        '-crf',
+        '23',
+        '-maxrate',
+        settings.videoBitrate.toString(),
+        '-bufsize',
+        Math.round(settings.videoBitrate * 2).toString(),
+        '-profile:v',
+        'high',
+        '-pix_fmt',
+        'yuv420p', // For browser compatibility
+        // Keyframe every segment so HLS can cut cleanly on segment
+        // boundaries — without this ffmpeg has to wait for the source's own
+        // keyframes, producing irregular segments that stutter on playback.
+        '-force_key_frames',
+        `expr:gte(t,n_forced*${SEGMENT_DURATION})`,
+        '-sc_threshold',
+        '0',
+      );
     }
   }
 

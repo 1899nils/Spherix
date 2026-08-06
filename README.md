@@ -22,6 +22,7 @@ docker run -d \
   -v /pfad/zu/deiner/musik:/music \
   -v spherix_data:/data \
   -e SESSION_SECRET=dein_sicheres_geheimnis \
+  --device /dev/dri \
   ghcr.io/1899nils/spherix:latest
 ```
 
@@ -33,6 +34,23 @@ docker compose up -d --build
 
 - **Frontend:** [http://localhost](http://localhost)
 - **Backend API:** [http://localhost:3000/api](http://localhost:3000/api)
+
+### ⚡ Hardware-Transkodierung
+
+Videos werden möglichst **direkt weitergereicht** (nur umgepackt statt
+konvertiert) — das kostet praktisch keine CPU. Muss ein Video doch
+konvertiert werden, weil der Browser den Codec nicht abspielen kann, kann
+Spherix die Grafikeinheit statt der CPU nutzen.
+
+Dafür genügt `--device /dev/dri` (siehe oben) bzw. in Unraid derselbe
+Eintrag unter _Extra Parameters_. Beim Start wird automatisch geprüft, ob
+eine nutzbare GPU vorhanden ist:
+
+- `[Transcode] GPU encoding enabled via VAAPI` → Grafikeinheit wird genutzt
+- `[Transcode] ... encoding on CPU` → kein Zugriff, läuft über die CPU
+
+Ohne GPU funktioniert alles weiterhin, Konvertieren belastet dann nur die
+CPU stärker. Unterstützt werden Intel (QuickSync) und AMD.
 
 ## 🛠️ Entwicklung (Lokales Setup)
 

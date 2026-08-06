@@ -40,7 +40,18 @@ RUN apk add --no-cache \
     tini \
     openssl \
     ffmpeg \
-    yt-dlp
+    yt-dlp \
+    # VAAPI drivers, so ffmpeg can offload video encoding to a GPU instead
+    # of the CPU when one is available. Needs the host to pass the render
+    # node through (`--device /dev/dri` — see docker-compose.yml); without
+    # that these are simply unused and encoding stays on the CPU.
+    #   intel-media-driver : Intel Gen8+ (Broadwell and newer) QuickSync
+    #   libva-intel-driver : older Intel iGPUs
+    #   mesa-va-gallium    : AMD
+    libva \
+    intel-media-driver \
+    libva-intel-driver \
+    mesa-va-gallium
 
 WORKDIR /app
 

@@ -59,6 +59,7 @@ import {
 } from './services/ratings/ratingsScheduler.js';
 import {
   startTranscodeCleanupScheduler,
+  detectHardwareAcceleration,
   stopTranscodeCleanupScheduler,
   killAllActiveTranscodes,
 } from './services/streaming/transcode.service.js';
@@ -406,6 +407,11 @@ async function main() {
   startAudiobookScanWorker();
   startRatingsScheduler();
   startTranscodeCleanupScheduler();
+  // Probe for GPU encoding up front so the first viewer doesn't pay for it.
+  // Never fatal: without a usable GPU, encoding just stays on the CPU.
+  detectHardwareAcceleration().catch((error) =>
+    logger.warn('Hardware acceleration probe failed', { error }),
+  );
 
   const server = app.listen(env.port, () => {
     logger.info(`Server running on port ${env.port} [${env.nodeEnv}]`);

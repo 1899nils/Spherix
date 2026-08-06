@@ -22,6 +22,20 @@ services:
     ports:
       - "80:80"
       - "3000:3000"
+
+    # ── Hardware-Transkodierung (optional, aber sehr empfohlen) ─────────
+    # Gibt die GPU an den Container weiter, damit ffmpeg beim Konvertieren
+    # die Grafikeinheit statt der CPU nutzt (Intel QuickSync, AMD).
+    # Spart bei Filmen, die konvertiert werden müssen, sehr viel CPU-Last.
+    #
+    # Erkennung läuft automatisch beim Start: ist keine nutzbare GPU da,
+    # wird ohne Fehler auf die CPU zurückgefallen. Im Log steht dann
+    # "GPU encoding enabled via VAAPI" bzw. "encoding on CPU".
+    #
+    # Unraid: in den Container-Einstellungen zusätzlich "--device /dev/dri"
+    # unter "Extra Parameters" eintragen.
+    devices:
+      - /dev/dri:/dev/dri
     volumes:
       # ── Persistente Daten ──────────────────────────────────────────────
       # spherix_data ist ein Docker-verwaltetes Volume — bleibt auch bei
