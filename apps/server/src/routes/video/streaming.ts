@@ -11,6 +11,7 @@ import {
   getHlsPlaylistPath,
   findJobForMedia,
   noteSegmentRequested,
+  stopTranscodeForMedia,
 } from '../../services/streaming/transcode.service.js';
 import { join } from 'node:path';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
@@ -295,6 +296,22 @@ router.get('/hls/:type/:id/:file', async (req, res, next) => {
     res.setHeader('Content-Type', file.endsWith('.ts') ? 'video/mp2t' : 'video/mp4');
     res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache segments forever
     createReadStream(segmentFile).pipe(res);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/video/stream/stop/:type/:id
+ * Tell the server the viewer stopped watching, so any transcode running for
+ * this media can be shut down immediately instead of continuing to encode a
+ * film nobody is watching. (The idle reaper catches clients that vanish
+ * without sending this; it just takes a couple of minutes longer.)
+ */
+router.post('/stop/:type/:id', async (req, res, next) => {
+  try {
+    const stopped = stopTranscodeForMedia(req.params.id);
+    res.json({ data: { stopped } });
   } catch (error) {
     next(error);
   }

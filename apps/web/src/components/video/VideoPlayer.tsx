@@ -114,6 +114,28 @@ const NATIVE_AUDIO = new Set([
 /** Seconds of playback between progress reports to the server. */
 const PROGRESS_REPORT_INTERVAL = 10;
 
+/**
+ * Tell the server this media is no longer being watched, so it can stop any
+ * transcode still running for it. Best-effort: the server also reaps jobs
+ * whose client has gone quiet, which covers a closed tab or a crash.
+ *
+ * Uses sendBeacon where available because this is often called while the
+ * page is going away, when a normal fetch is liable to be cancelled.
+ */
+function notifyPlaybackStopped(mediaType?: string, mediaId?: string): void {
+  if (!mediaType || !mediaId) return;
+  const url = `/api/video/stream/stop/${mediaType}/${mediaId}`;
+  try {
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url);
+      return;
+    }
+  } catch {
+    // fall through to fetch
+  }
+  fetch(url, { method: 'POST', keepalive: true }).catch(() => {});
+}
+
 /** How often the stall watchdog samples playback position, in ms. */
 const STALL_CHECK_INTERVAL = 1000;
 /** Time with buffered data but no progress before we call it a decode failure. */
@@ -669,6 +691,9 @@ export function VideoPlayer({
         audioRef.current.pause();
         audioRef.current.src = '';
       }
+      // Covers the ways playback ends without the stop button: navigating
+      // away, closing the detail view, the component being unmounted.
+      notifyPlaybackStopped(mediaTypeRef.current, mediaIdRef.current);
     },
     [],
   );
@@ -800,6 +825,9 @@ export function VideoPlayer({
     }
     usesSeparateAudio.current = false;
     streamOffsetRef.current = 0;
+    // Release the server-side transcode straight away — otherwise it keeps
+    // encoding (and burning CPU) for a film nobody is watching any more.
+    notifyPlaybackStopped(mediaTypeRef.current, mediaIdRef.current);
     stop();
     onClose();
   }, [onClose, stop]);

@@ -26,6 +26,8 @@ export interface TranscodeJob {
   segmentType: 'ts' | 'fmp4';
   /** Highest segment index the client has actually asked for so far. */
   lastRequestedSegment: number;
+  /** When the client last asked for anything, for detecting abandoned jobs. */
+  lastRequestedAt: number;
   /** Number of segments ffmpeg has finished writing (parsed from its stderr). */
   producedSegments: number;
   /** How far into the media ffmpeg has encoded, in seconds (from its stderr). */
@@ -288,6 +290,7 @@ export async function startHlsTranscode(
     progress: 0,
     segmentType,
     lastRequestedSegment: 0,
+    lastRequestedAt: Date.now(),
     producedSegments: 0,
     encodedSeconds: 0,
     throttled: false,
@@ -425,6 +428,7 @@ export function noteSegmentRequested(mediaId: string, segmentNum: number): void 
   const job = findJobForMedia(mediaId);
   if (!job) return;
 
+  job.lastRequestedAt = Date.now();
   if (segmentNum > job.lastRequestedSegment) {
     job.lastRequestedSegment = segmentNum;
   }
@@ -434,6 +438,62 @@ export function noteSegmentRequested(mediaId: string, segmentNum: number): void 
     job.process.kill('SIGCONT');
     job.throttled = false;
     logger.debug(`Resumed transcode ${job.id} (client at segment ${job.lastRequestedSegment})`);
+  }
+}
+
+/**
+ * How long a job may go without the client asking for anything before it's
+ * treated as abandoned and killed.
+ *
+ * Generous on purpose: a client that's playing from its buffer legitimately
+ * goes quiet for a while (hls.js buffers ~60s ahead), so this has to be
+ * comfortably longer than that to avoid killing a stream someone is
+ * actually watching.
+ */
+const IDLE_TIMEOUT_MS = 2 * 60 * 1000;
+
+/** Stop a job's ffmpeg process and mark it as no longer running. */
+function terminateJob(job: TranscodeJob, reason: string): void {
+  if (job.process) {
+    // A SIGSTOPped process ignores SIGTERM until it's running again.
+    if (job.throttled) job.process.kill('SIGCONT');
+    job.process.kill('SIGTERM');
+    job.throttled = false;
+  }
+  job.status = 'failed';
+  job.error = reason;
+  logger.info(`Stopped transcode ${job.id}: ${reason}`);
+}
+
+/**
+ * Stop transcoding for a piece of media — used when the viewer closes the
+ * player, so the server isn't still encoding a film nobody is watching.
+ */
+export function stopTranscodeForMedia(mediaId: string): boolean {
+  const job = findJobForMedia(mediaId);
+  if (!job || (job.status !== 'pending' && job.status !== 'processing')) return false;
+  terminateJob(job, 'Playback stopped by viewer');
+  return true;
+}
+
+/**
+ * Kill jobs whose client has gone away without saying so.
+ *
+ * Nothing else covers this: the player teardown can be missed entirely (tab
+ * closed, browser crashed, network dropped), and the throttler only
+ * *suspends* ffmpeg once it's far enough ahead — a suspended process then
+ * sits there indefinitely, because it still reports status 'processing' and
+ * cleanupOldTranscodes deliberately skips anything in that state. So
+ * without this, every abandoned playback left an ffmpeg process and its
+ * segments behind for the lifetime of the server.
+ */
+export function reapIdleTranscodes(): void {
+  const now = Date.now();
+  for (const job of activeJobs.values()) {
+    if (job.status !== 'pending' && job.status !== 'processing') continue;
+    if (now - job.lastRequestedAt > IDLE_TIMEOUT_MS) {
+      terminateJob(job, 'No segments requested — viewer appears to have stopped watching');
+    }
   }
 }
 
@@ -753,6 +813,7 @@ export async function cleanupOldTranscodes(maxAgeHours: number = 24): Promise<vo
 }
 
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+let reaperTimer: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Start the periodic transcode-cleanup job: runs once immediately (to catch
@@ -770,12 +831,29 @@ export function startTranscodeCleanupScheduler(
 
   run();
   cleanupTimer = setInterval(run, intervalHours * 60 * 60 * 1000);
+
+  // Abandoned jobs are checked far more often than the file cleanup: an
+  // ffmpeg process left running (or suspended) after someone stopped
+  // watching costs CPU and memory now, not in six hours.
+  reaperTimer = setInterval(() => {
+    try {
+      reapIdleTranscodes();
+    } catch (error) {
+      logger.error('Idle transcode reaper failed', { error });
+    }
+  }, 30_000);
+
   logger.info(
-    `[TranscodeCleanup] Started (every ${intervalHours}h, removing output older than ${maxAgeHours}h)`,
+    `[TranscodeCleanup] Started (every ${intervalHours}h, removing output older than ${maxAgeHours}h; ` +
+      `abandoned jobs reaped after ${IDLE_TIMEOUT_MS / 1000}s idle)`,
   );
 }
 
 export function stopTranscodeCleanupScheduler(): void {
+  if (reaperTimer) {
+    clearInterval(reaperTimer);
+    reaperTimer = null;
+  }
   if (cleanupTimer) {
     clearInterval(cleanupTimer);
     cleanupTimer = null;
