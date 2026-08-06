@@ -50,9 +50,27 @@ export function detectClientCapabilities(): DetectedClientCapabilities {
     return video.canPlayType(type) !== '';
   };
 
+  // Firefox reports HEVC support through both canPlayType() and
+  // MediaSource.isTypeSupported(), but does not deliver it: fed an HEVC
+  // stream it downloads and appends every segment without complaint, emits
+  // no media-element error and no fatal hls.js error, and simply never
+  // renders a frame or advances the clock (measured: ~106MB pulled over
+  // 90s, no picture, clean console). There's no feature test that catches
+  // that — the browser answers "yes" to every question we can ask — so this
+  // is a deliberate, targeted exception. Maintaining per-browser codec
+  // facts like this is what other media servers do for the same reason.
+  //
+  // Consequence: HEVC gets re-encoded to H.264 for Firefox. That costs CPU,
+  // but it plays, which beats a silent black screen. The stall watchdog in
+  // VideoPlayer is the general safety net for cases we haven't catalogued.
+  const isFirefox = /firefox|fxios/i.test(navigator.userAgent);
+
   const videoCodecs: string[] = [];
   if (can('video/mp4; codecs="avc1.42E01E"')) videoCodecs.push('h264');
-  if (can('video/mp4; codecs="hev1.1.6.L93.B0"') || can('video/mp4; codecs="hvc1.1.6.L93.B0"')) {
+  if (
+    !isFirefox &&
+    (can('video/mp4; codecs="hev1.1.6.L93.B0"') || can('video/mp4; codecs="hvc1.1.6.L93.B0"'))
+  ) {
     videoCodecs.push('hevc');
   }
   if (can('video/webm; codecs="vp9"') || can('video/mp4; codecs="vp09.00.10.08"')) {

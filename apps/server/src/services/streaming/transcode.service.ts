@@ -396,6 +396,12 @@ function buildFfmpegArgs(
     // "Too many packets buffered for output stream".
     '-max_muxing_queue_size',
     '1024',
+    // Container-level metadata and chapter markers from the source have no
+    // use in HLS segments and only give the muxer more to trip over.
+    '-map_metadata',
+    '-1',
+    '-map_chapters',
+    '-1',
   ];
 
   if (copyVideo) {
@@ -459,6 +465,10 @@ function buildFfmpegArgs(
     // untouched instead of burning CPU re-encoding it to the same thing.
     args.push('-c:a', 'copy');
   } else {
+    // Downmix to stereo. A 5.1/7.1 source encoded to multi-channel AAC is
+    // both larger and a common source of browser playback trouble, and the
+    // overwhelmingly likely output here is a pair of speakers or headphones.
+    args.push('-ac', '2');
     args.push(
       '-c:a',
       settings.audioCodec === 'opus' ? 'libopus' : 'aac',
@@ -504,6 +514,14 @@ function buildFfmpegArgs(
     'event',
     '-start_number',
     '0',
+    // Write each segment to a temporary name and rename it into place only
+    // once it's complete. Without this the segment file appears in the
+    // output directory the moment ffmpeg starts writing it (verified), and
+    // the segment route — which only checks that the file exists — will
+    // happily serve a half-written one. A truncated segment is exactly the
+    // kind of thing that shows up as unexplained stutter.
+    '-hls_flags',
+    'temp_file',
   );
 
   if (segmentType === 'fmp4') {

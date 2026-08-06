@@ -114,6 +114,11 @@ const NATIVE_AUDIO = new Set([
 /** Seconds of playback between progress reports to the server. */
 const PROGRESS_REPORT_INTERVAL = 10;
 
+/** How often the stall watchdog samples playback position, in ms. */
+const STALL_CHECK_INTERVAL = 1000;
+/** Time with buffered data but no progress before we call it a decode failure. */
+const STALL_TIMEOUT = 12000;
+
 // Image-based subtitle codecs that cannot be converted to WebVTT.
 const IMAGE_SUB_CODECS = new Set([
   'hdmv_pgs_subtitle',
@@ -436,6 +441,59 @@ export function VideoPlayer({
       setCurrentCueText(null);
     }
   }, [selectedSubtitle]);
+
+  // ─── Stall watchdog ────────────────────────────────────────────────────────
+  //
+  // Last line of defence against a stream that arrives fine but never
+  // actually decodes. Neither of the error paths we already handle catches
+  // that case: the media element reports no `error` (so the direct-play
+  // fallback stays silent), and hls.js reports no fatal MEDIA_ERROR either
+  // (so that fallback stays silent too) — it happily keeps fetching and
+  // appending segments while nothing is rendered and the clock never moves.
+  // Observed exactly this with HEVC in Firefox: ~106MB of segments pulled
+  // over a minute and a half, no errors logged anywhere, no picture.
+  //
+  // So rather than trying to enumerate every way a browser can lie about
+  // its decoding abilities, watch the thing that actually matters — whether
+  // playback time advances — and force a transcode when it doesn't.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    let lastTime = -1;
+    let stalledFor = 0;
+
+    const interval = setInterval(() => {
+      if (video.paused || video.ended || hasFallenBackToTranscodeRef.current) {
+        stalledFor = 0;
+        lastTime = video.currentTime;
+        return;
+      }
+
+      // Only count it as a stall when the browser actually has data to play:
+      // waiting on the network is normal and not a decode problem.
+      const hasData = video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA;
+      if (video.currentTime === lastTime && hasData) {
+        stalledFor += STALL_CHECK_INTERVAL;
+      } else {
+        stalledFor = 0;
+      }
+      lastTime = video.currentTime;
+
+      if (stalledFor >= STALL_TIMEOUT) {
+        hasFallenBackToTranscodeRef.current = true;
+        console.warn(
+          `[VideoPlayer] Playback stalled ${STALL_TIMEOUT / 1000}s with data buffered — ` +
+            'the browser cannot decode this stream, forcing a transcode',
+        );
+        hlsRef.current?.destroy();
+        hlsRef.current = null;
+        loadStreamRef.current({ forceTranscode: true });
+      }
+    }, STALL_CHECK_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [mediaType, mediaId, src]);
 
   // ─── Auto-hide controls ────────────────────────────────────────────────────
 
