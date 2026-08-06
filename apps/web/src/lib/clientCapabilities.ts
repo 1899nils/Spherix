@@ -18,8 +18,21 @@
  * report the fields we can actually probe here.
  */
 export interface DetectedClientCapabilities {
+  /**
+   * Codecs decodable through Media Source Extensions, i.e. what hls.js can
+   * actually feed the browser. Governs the transcode/remux path.
+   */
   videoCodecs: string[];
   audioCodecs: string[];
+  /**
+   * Codecs decodable by a plain `<video src>` — a *different*, generally
+   * larger set than the MSE one (Firefox on Windows decodes HEVC here but
+   * not through MSE). Governs direct play, where no MSE is involved, so
+   * that a file the browser could play untouched isn't needlessly
+   * transcoded just because MSE couldn't have handled it.
+   */
+  nativeVideoCodecs: string[];
+  nativeAudioCodecs: string[];
   containerFormats: string[];
 }
 
@@ -50,19 +63,23 @@ export function detectClientCapabilities(): DetectedClientCapabilities {
     return video.canPlayType(type) !== '';
   };
 
-  // Firefox reports HEVC support through both canPlayType() and
-  // MediaSource.isTypeSupported(), but does not deliver it: fed an HEVC
-  // stream it downloads and appends every segment without complaint, emits
-  // no media-element error and no fatal hls.js error, and simply never
-  // renders a frame or advances the clock (measured: ~106MB pulled over
-  // 90s, no picture, clean console). There's no feature test that catches
-  // that — the browser answers "yes" to every question we can ask — so this
-  // is a deliberate, targeted exception. Maintaining per-browser codec
-  // facts like this is what other media servers do for the same reason.
+  /** Probe the plain `<video src>` decode path (no MSE involved). */
+  const canDirect = (type: string) => video.canPlayType(type) !== '';
+
+  // Firefox reports HEVC support through MediaSource.isTypeSupported(), but
+  // does not deliver it: fed an HEVC stream over MSE it downloads and
+  // appends every segment without complaint, emits no media-element error
+  // and no fatal hls.js error, and simply never renders a frame or advances
+  // the clock (measured: ~106MB pulled over 90s, no picture, clean
+  // console). No feature test catches that — the browser answers "yes" to
+  // every question we can ask — so this is a deliberate, targeted
+  // exception. Maintaining per-browser codec facts is what other media
+  // servers do, for exactly this reason.
   //
-  // Consequence: HEVC gets re-encoded to H.264 for Firefox. That costs CPU,
-  // but it plays, which beats a silent black screen. The stall watchdog in
-  // VideoPlayer is the general safety net for cases we haven't catalogued.
+  // Note this applies to the MSE list ONLY. Firefox's *native* HEVC
+  // decoding (Windows, hardware) does work, so direct play of an HEVC file
+  // it can also demux stays available — no point transcoding something the
+  // browser would have played untouched.
   const isFirefox = /firefox|fxios/i.test(navigator.userAgent);
 
   const videoCodecs: string[] = [];
@@ -88,10 +105,32 @@ export function detectClientCapabilities(): DetectedClientCapabilities {
   if (can('audio/mp4; codecs="ac-3"')) audioCodecs.push('ac3');
   if (can('audio/mp4; codecs="ec-3"')) audioCodecs.push('eac3');
 
+  // The native (direct-play) equivalents. No Firefox HEVC exception here —
+  // see above.
+  const nativeVideoCodecs: string[] = [];
+  if (canDirect('video/mp4; codecs="avc1.42E01E"')) nativeVideoCodecs.push('h264');
+  if (
+    canDirect('video/mp4; codecs="hev1.1.6.L93.B0"') ||
+    canDirect('video/mp4; codecs="hvc1.1.6.L93.B0"')
+  ) {
+    nativeVideoCodecs.push('hevc');
+  }
+  if (canDirect('video/webm; codecs="vp9"')) nativeVideoCodecs.push('vp9');
+  if (canDirect('video/mp4; codecs="av01.0.05M.08"')) nativeVideoCodecs.push('av1');
+
+  const nativeAudioCodecs: string[] = [];
+  if (canDirect('audio/mp4; codecs="mp4a.40.2"')) nativeAudioCodecs.push('aac');
+  if (canDirect('audio/mpeg')) nativeAudioCodecs.push('mp3');
+  if (canDirect('audio/webm; codecs="opus"') || canDirect('audio/ogg; codecs="opus"')) {
+    nativeAudioCodecs.push('opus');
+  }
+  if (canDirect('audio/flac') || canDirect('audio/x-flac')) nativeAudioCodecs.push('flac');
+  if (canDirect('audio/mp4; codecs="ac-3"')) nativeAudioCodecs.push('ac3');
+  if (canDirect('audio/mp4; codecs="ec-3"')) nativeAudioCodecs.push('eac3');
+
   // Containers govern *direct play* — serving the original file straight to
   // the <video> element — so these are probed with canPlayType() rather
   // than through MSE, which never accepts a container like Matroska at all.
-  const canDirect = (type: string) => video.canPlayType(type) !== '';
 
   const containerFormats: string[] = ['mp4', 'm4v'];
   if (canDirect('video/webm')) containerFormats.push('webm');
@@ -103,7 +142,13 @@ export function detectClientCapabilities(): DetectedClientCapabilities {
   }
   if (canDirect('video/quicktime')) containerFormats.push('mov');
 
-  cached = { videoCodecs, audioCodecs, containerFormats };
+  cached = {
+    videoCodecs,
+    audioCodecs,
+    nativeVideoCodecs,
+    nativeAudioCodecs,
+    containerFormats,
+  };
   return cached;
 }
 

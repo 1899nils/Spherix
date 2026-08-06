@@ -41,8 +41,21 @@ export interface MediaInfo {
 }
 
 export interface ClientCapabilities {
+  /**
+   * Codecs decodable via Media Source Extensions — what the HLS path can
+   * actually deliver, and therefore what the remux/transcode decision uses.
+   */
   videoCodecs: string[]; // 'h264', 'hevc', 'vp9', 'av1'
   audioCodecs: string[]; // 'aac', 'ac3', 'eac3', 'opus'
+  /**
+   * Codecs decodable by a plain `<video src>`, used for direct play. This
+   * is a different (usually larger) set than the MSE one — Firefox decodes
+   * HEVC natively but not through MSE — so a file the browser could play
+   * untouched isn't transcoded merely because MSE couldn't have handled it.
+   * Falls back to the MSE lists when a client doesn't report them.
+   */
+  nativeVideoCodecs?: string[];
+  nativeAudioCodecs?: string[];
   maxResolution: { width: number; height: number };
   maxBitrate: number;
   containerFormats: string[]; // 'mp4', 'webm', 'mkv'
@@ -136,9 +149,15 @@ export function canDirectPlay(
     return { playable: false, reason: 'No video stream' };
   }
 
+  // Direct play hands the file to the <video> element, with no MSE in the
+  // picture — so it's the browser's *native* decoding ability that decides,
+  // not what hls.js could have fed it.
+  const nativeVideo = clientCaps.nativeVideoCodecs ?? clientCaps.videoCodecs;
+  const nativeAudio = clientCaps.nativeAudioCodecs ?? clientCaps.audioCodecs;
+
   // Check video codec
   const normalizedVideoCodec = normalizeVideoCodec(mediaInfo.video.codec);
-  if (!clientCaps.videoCodecs.includes(normalizedVideoCodec)) {
+  if (!nativeVideo.includes(normalizedVideoCodec)) {
     return {
       playable: false,
       reason: `Video codec ${mediaInfo.video.codec} not supported`,
@@ -159,7 +178,7 @@ export function canDirectPlay(
   // Check audio (at least one stream must be compatible)
   const hasCompatibleAudio = mediaInfo.audio.some((a) => {
     const normalizedAudioCodec = normalizeAudioCodec(a.codec);
-    return clientCaps.audioCodecs.includes(normalizedAudioCodec);
+    return nativeAudio.includes(normalizedAudioCodec);
   });
 
   if (!hasCompatibleAudio && mediaInfo.audio.length > 0) {

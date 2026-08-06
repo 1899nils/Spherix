@@ -138,6 +138,46 @@ describe('planTranscode', () => {
   });
 });
 
+describe('canDirectPlay', () => {
+  it('uses the native codec list, not the MSE one', async () => {
+    // Regression guard for the Firefox HEVC case: HEVC is deliberately kept
+    // out of the MSE list (Firefox accepts it there and then never decodes
+    // a frame), but Firefox *can* decode HEVC natively. Direct play doesn't
+    // involve MSE at all, so an HEVC file in a container the browser can
+    // demux must still direct play rather than being pointlessly
+    // transcoded.
+    const { canDirectPlay } = await import('./mediaInfo.service.js');
+    const firefoxLike = {
+      ...caps([/* MSE: no hevc */ 'h264'], ['aac']),
+      nativeVideoCodecs: ['h264', 'hevc'],
+      nativeAudioCodecs: ['aac'],
+      containerFormats: ['mp4'],
+    };
+    const result = canDirectPlay({ ...media('hevc', 'aac'), container: 'mp4' }, firefoxLike);
+    expect(result.playable).toBe(true);
+  });
+
+  it('still refuses direct play when even native decoding cannot handle it', async () => {
+    const { canDirectPlay } = await import('./mediaInfo.service.js');
+    const noHevc = {
+      ...caps(['h264'], ['aac']),
+      nativeVideoCodecs: ['h264'],
+      nativeAudioCodecs: ['aac'],
+    };
+    const result = canDirectPlay({ ...media('hevc', 'aac'), container: 'mp4' }, noHevc);
+    expect(result.playable).toBe(false);
+  });
+
+  it('falls back to the MSE lists for clients that report no native ones', async () => {
+    const { canDirectPlay } = await import('./mediaInfo.service.js');
+    const result = canDirectPlay(
+      { ...media('h264', 'aac'), container: 'mp4' },
+      caps(['h264'], ['aac']),
+    );
+    expect(result.playable).toBe(true);
+  });
+});
+
 describe('getTranscodeSettings', () => {
   it('always re-encodes to H.264, even for a client that can decode HEVC', async () => {
     // Regression guard: this used to pick HEVC (and therefore libx265)
