@@ -13,7 +13,7 @@ import {
   noteSegmentRequested,
 } from '../../services/streaming/transcode.service.js';
 import { join } from 'node:path';
-import { createReadStream, existsSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync } from 'node:fs';
 
 const router: Router = Router();
 
@@ -200,17 +200,25 @@ router.get('/hls/:type/:id/playlist.m3u8', async (req, res, next) => {
       return;
     }
 
-    // Wait a bit for initial segments to be generated
+    // Wait for enough of a head start before handing the playlist over.
+    //
+    // Responding as soon as the file merely *exists* means handing the
+    // player a playlist with a single segment in it, and since ffmpeg is
+    // still writing, playback immediately runs up against the end of what
+    // has been produced — one of the causes of the reported stutter.
+    // Waiting for a few segments gives the player something to buffer.
+    const MIN_SEGMENTS = 4;
     if (job.status === 'pending' || job.status === 'processing') {
-      // Check if playlist exists
       const maxWait = 30000; // 30 seconds max
-      const checkInterval = 500; // 500ms
+      const checkInterval = 300;
       let waited = 0;
 
-      while (waited < maxWait && job.status === 'processing') {
+      while (waited < maxWait && (job.status === 'pending' || job.status === 'processing')) {
         const playlistPath = getHlsPlaylistPath(job.id);
         if (playlistPath && existsSync(playlistPath)) {
-          break;
+          // Count the segments actually listed in the playlist so far.
+          const segmentCount = (readFileSync(playlistPath, 'utf8').match(/#EXTINF:/g) ?? []).length;
+          if (segmentCount >= MIN_SEGMENTS) break;
         }
         await new Promise((resolve) => setTimeout(resolve, checkInterval));
         waited += checkInterval;

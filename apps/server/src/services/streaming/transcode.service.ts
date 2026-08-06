@@ -61,8 +61,13 @@ const SEGMENT_DURATION = 4;
  * on a stream-copy job — leaving ffmpeg paused while playback ran into the
  * end of the buffer, i.e. causing the very stutter it's meant to prevent.
  */
-const THROTTLE_LEAD_SEGMENTS = 40;
-const THROTTLE_RESUME_SEGMENTS = 25;
+// Kept modest on purpose: with stream-copy segments running ~10s, 40
+// segments of lead meant transcoding six-plus minutes ahead of the viewer
+// and writing all of it to disk — needless I/O contention on a NAS, where
+// the same spindles are also serving the source file and the segments the
+// player is downloading.
+const THROTTLE_LEAD_SEGMENTS = 20;
+const THROTTLE_RESUME_SEGMENTS = 12;
 
 // In-memory store for active transcode jobs
 const activeJobs = new Map<string, TranscodeJob>();

@@ -111,6 +111,9 @@ const NATIVE_AUDIO = new Set([
   'pcm_s24le',
 ]);
 
+/** Seconds of playback between progress reports to the server. */
+const PROGRESS_REPORT_INTERVAL = 10;
+
 // Image-based subtitle codecs that cannot be converted to WebVTT.
 const IMAGE_SUB_CODECS = new Set([
   'hdmv_pgs_subtitle',
@@ -198,6 +201,13 @@ export function VideoPlayer({
   // Only fall back once per media — if the transcoded stream *also* fails
   // to decode, retrying forever isn't going to help.
   const hasFallenBackToTranscodeRef = useRef(false);
+  // hls.js gets one recoverMediaError() attempt before we give up on the
+  // stream and re-request it as a transcode.
+  const mediaRecoveryTriedRef = useRef(false);
+
+  // Playback position last reported upwards, so `timeupdate` (which fires
+  // several times a second) doesn't turn into a request per tick.
+  const lastProgressReportRef = useRef(0);
   // Holds the latest "(re)fetch /stream/info and load whatever it says"
   // function from the info-fetch effect below, so the decode-error handler
   // in a different effect can trigger it with forceTranscode=true.
@@ -246,6 +256,7 @@ export function VideoPlayer({
     usesSeparateAudio.current = false;
     audioRemuxBaseUrlRef.current = null;
     hasFallenBackToTranscodeRef.current = false;
+    mediaRecoveryTriedRef.current = false;
 
     const controller = new AbortController();
     const playWithMuteFallback = () => {
@@ -314,8 +325,51 @@ export function VideoPlayer({
                   manifestLoadingTimeOut: 35000,
                   manifestLoadingMaxRetry: 3,
                   manifestLoadingRetryDelay: 2000,
+                  // Buffer generously. The source here is a transcode being
+                  // written live, so the default (fairly tight) buffer left
+                  // playback repeatedly running up against however far
+                  // ffmpeg happened to have got — the stutter that was
+                  // reported even once CPU load was no longer the problem.
+                  maxBufferLength: 60,
+                  maxMaxBufferLength: 120,
+                  backBufferLength: 30,
                 });
                 hlsRef.current = hls;
+
+                // MSE decode failures do NOT surface as a `video.error` —
+                // they arrive here, as fatal hls.js media errors. Without
+                // this the transcode fallback below could never fire for an
+                // HLS stream: the browser had told us via
+                // MediaSource.isTypeSupported() that it could handle the
+                // codec, hls.js dutifully fed it segments, and playback just
+                // sat there while the media element itself reported nothing.
+                hls.on(Hls.Events.ERROR, (_evt, data) => {
+                  if (!data.fatal) return;
+                  if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                    // Give hls.js one chance to recover on its own — a
+                    // single bad append is often transient.
+                    if (!hasFallenBackToTranscodeRef.current && !mediaRecoveryTriedRef.current) {
+                      mediaRecoveryTriedRef.current = true;
+                      console.warn(
+                        '[VideoPlayer] Fatal HLS media error, attempting recovery',
+                        data,
+                      );
+                      hls.recoverMediaError();
+                      return;
+                    }
+                    if (!hasFallenBackToTranscodeRef.current) {
+                      hasFallenBackToTranscodeRef.current = true;
+                      console.warn(
+                        '[VideoPlayer] HLS cannot decode this stream, forcing a transcode',
+                        data,
+                      );
+                      hls.destroy();
+                      hlsRef.current = null;
+                      loadStreamRef.current({ forceTranscode: true });
+                    }
+                  }
+                });
+
                 hls.loadSource(streamUrl);
                 hls.attachMedia(video);
                 hls.once(Hls.Events.MANIFEST_PARSED, playWithMuteFallback);
@@ -477,7 +531,18 @@ export function VideoPlayer({
     const onTime = () => {
       const realTime = video.currentTime + streamOffsetRef.current;
       setSeek(realTime);
-      onProgressRef.current?.(Math.floor(realTime));
+
+      // `timeupdate` fires roughly 4x a second. Reporting progress on every
+      // one of them meant ~4 POSTs/second, each of which the callers follow
+      // with a query invalidation that refetches the whole movie — i.e.
+      // ~8 requests a second, with a DB write behind each POST, competing
+      // with the player's own segment downloads for the connection. Report
+      // on a fixed interval instead; onPause/onEnded below flush the exact
+      // final position so nothing is lost.
+      if (realTime - lastProgressReportRef.current >= PROGRESS_REPORT_INTERVAL) {
+        lastProgressReportRef.current = realTime;
+        onProgressRef.current?.(Math.floor(realTime));
+      }
       updateProgressRef.current(realTime, durationRef.current);
 
       const iStart = introStartRef.current;
@@ -513,6 +578,10 @@ export function VideoPlayer({
       setIsPlaying(false);
       setShowControls(true);
       audioRef.current?.pause();
+      // Flush the exact position — onTime only reports on an interval.
+      const realTime = video.currentTime + streamOffsetRef.current;
+      lastProgressReportRef.current = realTime;
+      onProgressRef.current?.(Math.floor(realTime));
     };
     const onEnded = () => {
       setIsPlaying(false);

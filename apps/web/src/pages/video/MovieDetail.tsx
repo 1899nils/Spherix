@@ -100,7 +100,10 @@ export function MovieDetail() {
 
   const progressMutation = useMutation({
     mutationFn: (position: number) => api.post(`/video/movies/${id}/progress`, { position }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['movie', id] }),
+    // Deliberately no invalidateQueries here: this fires periodically during
+    // playback, and refetching the whole movie each time just doubled the
+    // request rate for data the player doesn't read back mid-playback. The
+    // detail view is refreshed when the player closes instead.
   });
 
   const refreshMetadataMutation = useMutation({
@@ -154,6 +157,9 @@ export function MovieDetail() {
   const handleClose = () => {
     setShowPlayer(false);
     setActiveVideo(null);
+    // Pull the freshly saved watch progress now that playback is over —
+    // progressMutation intentionally doesn't invalidate on every save.
+    queryClient.invalidateQueries({ queryKey: ['movie', id] });
   };
 
   const handleProgress = (position: number) => {

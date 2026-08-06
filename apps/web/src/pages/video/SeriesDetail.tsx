@@ -56,7 +56,9 @@ export function SeriesDetail() {
   const progressMutation = useMutation({
     mutationFn: ({ epId, position }: { epId: string; position: number }) =>
       api.post(`/video/episodes/${epId}/progress`, { position }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['series', id] }),
+    // No invalidateQueries here — same reasoning as MovieDetail: this fires
+    // periodically during playback and refetching the whole series each
+    // time doubled the request rate for no benefit. Refreshed on close.
   });
 
   const refreshMetadataMutation = useMutation({
@@ -104,6 +106,8 @@ export function SeriesDetail() {
   const handleClosePlayer = () => {
     setActiveEpisode(null);
     setActiveVideo(null);
+    // Pull the freshly saved watch progress now that playback is over.
+    queryClient.invalidateQueries({ queryKey: ['series', id] });
   };
 
   return (
