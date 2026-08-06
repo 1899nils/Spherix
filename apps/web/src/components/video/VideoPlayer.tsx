@@ -966,19 +966,17 @@ export function VideoPlayer({
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-50 bg-black flex flex-col"
+      className="fixed inset-0 z-50 bg-black overflow-hidden"
       onMouseMove={resetHideTimer}
     >
       {/* Video */}
       {/*
-        min-h-0 is load-bearing: a flex item defaults to min-height:auto and
-        so refuses to shrink below its content's intrinsic size. The <video>
-        has no src until the stream is negotiated, which means it takes its
-        intrinsic size from whatever image is shown in the meantime — a
-        portrait poster then pushed this container past the viewport height
-        and shoved the control bar off-screen.
+        Fills the whole viewport. The control bar below is an out-of-flow
+        overlay rather than a flex sibling on purpose: as a flex item it
+        permanently reserved its own height, which stayed behind as a black
+        strip once the bar slid away on auto-hide.
       */}
-      <div className="flex-1 relative min-h-0 overflow-hidden" onClick={togglePlay}>
+      <div className="absolute inset-0" onClick={togglePlay}>
         {/*
           Backdrop shown until the first frame arrives. Deliberately a
           background image on its own absolutely-positioned layer rather
@@ -1014,7 +1012,9 @@ export function VideoPlayer({
 
         {/* Subtitle overlay */}
         {currentCueText && (
-          <div className="absolute bottom-20 left-0 right-0 flex justify-center pointer-events-none px-6">
+          <div
+            className={`absolute left-0 right-0 flex justify-center pointer-events-none px-6 transition-all duration-300 ${showControls ? 'bottom-28' : 'bottom-12'}`}
+          >
             <div className="bg-black/80 text-white text-sm px-4 py-1.5 rounded text-center max-w-2xl leading-relaxed">
               {currentCueText.split('\n').map((line, i) => (
                 <div key={i}>{line}</div>
@@ -1071,195 +1071,210 @@ export function VideoPlayer({
         </div>
       </div>
 
-      {/* Control Bar */}
+      {/*
+        Control Bar — floats over the picture in the same glass style as the
+        music PlayerBar, so the film stays visible behind it. Out of flow, so
+        it leaves no gap when hidden; the slide-out distance is its own height
+        plus the bottom margin, otherwise a sliver would stay on screen.
+      */}
       <div
-        className={`bg-[#1a1a1a] h-16 shrink-0 relative transition-all duration-300 ${showControls ? 'translate-y-0' : 'translate-y-full'}`}
+        className={`absolute bottom-4 left-4 right-4 transition-all duration-300 ${
+          showControls
+            ? 'translate-y-0 opacity-100'
+            : 'translate-y-[calc(100%+1rem)] opacity-0 pointer-events-none'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Progress Bar */}
-        <div
-          className="absolute top-0 left-0 right-0 h-1 bg-white/20 cursor-pointer group"
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const percent = (e.clientX - rect.left) / rect.width;
-            handleSeek(percent * duration);
-          }}
-        >
+        <div className="liquid-glass rounded-2xl h-[72px] relative shadow-[0_8px_32px_0_rgba(0,0,0,0.8)]">
+          {/* Progress Bar */}
           <div
-            className="h-full bg-red-600 transition-all group-hover:h-1.5"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-
-        {/* Controls Row */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center h-full px-4 gap-2">
-          {/* Left: Info */}
-          <div className="flex items-center gap-3 min-w-0">
-            {posterUrl && (
-              <img src={posterUrl} alt="" className="h-12 w-12 object-cover rounded bg-black" />
-            )}
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-white truncate">{title}</p>
-              {subtitle && <p className="text-xs text-white/50 truncate">{subtitle}</p>}
-              <p className="text-xs text-white/50 tabular-nums">
-                {formatDuration(seek)} / {formatDuration(duration)}
-              </p>
-            </div>
+            className="absolute top-0 left-0 right-0 h-1 bg-white/20 cursor-pointer group rounded-t-2xl overflow-hidden"
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const percent = (e.clientX - rect.left) / rect.width;
+              handleSeek(percent * duration);
+            }}
+          >
+            <div
+              className="h-full bg-red-600 transition-all group-hover:h-1.5"
+              style={{ width: `${progressPercent}%` }}
+            />
           </div>
 
-          {/* Center: Playback Controls */}
-          <div className="flex items-center justify-center gap-1">
-            <button
-              onClick={() => skip(-10)}
-              className="flex flex-col items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded"
-            >
-              <SkipBack className="h-4 w-4" />
-              <span className="text-[8px] -mt-1">10</span>
-            </button>
-
-            <button
-              onClick={togglePlay}
-              className="flex items-center justify-center w-12 h-12 bg-white text-black rounded-full hover:scale-105 transition-transform mx-1"
-            >
-              {isPlaying ? (
-                <Pause className="h-6 w-6 fill-current" />
-              ) : (
-                <Play className="h-6 w-6 fill-current ml-0.5" />
+          {/* Controls Row */}
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center h-full px-4 gap-2">
+            {/* Left: Info */}
+            <div className="flex items-center gap-3 min-w-0">
+              {posterUrl && (
+                <img src={posterUrl} alt="" className="h-12 w-12 object-cover rounded bg-black" />
               )}
-            </button>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white truncate">{title}</p>
+                {subtitle && <p className="text-xs text-white/50 truncate">{subtitle}</p>}
+                <p className="text-xs text-white/50 tabular-nums">
+                  {formatDuration(seek)} / {formatDuration(duration)}
+                </p>
+              </div>
+            </div>
 
-            <button
-              onClick={() => skip(10)}
-              className="flex flex-col items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded"
-            >
-              <SkipForward className="h-4 w-4" />
-              <span className="text-[8px] -mt-1">10</span>
-            </button>
-
-            <button
-              onClick={handleStop}
-              className="flex items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded ml-1"
-              title="Stop"
-            >
-              <Square className="h-4 w-4 fill-current" />
-            </button>
-
-            {nextEpisode && (
+            {/* Center: Playback Controls */}
+            <div className="flex items-center justify-center gap-1">
               <button
-                onClick={() => nextEpisode.onPlay()}
-                className="ml-1 w-10 h-10 rounded overflow-hidden bg-black hover:ring-2 hover:ring-white/50"
+                onClick={() => skip(-10)}
+                className="flex flex-col items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded"
               >
-                {nextEpisode.thumbnail ? (
-                  <img src={nextEpisode.thumbnail} alt="" className="w-full h-full object-cover" />
+                <SkipBack className="h-4 w-4" />
+                <span className="text-[8px] -mt-1">10</span>
+              </button>
+
+              <button
+                onClick={togglePlay}
+                className="flex items-center justify-center w-12 h-12 bg-white text-black rounded-full hover:scale-105 transition-transform mx-1"
+              >
+                {isPlaying ? (
+                  <Pause className="h-6 w-6 fill-current" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white/50">
-                    <SkipForward className="h-4 w-4" />
-                  </div>
+                  <Play className="h-6 w-6 fill-current ml-0.5" />
                 )}
               </button>
-            )}
-          </div>
 
-          {/* Right: Track selectors + Volume */}
-          <div className="flex items-center justify-end gap-1">
-            {/* Audio Track Selector */}
-            {audioTracks.length > 1 && (
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    setShowAudioMenu((v) => !v);
-                    setShowSubtitleMenu(false);
-                  }}
-                  className={`flex items-center justify-center w-9 h-9 rounded hover:bg-white/10 transition-colors ${showAudioMenu ? 'text-white' : 'text-white/60'}`}
-                  title="Audiospur"
-                >
-                  <Languages className="h-4 w-4" />
-                </button>
-                {showAudioMenu && (
-                  <div className="absolute bottom-full right-0 mb-2 bg-[#2a2a2a] border border-white/10 rounded-lg shadow-xl min-w-[200px] py-1 z-10">
-                    <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
-                      Audiospur
-                    </p>
-                    {audioTracks.map((t, i) => (
-                      <button
-                        key={t.index}
-                        onClick={() => selectAudioTrack(i)}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition-colors ${selectedAudio === i ? 'text-white' : 'text-white/70'}`}
-                      >
-                        <span
-                          className={`inline-block w-3 h-3 rounded-full border mr-2 align-middle ${selectedAudio === i ? 'bg-red-500 border-red-500' : 'border-white/30'}`}
-                        />
-                        {trackLabel(t, i)}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Subtitle Track Selector */}
-            {subtitleTracks.length > 0 && (
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    setShowSubtitleMenu((v) => !v);
-                    setShowAudioMenu(false);
-                  }}
-                  className={`flex items-center justify-center w-9 h-9 rounded hover:bg-white/10 transition-colors ${selectedSubtitle !== null ? 'text-white' : showSubtitleMenu ? 'text-white' : 'text-white/60'}`}
-                  title="Untertitel"
-                >
-                  <Captions className="h-4 w-4" />
-                </button>
-                {showSubtitleMenu && (
-                  <div className="absolute bottom-full right-0 mb-2 bg-[#2a2a2a] border border-white/10 rounded-lg shadow-xl min-w-[200px] py-1 z-10">
-                    <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
-                      Untertitel
-                    </p>
-                    <button
-                      onClick={() => selectSubtitleTrack(null)}
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition-colors ${selectedSubtitle === null ? 'text-white' : 'text-white/70'}`}
-                    >
-                      <span
-                        className={`inline-block w-3 h-3 rounded-full border mr-2 align-middle ${selectedSubtitle === null ? 'bg-red-500 border-red-500' : 'border-white/30'}`}
-                      />
-                      Aus
-                    </button>
-                    {subtitleTracks.map((s, i) => (
-                      <button
-                        key={s.index}
-                        onClick={() => selectSubtitleTrack(i)}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition-colors ${selectedSubtitle === i ? 'text-white' : 'text-white/70'}`}
-                      >
-                        <span
-                          className={`inline-block w-3 h-3 rounded-full border mr-2 align-middle ${selectedSubtitle === i ? 'bg-red-500 border-red-500' : 'border-white/30'}`}
-                        />
-                        {trackLabel(s, i)}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Volume */}
-            <div className="flex items-center gap-2 ml-1">
-              <button onClick={toggleMute} className="text-white/80 hover:text-white p-2">
-                <VolumeIcon className="h-5 w-5" />
+              <button
+                onClick={() => skip(10)}
+                className="flex flex-col items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded"
+              >
+                <SkipForward className="h-4 w-4" />
+                <span className="text-[8px] -mt-1">10</span>
               </button>
-              <div className="relative w-24 h-1 bg-white/30 rounded overflow-hidden">
-                <div
-                  className="absolute h-full bg-red-600"
-                  style={{ width: `${isMuted ? 0 : volume * 100}%` }}
-                />
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={isMuted ? 0 : volume}
-                  onChange={(e) => handleVolume(parseFloat(e.target.value))}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
+
+              <button
+                onClick={handleStop}
+                className="flex items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded ml-1"
+                title="Stop"
+              >
+                <Square className="h-4 w-4 fill-current" />
+              </button>
+
+              {nextEpisode && (
+                <button
+                  onClick={() => nextEpisode.onPlay()}
+                  className="ml-1 w-10 h-10 rounded overflow-hidden bg-black hover:ring-2 hover:ring-white/50"
+                >
+                  {nextEpisode.thumbnail ? (
+                    <img
+                      src={nextEpisode.thumbnail}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white/50">
+                      <SkipForward className="h-4 w-4" />
+                    </div>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Right: Track selectors + Volume */}
+            <div className="flex items-center justify-end gap-1">
+              {/* Audio Track Selector */}
+              {audioTracks.length > 1 && (
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowAudioMenu((v) => !v);
+                      setShowSubtitleMenu(false);
+                    }}
+                    className={`flex items-center justify-center w-9 h-9 rounded hover:bg-white/10 transition-colors ${showAudioMenu ? 'text-white' : 'text-white/60'}`}
+                    title="Audiospur"
+                  >
+                    <Languages className="h-4 w-4" />
+                  </button>
+                  {showAudioMenu && (
+                    <div className="absolute bottom-full right-0 mb-2 liquid-glass rounded-xl min-w-[200px] py-1 z-10 shadow-[0_8px_32px_0_rgba(0,0,0,0.8)]">
+                      <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+                        Audiospur
+                      </p>
+                      {audioTracks.map((t, i) => (
+                        <button
+                          key={t.index}
+                          onClick={() => selectAudioTrack(i)}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition-colors ${selectedAudio === i ? 'text-white' : 'text-white/70'}`}
+                        >
+                          <span
+                            className={`inline-block w-3 h-3 rounded-full border mr-2 align-middle ${selectedAudio === i ? 'bg-red-500 border-red-500' : 'border-white/30'}`}
+                          />
+                          {trackLabel(t, i)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Subtitle Track Selector */}
+              {subtitleTracks.length > 0 && (
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowSubtitleMenu((v) => !v);
+                      setShowAudioMenu(false);
+                    }}
+                    className={`flex items-center justify-center w-9 h-9 rounded hover:bg-white/10 transition-colors ${selectedSubtitle !== null ? 'text-white' : showSubtitleMenu ? 'text-white' : 'text-white/60'}`}
+                    title="Untertitel"
+                  >
+                    <Captions className="h-4 w-4" />
+                  </button>
+                  {showSubtitleMenu && (
+                    <div className="absolute bottom-full right-0 mb-2 liquid-glass rounded-xl min-w-[200px] py-1 z-10 shadow-[0_8px_32px_0_rgba(0,0,0,0.8)]">
+                      <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+                        Untertitel
+                      </p>
+                      <button
+                        onClick={() => selectSubtitleTrack(null)}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition-colors ${selectedSubtitle === null ? 'text-white' : 'text-white/70'}`}
+                      >
+                        <span
+                          className={`inline-block w-3 h-3 rounded-full border mr-2 align-middle ${selectedSubtitle === null ? 'bg-red-500 border-red-500' : 'border-white/30'}`}
+                        />
+                        Aus
+                      </button>
+                      {subtitleTracks.map((s, i) => (
+                        <button
+                          key={s.index}
+                          onClick={() => selectSubtitleTrack(i)}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition-colors ${selectedSubtitle === i ? 'text-white' : 'text-white/70'}`}
+                        >
+                          <span
+                            className={`inline-block w-3 h-3 rounded-full border mr-2 align-middle ${selectedSubtitle === i ? 'bg-red-500 border-red-500' : 'border-white/30'}`}
+                          />
+                          {trackLabel(s, i)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Volume */}
+              <div className="flex items-center gap-2 ml-1">
+                <button onClick={toggleMute} className="text-white/80 hover:text-white p-2">
+                  <VolumeIcon className="h-5 w-5" />
+                </button>
+                <div className="relative w-24 h-1 bg-white/30 rounded overflow-hidden">
+                  <div
+                    className="absolute h-full bg-red-600"
+                    style={{ width: `${isMuted ? 0 : volume * 100}%` }}
+                  />
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={isMuted ? 0 : volume}
+                    onChange={(e) => handleVolume(parseFloat(e.target.value))}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
           </div>
