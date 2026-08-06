@@ -524,10 +524,19 @@ function buildFfmpegArgs(
       // h264_vaapi has no CRF mode, and the frames are already in GPU
       // memory in the driver's own format — forcing a pixel format would
       // pull them back to system memory and undo the point of the exercise.
+      //
+      // The filter is always applied, even when no resizing is needed,
+      // because it also does the pixel-format conversion: HEVC rips are
+      // very often 10-bit, which hardware-decodes to P010, while H.264
+      // here is 8-bit. Without an explicit format=nv12 the encoder is
+      // handed a surface format it can't take and the job dies — and
+      // 10-bit HEVC is exactly the kind of file that lands on this path.
+      const scaleArgs = ['format=nv12'];
       if (needsScaling) {
-        // Scaling stays on the GPU too.
-        args.push('-vf', `scale_vaapi=w=${maxW}:h=-2`);
+        scaleArgs.unshift(`w=${maxW}`, 'h=-2');
       }
+      args.push('-vf', `scale_vaapi=${scaleArgs.join(':')}`);
+
       args.push(
         '-c:v',
         'h264_vaapi',
