@@ -70,7 +70,10 @@ interface VideoPlayerProps {
   src: string;
   title: string;
   subtitle?: string;
+  /** Portrait artwork, used for the small thumbnail in the control bar. */
   posterUrl?: string | null;
+  /** Landscape artwork, shown filling the frame until playback starts. */
+  backdropUrl?: string | null;
   savedPosition?: number;
   duration?: number | null;
   onClose: () => void;
@@ -157,6 +160,7 @@ export function VideoPlayer({
   title,
   subtitle,
   posterUrl,
+  backdropUrl,
   savedPosition = 0,
   duration: propDuration,
   onClose,
@@ -966,7 +970,29 @@ export function VideoPlayer({
       onMouseMove={resetHideTimer}
     >
       {/* Video */}
-      <div className="flex-1 relative" onClick={togglePlay}>
+      {/*
+        min-h-0 is load-bearing: a flex item defaults to min-height:auto and
+        so refuses to shrink below its content's intrinsic size. The <video>
+        has no src until the stream is negotiated, which means it takes its
+        intrinsic size from whatever image is shown in the meantime — a
+        portrait poster then pushed this container past the viewport height
+        and shoved the control bar off-screen.
+      */}
+      <div className="flex-1 relative min-h-0 overflow-hidden" onClick={togglePlay}>
+        {/*
+          Backdrop shown until the first frame arrives. Deliberately a
+          background image on its own absolutely-positioned layer rather
+          than the <video poster> attribute: that way it fills the frame
+          (cover) instead of being letterboxed by the video's object-contain,
+          and being out of flow it cannot influence layout at all.
+        */}
+        {isLoading && backdropUrl && (
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${backdropUrl})` }}
+          />
+        )}
+
         {/*
           No `src` here on purpose — it's assigned imperatively once the
           info-fetch effect knows the right URL (direct play / HLS /
@@ -975,8 +1001,7 @@ export function VideoPlayer({
         */}
         <video
           ref={videoRef}
-          poster={posterUrl ?? undefined}
-          className="w-full h-full object-contain"
+          className="absolute inset-0 h-full w-full object-contain"
           playsInline
         />
 
@@ -1048,7 +1073,7 @@ export function VideoPlayer({
 
       {/* Control Bar */}
       <div
-        className={`bg-[#1a1a1a] h-16 relative transition-all duration-300 ${showControls ? 'translate-y-0' : 'translate-y-full'}`}
+        className={`bg-[#1a1a1a] h-16 shrink-0 relative transition-all duration-300 ${showControls ? 'translate-y-0' : 'translate-y-full'}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Progress Bar */}

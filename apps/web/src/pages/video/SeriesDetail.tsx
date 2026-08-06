@@ -132,6 +132,7 @@ export function SeriesDetail() {
             mediaType="episode"
             mediaId={activeEpisode.id}
             posterUrl={series.posterPath}
+            backdropUrl={series.backdropPath ?? series.posterPath}
             duration={activeEpisode.runtime ? activeEpisode.runtime * 60 : null}
             onClose={handleClosePlayer}
             onProgress={(pos) => progressMutation.mutate({ epId: activeEpisode.id, position: pos })}

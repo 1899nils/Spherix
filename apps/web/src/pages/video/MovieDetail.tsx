@@ -186,6 +186,7 @@ export function MovieDetail() {
             src={`/api/video/movies/${movie.id}/stream`}
             title={movie.title}
             posterUrl={movie.posterPath}
+            backdropUrl={movie.backdropPath ?? movie.posterPath}
             savedPosition={movie.watchProgress ?? 0}
             duration={movie.runtime ? movie.runtime * 60 : null}
             onClose={handleClose}
