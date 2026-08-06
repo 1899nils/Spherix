@@ -551,8 +551,14 @@ function buildFfmpegArgs(
       args.push(
         '-c:v',
         'libx264',
+        // Software encoding on a NAS CPU is the expensive case by
+        // definition — this branch only runs when there's no GPU to offload
+        // to. 'ultrafast' costs compression efficiency (larger segments at
+        // the same visual quality) but is markedly cheaper per frame, which
+        // is the resource actually under pressure here. Disk space for a
+        // few minutes of look-ahead is not.
         '-preset',
-        'veryfast',
+        'ultrafast',
         // CRF with a bitrate ceiling rather than a hard target bitrate: the
         // encoder only spends bits where the picture needs them, which is
         // both faster and better looking than forcing a constant rate.
