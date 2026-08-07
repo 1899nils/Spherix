@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { statSync } from 'node:fs';
 import { promisify } from 'node:util';
 import type { Request } from 'express';
 import { logger } from '../../config/logger.js';
@@ -75,9 +76,33 @@ function parseFrameRate(value: string | undefined | null): number {
 }
 
 /**
+ * Cache of ffprobe results, keyed by path + size + mtime so an edited or
+ * replaced file is never served from a stale entry.
+ *
+ * Starting one film runs ffprobe several times over the same file: once for
+ * /stream/info, again for the playlist route, and again for each of hls.js's
+ * manifest retries. ffprobe has to read and parse the container to answer,
+ * which on a NAS with the media on spinning disks is seconds rather than
+ * milliseconds — paid repeatedly, before a single frame has been produced.
+ */
+const probeCache = new Map<string, MediaInfo>();
+/** Bounded so a large library can't turn the cache into a memory leak. */
+const PROBE_CACHE_MAX = 200;
+
+/**
  * Probe media file with ffprobe to get codec information
  */
 export async function probeMedia(filePath: string): Promise<MediaInfo | null> {
+  let cacheKey: string | null = null;
+  try {
+    const st = statSync(filePath);
+    cacheKey = `${filePath}:${st.size}:${st.mtimeMs}`;
+    const cached = probeCache.get(cacheKey);
+    if (cached) return cached;
+  } catch {
+    // Unreadable file — let the probe below produce the real error.
+  }
+
   try {
     // Use execFile (not exec) with an argument array so the file path is never
     // interpreted by a shell — a filename containing shell metacharacters
@@ -96,7 +121,7 @@ export async function probeMedia(filePath: string): Promise<MediaInfo | null> {
     const audioStreams = streams.filter((s: any) => s.codec_type === 'audio');
     const subtitleStreams = streams.filter((s: any) => s.codec_type === 'subtitle');
 
-    return {
+    const info: MediaInfo = {
       container: format.format_name?.split(',')[0] || 'unknown',
       duration: parseFloat(format.duration) || 0,
       size: parseInt(format.size) || 0,
@@ -132,6 +157,18 @@ export async function probeMedia(filePath: string): Promise<MediaInfo | null> {
         forced: s.disposition?.forced === 1,
       })),
     };
+
+    if (cacheKey) {
+      // Plain FIFO eviction — entries are interchangeable and tiny, so a
+      // proper LRU would buy nothing here.
+      if (probeCache.size >= PROBE_CACHE_MAX) {
+        const oldest = probeCache.keys().next().value;
+        if (oldest !== undefined) probeCache.delete(oldest);
+      }
+      probeCache.set(cacheKey, info);
+    }
+
+    return info;
   } catch (error) {
     logger.error(`Failed to probe media: ${filePath}`, { error });
     return null;
@@ -141,12 +178,38 @@ export async function probeMedia(filePath: string): Promise<MediaInfo | null> {
 /**
  * Check if client can play media directly without transcoding
  */
+/**
+ * Resolve a requested audio track to a real index into `mediaInfo.audio`.
+ *
+ * Anything out of range (or nothing requested) falls back to the file's
+ * default track, or the first one if none is flagged default — the same
+ * track a player would pick on its own. Returns -1 for a file with no audio.
+ */
+export function resolveAudioTrack(mediaInfo: MediaInfo, requested?: number): number {
+  if (mediaInfo.audio.length === 0) return -1;
+  if (requested != null && requested >= 0 && requested < mediaInfo.audio.length) {
+    return requested;
+  }
+  const defaultIdx = mediaInfo.audio.findIndex((a) => a.default);
+  return defaultIdx >= 0 ? defaultIdx : 0;
+}
+
 export function canDirectPlay(
   mediaInfo: MediaInfo,
   clientCaps: ClientCapabilities,
+  audioTrack?: number,
 ): { playable: boolean; reason?: string } {
   if (!mediaInfo.video) {
     return { playable: false, reason: 'No video stream' };
+  }
+
+  // Direct play hands the whole file to the <video> element, which plays the
+  // container's default audio track and gives no dependable way to switch.
+  // So a request for any other track can only be served by the transcode
+  // path, where the track is chosen when the stream is muxed.
+  const defaultTrack = resolveAudioTrack(mediaInfo);
+  if (audioTrack != null && audioTrack >= 0 && audioTrack !== defaultTrack) {
+    return { playable: false, reason: 'A non-default audio track was requested' };
   }
 
   // Direct play hands the file to the <video> element, with no MSE in the
@@ -175,17 +238,20 @@ export function canDirectPlay(
     };
   }
 
-  // Check audio (at least one stream must be compatible)
-  const hasCompatibleAudio = mediaInfo.audio.some((a) => {
-    const normalizedAudioCodec = normalizeAudioCodec(a.codec);
-    return nativeAudio.includes(normalizedAudioCodec);
-  });
-
-  if (!hasCompatibleAudio && mediaInfo.audio.length > 0) {
-    return {
-      playable: false,
-      reason: `No compatible audio codec found`,
-    };
+  // Check the audio track that will actually be played.
+  //
+  // This used to pass as long as *any* track in the file was compatible,
+  // which is not the same question: the browser plays the default track, so
+  // an MKV with a default AC3 track and a secondary AAC one was declared
+  // directly playable and then played with no sound at all.
+  if (defaultTrack >= 0) {
+    const playedCodec = normalizeAudioCodec(mediaInfo.audio[defaultTrack].codec);
+    if (!nativeAudio.includes(playedCodec)) {
+      return {
+        playable: false,
+        reason: `Audio codec ${mediaInfo.audio[defaultTrack].codec} not supported`,
+      };
+    }
   }
 
   // Check container

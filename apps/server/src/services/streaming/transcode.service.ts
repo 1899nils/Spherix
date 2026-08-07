@@ -9,6 +9,7 @@ import {
   getTranscodeSettings,
   normalizeAudioCodec,
   normalizeVideoCodec,
+  resolveAudioTrack,
 } from './mediaInfo.service.js';
 
 export interface TranscodeJob {
@@ -24,6 +25,12 @@ export interface TranscodeJob {
   process?: ReturnType<typeof spawn>;
   /** Segment container: fMP4 is required for HEVC to play back via hls.js. */
   segmentType: 'ts' | 'fmp4';
+  /**
+   * Index into MediaInfo.audio of the track this job muxes. Part of the
+   * job's identity: switching audio track means a different output, so it
+   * has to be a different job rather than a reuse of the running one.
+   */
+  audioTrack: number;
   /** Highest segment index the client has actually asked for so far. */
   lastRequestedSegment: number;
   /** When the client last asked for anything, for detecting abandoned jobs. */
@@ -77,8 +84,8 @@ const activeJobs = new Map<string, TranscodeJob>();
 /**
  * Generate unique transcode job ID
  */
-function generateJobId(mediaId: string): string {
-  return `transcode_${mediaId}_${Date.now()}`;
+function generateJobId(mediaId: string, audioTrack: number): string {
+  return `transcode_${mediaId}_a${audioTrack}_${Date.now()}`;
 }
 
 /**
@@ -107,11 +114,14 @@ export function getTranscodeDirectory(): string {
  * media), ambiguous about which one is actually current. Looking the job
  * up directly by mediaId is both faster and unambiguous.
  */
-export function findJobForMedia(mediaId: string): TranscodeJob | undefined {
+export function findJobForMedia(mediaId: string, audioTrack?: number): TranscodeJob | undefined {
   let best: TranscodeJob | undefined;
   let bestTime = -1;
   for (const job of activeJobs.values()) {
     if (job.mediaId !== mediaId) continue;
+    // A job only serves the audio track it was started with — when a
+    // specific one is asked for, a job for a different track is not a match.
+    if (audioTrack != null && job.audioTrack !== audioTrack) continue;
     const time = parseInt(job.id.split('_').pop() || '0', 10);
     if (time > bestTime) {
       bestTime = time;
@@ -219,7 +229,11 @@ const TS_AUDIO_CODECS = new Set(['aac', 'mp3', 'ac3', 'eac3']);
  * playable and only the container isn't; that should cost almost nothing,
  * and is what other media servers call "direct stream".
  */
-export function planTranscode(mediaInfo: MediaInfo, clientCaps: ClientCapabilities): TranscodePlan {
+export function planTranscode(
+  mediaInfo: MediaInfo,
+  clientCaps: ClientCapabilities,
+  audioTrack?: number,
+): TranscodePlan {
   const srcVideoCodec = mediaInfo.video ? normalizeVideoCodec(mediaInfo.video.codec) : '';
   const copyVideo = !!srcVideoCodec && clientCaps.videoCodecs.includes(srcVideoCodec);
 
@@ -230,8 +244,12 @@ export function planTranscode(mediaInfo: MediaInfo, clientCaps: ClientCapabiliti
   // with a bare "could not be decoded" in a browser that does support HEVC.
   const segmentType: 'ts' | 'fmp4' = copyVideo && srcVideoCodec === 'hevc' ? 'fmp4' : 'ts';
 
-  const defaultAudio = mediaInfo.audio.find((a) => a.default) || mediaInfo.audio[0];
-  const srcAudioCodec = defaultAudio ? normalizeAudioCodec(defaultAudio.codec) : '';
+  // Whether audio can be copied depends on the track actually being muxed,
+  // not on the file's default one — picking a DTS commentary track out of a
+  // file whose default is AAC still has to be re-encoded.
+  const chosenIdx = resolveAudioTrack(mediaInfo, audioTrack);
+  const chosenAudio = chosenIdx >= 0 ? mediaInfo.audio[chosenIdx] : undefined;
+  const srcAudioCodec = chosenAudio ? normalizeAudioCodec(chosenAudio.codec) : '';
   // Audio used to be re-encoded to AAC unconditionally, even when the
   // source track was already AAC/MP3/Opus/FLAC and the client had just told
   // us it can decode it. The container still constrains this though: FLAC
@@ -254,14 +272,17 @@ export async function startHlsTranscode(
   inputPath: string,
   mediaInfo: MediaInfo,
   clientCaps: ClientCapabilities,
+  audioTrack?: number,
 ): Promise<TranscodeJob> {
+  const resolvedAudioTrack = resolveAudioTrack(mediaInfo, audioTrack);
+
   // Reuse an already pending/processing/completed job for this media rather
   // than always starting a fresh ffmpeg process — covers both the retry
   // scenario above and a plain page reload after the transcode already
   // finished (which otherwise re-transcoded the whole thing from scratch
   // for no reason). Only a 'failed' job is not reused — that should retry
   // clean.
-  const existing = findJobForMedia(mediaId);
+  const existing = findJobForMedia(mediaId, resolvedAudioTrack);
   if (existing && existing.status !== 'failed') {
     logger.debug(
       `Reusing existing transcode job ${existing.id} (status=${existing.status}) for media ${mediaId}`,
@@ -269,7 +290,16 @@ export async function startHlsTranscode(
     return existing;
   }
 
-  const jobId = generateJobId(mediaId);
+  // Starting a job for a different audio track of the same media means the
+  // viewer just switched track — the job for the old one has no viewer any
+  // more and would otherwise keep encoding until the idle reaper noticed.
+  for (const job of activeJobs.values()) {
+    if (job.mediaId !== mediaId || job.audioTrack === resolvedAudioTrack) continue;
+    if (job.status !== 'pending' && job.status !== 'processing') continue;
+    terminateJob(job, 'Viewer switched to a different audio track');
+  }
+
+  const jobId = generateJobId(mediaId, resolvedAudioTrack);
   const outputDir = join(getTranscodeDirectory(), jobId);
 
   if (!existsSync(outputDir)) {
@@ -277,7 +307,11 @@ export async function startHlsTranscode(
   }
 
   const settings = getTranscodeSettings(mediaInfo, clientCaps);
-  const { copyVideo, copyAudio, segmentType } = planTranscode(mediaInfo, clientCaps);
+  const { copyVideo, copyAudio, segmentType } = planTranscode(
+    mediaInfo,
+    clientCaps,
+    resolvedAudioTrack,
+  );
 
   const job: TranscodeJob = {
     id: jobId,
@@ -289,6 +323,7 @@ export async function startHlsTranscode(
     status: 'pending',
     progress: 0,
     segmentType,
+    audioTrack: resolvedAudioTrack,
     lastRequestedSegment: 0,
     lastRequestedAt: Date.now(),
     producedSegments: 0,
@@ -303,7 +338,8 @@ export async function startHlsTranscode(
 
   logger.info(
     `Started HLS transcode job ${jobId} for ${mediaType} ${mediaId} ` +
-      `(copyVideo=${copyVideo}, copyAudio=${copyAudio}, segments=${segmentType})`,
+      `(copyVideo=${copyVideo}, copyAudio=${copyAudio}, segments=${segmentType}, ` +
+      `audioTrack=${resolvedAudioTrack})`,
   );
   return job;
 }
@@ -333,6 +369,7 @@ function startTranscodingProcess(
     copyVideo,
     copyAudio,
     job.segmentType,
+    job.audioTrack,
   );
 
   logger.debug(`FFmpeg command: ffmpeg ${args.join(' ')}`);
@@ -424,8 +461,12 @@ function maybeThrottle(job: TranscodeJob): void {
  * Record that the client requested a given segment, resuming a throttled
  * ffmpeg process when playback has caught up far enough to need more.
  */
-export function noteSegmentRequested(mediaId: string, segmentNum: number): void {
-  const job = findJobForMedia(mediaId);
+export function noteSegmentRequested(
+  mediaId: string,
+  segmentNum: number,
+  audioTrack?: number,
+): void {
+  const job = findJobForMedia(mediaId, audioTrack);
   if (!job) return;
 
   job.lastRequestedAt = Date.now();
@@ -470,10 +511,17 @@ function terminateJob(job: TranscodeJob, reason: string): void {
  * player, so the server isn't still encoding a film nobody is watching.
  */
 export function stopTranscodeForMedia(mediaId: string): boolean {
-  const job = findJobForMedia(mediaId);
-  if (!job || (job.status !== 'pending' && job.status !== 'processing')) return false;
-  terminateJob(job, 'Playback stopped by viewer');
-  return true;
+  // Every job for this media, not just the newest: switching audio track
+  // mid-film leaves the previous track's job behind, and it is just as
+  // abandoned as the current one once the viewer closes the player.
+  let stopped = false;
+  for (const job of activeJobs.values()) {
+    if (job.mediaId !== mediaId) continue;
+    if (job.status !== 'pending' && job.status !== 'processing') continue;
+    terminateJob(job, 'Playback stopped by viewer');
+    stopped = true;
+  }
+  return stopped;
 }
 
 /**
@@ -509,6 +557,7 @@ function buildFfmpegArgs(
   copyVideo = false,
   copyAudio = false,
   segmentType: 'ts' | 'fmp4' = 'ts',
+  audioTrack = -1,
 ): string[] {
   // GPU encoding is only worth setting up when we're actually encoding —
   // a stream copy doesn't touch the codec at all.
@@ -676,10 +725,15 @@ function buildFfmpegArgs(
   // particular) expect video to be stream 0 of the output.
   args.push('-map', '0:v:0');
 
-  // Select best audio stream (prefer default, then highest quality)
-  if (mediaInfo.audio.length > 0) {
-    const defaultAudio = mediaInfo.audio.find((a) => a.default) || mediaInfo.audio[0];
-    args.push('-map', `0:a:${mediaInfo.audio.indexOf(defaultAudio)}`);
+  // Mux exactly one audio stream — the one the viewer picked, or the file's
+  // default. Audio-track switching is a server-side decision for the same
+  // reason it is in Plex and Jellyfin: an HLS stream carries the single
+  // track it was muxed with, and there is no reliable way to swap it out
+  // client-side. The player asks for a different track, gets a different
+  // stream, and resumes at the same position.
+  const chosen = resolveAudioTrack(mediaInfo, audioTrack >= 0 ? audioTrack : undefined);
+  if (chosen >= 0) {
+    args.push('-map', `0:a:${chosen}`);
   }
 
   // HLS settings
@@ -886,6 +940,7 @@ export async function checkTranscodeNeeded(
   mediaType: 'movie' | 'episode',
   filePath: string,
   clientCaps: ClientCapabilities,
+  audioTrack?: number,
 ): Promise<{
   directPlay: boolean;
   transcodeJob?: TranscodeJob;
@@ -898,14 +953,21 @@ export async function checkTranscodeNeeded(
     return { directPlay: false, reason: 'Failed to probe media' };
   }
 
-  const directPlayCheck = canDirectPlay(mediaInfo, clientCaps);
+  const directPlayCheck = canDirectPlay(mediaInfo, clientCaps, audioTrack);
 
   if (directPlayCheck.playable) {
     return { directPlay: true };
   }
 
   // Start transcode
-  const job = await startHlsTranscode(mediaId, mediaType, filePath, mediaInfo, clientCaps);
+  const job = await startHlsTranscode(
+    mediaId,
+    mediaType,
+    filePath,
+    mediaInfo,
+    clientCaps,
+    audioTrack,
+  );
 
   return {
     directPlay: false,

@@ -176,6 +176,106 @@ describe('canDirectPlay', () => {
     );
     expect(result.playable).toBe(true);
   });
+
+  it('judges audio by the default track, not by whether any track is compatible', async () => {
+    // Regression guard: this used to pass as long as *some* track in the
+    // file was playable. The browser plays the default one, so a file whose
+    // default is AC3 direct-played to complete silence even though a
+    // secondary AAC track existed.
+    const { canDirectPlay } = await import('./mediaInfo.service.js');
+    const result = canDirectPlay(
+      { ...multiAudio('ac3', 'aac'), container: 'mp4' },
+      caps(['h264'], ['aac']),
+    );
+    expect(result.playable).toBe(false);
+  });
+
+  it('refuses direct play for a non-default audio track, which it cannot select', async () => {
+    const { canDirectPlay } = await import('./mediaInfo.service.js');
+    const result = canDirectPlay(
+      { ...multiAudio('aac', 'aac'), container: 'mp4' },
+      caps(['h264'], ['aac']),
+      1,
+    );
+    expect(result.playable).toBe(false);
+  });
+
+  it('allows direct play when the requested track is the default one anyway', async () => {
+    const { canDirectPlay } = await import('./mediaInfo.service.js');
+    const result = canDirectPlay(
+      { ...multiAudio('aac', 'ac3'), container: 'mp4' },
+      caps(['h264'], ['aac']),
+      0,
+    );
+    expect(result.playable).toBe(true);
+  });
+});
+
+// ─── Audio track selection ────────────────────────────────────────────────────
+
+/** A file with two audio tracks; the first is the default. */
+function multiAudio(firstCodec: string, secondCodec: string): MediaInfo {
+  const base = media('h264', firstCodec);
+  return {
+    ...base,
+    audio: [
+      base.audio[0],
+      {
+        ...base.audio[0],
+        index: 2,
+        codec: secondCodec,
+        codecLongName: secondCodec,
+        default: false,
+      },
+    ],
+  };
+}
+
+describe('resolveAudioTrack', () => {
+  it('picks the default track when none is requested', async () => {
+    const { resolveAudioTrack } = await import('./mediaInfo.service.js');
+    const info = multiAudio('ac3', 'aac');
+    info.audio[0].default = false;
+    info.audio[1].default = true;
+    expect(resolveAudioTrack(info)).toBe(1);
+  });
+
+  it('falls back to the first track when nothing is flagged default', async () => {
+    const { resolveAudioTrack } = await import('./mediaInfo.service.js');
+    const info = multiAudio('ac3', 'aac');
+    info.audio[0].default = false;
+    expect(resolveAudioTrack(info)).toBe(0);
+  });
+
+  it('honours a requested track', async () => {
+    const { resolveAudioTrack } = await import('./mediaInfo.service.js');
+    expect(resolveAudioTrack(multiAudio('aac', 'ac3'), 1)).toBe(1);
+  });
+
+  it('ignores an out-of-range request rather than producing a broken mapping', async () => {
+    const { resolveAudioTrack } = await import('./mediaInfo.service.js');
+    expect(resolveAudioTrack(multiAudio('aac', 'ac3'), 7)).toBe(0);
+  });
+
+  it('reports no track for a file without audio', async () => {
+    const { resolveAudioTrack } = await import('./mediaInfo.service.js');
+    expect(resolveAudioTrack({ ...media('h264', 'aac'), audio: [] })).toBe(-1);
+  });
+});
+
+describe('planTranscode with an explicit audio track', () => {
+  it('plans for the selected track, not the default one', () => {
+    // The default is AAC (copyable), the selected one is DTS (not). Getting
+    // this wrong would tell ffmpeg to copy a stream it has to re-encode.
+    const plan = planTranscode(multiAudio('aac', 'dts'), caps(['h264'], ['aac']), 1);
+    expect(plan.copyVideo).toBe(true);
+    expect(plan.copyAudio).toBe(false);
+  });
+
+  it('copies the selected track when it is the compatible one', () => {
+    const plan = planTranscode(multiAudio('dts', 'aac'), caps(['h264'], ['aac']), 1);
+    expect(plan.copyAudio).toBe(true);
+  });
 });
 
 describe('getTranscodeSettings', () => {

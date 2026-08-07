@@ -10,6 +10,7 @@ import {
   Volume2,
   VolumeX,
   Maximize,
+  Minimize,
   SkipBack,
   SkipForward,
   ChevronDown,
@@ -102,18 +103,6 @@ function trackLabel(t: AudioTrackInfo | SubtitleTrackInfo, idx: number): string 
   return `${lang}${name} (${extra})`;
 }
 
-// Audio codecs the browser can decode natively — no transcoding needed.
-const NATIVE_AUDIO = new Set([
-  'aac',
-  'mp3',
-  'opus',
-  'vorbis',
-  'flac',
-  'alac',
-  'pcm_s16le',
-  'pcm_s24le',
-]);
-
 /** Seconds of playback between progress reports to the server. */
 const PROGRESS_REPORT_INTERVAL = 10;
 
@@ -185,7 +174,14 @@ export function VideoPlayer({
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  // Two distinct "not playing yet" states, because they want different UI:
+  // `isLoading` is the initial negotiation (backdrop + spinner, no picture
+  // to show yet), `isBuffering` is a mid-playback stall where the frame is
+  // still there and only a spinner belongs on top of it.
   const [isLoading, setIsLoading] = useState(true);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showSkipIntro, setShowSkipIntro] = useState(false);
   const [showNextEpisode, setShowNextEpisode] = useState(false);
   const [countdown] = useState(5);
@@ -207,27 +203,27 @@ export function VideoPlayer({
   const mediaIdRef = useRef(mediaId);
   mediaIdRef.current = mediaId;
 
-  // Separate <audio> element for AC3/DTS tracks.
-  // The <video> keeps its direct stream (muted); this element plays AAC-transcoded audio.
-  // This avoids changing video.src which causes a black screen when ffmpeg is unavailable.
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const usesSeparateAudio = useRef(false);
-
-  // Selected audio track index — needed by seek and resync handlers
+  // Audio track the stream currently carries. Chosen server-side — see
+  // selectAudioTrack() — so this is only ever what the last /info response
+  // reported back, never something the client applies on its own.
   const selectedAudioRef = useRef<number | null>(null);
 
-  // For HLS/remux streams that start at an offset (audio track switch fallback)
-  const streamOffsetRef = useRef(0);
-  const isSwitchingAudio = useRef(false);
-
-  // Base URL for audio-remux streams (video+AAC via /api/video/stream/audio/).
-  // Set when the server says only audio needs transcoding.
-  // Used by resyncVideo to reload from a new position when seeking.
-  const audioRemuxBaseUrlRef = useRef<string | null>(null);
+  // Position to restore once the next source has loaded its metadata. Set
+  // when a reload is deliberate (audio-track switch, transcode fallback) so
+  // playback picks up where it left off instead of jumping to the start.
+  const pendingSeekRef = useRef<number | null>(null);
+  // savedPosition is restored exactly once, on the first source that loads.
+  const hasRestoredPositionRef = useRef(false);
+  // True from the moment a (re)load starts until the new source is playable.
+  // Swapping sources tears the old one down, and the teardown can raise a
+  // media error on the element that has nothing to do with the source now
+  // being loaded — without this guard that noise surfaced as a "cannot be
+  // played" message over a stream that was about to start fine.
+  const isReloadingRef = useRef(false);
 
   // Whether the <video> element currently holds a direct-play source (as
-  // opposed to an HLS/audio-remux one) — used to decide whether a decode
-  // error should trigger the transcode fallback below.
+  // opposed to an HLS one) — used to decide whether a decode error should
+  // trigger the transcode fallback below.
   const isDirectPlayRef = useRef(false);
   // Only fall back once per media — if the transcoded stream *also* fails
   // to decode, retrying forever isn't going to help.
@@ -235,6 +231,9 @@ export function VideoPlayer({
   // hls.js gets one recoverMediaError() attempt before we give up on the
   // stream and re-request it as a transcode.
   const mediaRecoveryTriedRef = useRef(false);
+  // ...and one startLoad() attempt after a fatal network error before the
+  // failure is shown to the viewer.
+  const networkRecoveryTriedRef = useRef(false);
 
   // Playback position last reported upwards, so `timeupdate` (which fires
   // several times a second) doesn't turn into a request per tick.
@@ -242,7 +241,9 @@ export function VideoPlayer({
   // Holds the latest "(re)fetch /stream/info and load whatever it says"
   // function from the info-fetch effect below, so the decode-error handler
   // in a different effect can trigger it with forceTranscode=true.
-  const loadStreamRef = useRef<(opts?: { forceTranscode?: boolean }) => void>(() => {});
+  const loadStreamRef = useRef<(opts?: { forceTranscode?: boolean; audioTrack?: number }) => void>(
+    () => {},
+  );
 
   // Subtitle overlay
   const subtitleCuesRef = useRef<SubtitleCue[]>([]);
@@ -283,11 +284,9 @@ export function VideoPlayer({
       return;
     }
 
-    streamOffsetRef.current = 0;
-    usesSeparateAudio.current = false;
-    audioRemuxBaseUrlRef.current = null;
     hasFallenBackToTranscodeRef.current = false;
     mediaRecoveryTriedRef.current = false;
+    networkRecoveryTriedRef.current = false;
 
     const controller = new AbortController();
     const playWithMuteFallback = () => {
@@ -303,18 +302,34 @@ export function VideoPlayer({
     // reports a real decode error (see the "Initialize video" effect below)
     // — canPlayType() (used to decide what capabilities to report to the
     // server) is only ever a heuristic, not a guarantee.
-    const loadStream = (opts: { forceTranscode?: boolean } = {}) => {
-      const qs = opts.forceTranscode ? '?forceTranscode=1' : '';
+    const loadStream = (opts: { forceTranscode?: boolean; audioTrack?: number } = {}) => {
+      const params = new URLSearchParams();
+      if (opts.forceTranscode) params.set('forceTranscode', '1');
+      if (opts.audioTrack != null) params.set('audioTrack', String(opts.audioTrack));
+      const qs = params.size > 0 ? `?${params}` : '';
+
+      // Every path through here ends with the browser having to fetch and
+      // decode a source it doesn't have yet, which is exactly the wait the
+      // spinner exists for. Raising it here rather than only on mount is
+      // what makes an audio-track switch or a transcode fallback show
+      // progress instead of an apparently frozen picture.
+      setIsLoading(true);
+      setLoadError(null);
+      isReloadingRef.current = true;
+
       fetch(`/api/video/stream/info/${mediaType}/${mediaId}${qs}`, {
         signal: controller.signal,
         headers: { 'x-client-capabilities': clientCapabilitiesHeader() },
       })
-        .then((r) => r.json())
+        .then((r) => {
+          if (!r.ok) throw new Error(`Stream-Info fehlgeschlagen (HTTP ${r.status})`);
+          return r.json();
+        })
         .then((json) => {
           if (controller.signal.aborted) return;
           const data = json?.data;
           const info = data?.mediaInfo;
-          if (!info) return;
+          if (!info) throw new Error('Keine Medieninformationen erhalten');
 
           const audio: AudioTrackInfo[] = info.audio ?? [];
           const subs: SubtitleTrackInfo[] = (info.subtitles ?? []).filter(
@@ -324,11 +339,14 @@ export function VideoPlayer({
           setAudioTracks(audio);
           setSubtitleTracks(subs);
 
-          const defAudioIdx = audio.findIndex((a: AudioTrackInfo) => a.default);
-          const resolvedIdx = defAudioIdx >= 0 ? defAudioIdx : audio.length > 0 ? 0 : null;
+          // The server reports which track the stream it just handed back
+          // actually carries. Trusting that rather than re-deriving it here
+          // keeps the menu's checked entry honest even when the requested
+          // track was out of range and the server fell back to the default.
+          const resolvedIdx: number | null =
+            typeof data?.audioTrack === 'number' && data.audioTrack >= 0 ? data.audioTrack : null;
           selectedAudioRef.current = resolvedIdx;
           setSelectedAudio(resolvedIdx);
-          setSelectedSubtitle(null);
 
           const streamUrl: string = data?.streamUrl ?? src;
           const directPlay: boolean = data?.directPlay ?? true;
@@ -376,6 +394,7 @@ export function VideoPlayer({
                 // sat there while the media element itself reported nothing.
                 hls.on(Hls.Events.ERROR, (_evt, data) => {
                   if (!data.fatal) return;
+
                   if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
                     // Give hls.js one chance to recover on its own — a
                     // single bad append is often transient.
@@ -398,7 +417,39 @@ export function VideoPlayer({
                       hlsRef.current = null;
                       loadStreamRef.current({ forceTranscode: true });
                     }
+                    return;
                   }
+
+                  // Everything that isn't a media error used to be dropped
+                  // on the floor here, and a fatal network error is the one
+                  // this player runs into in practice: when ffmpeg hasn't
+                  // produced enough segments within its window the playlist
+                  // route answers 503, hls.js exhausts its manifest retries,
+                  // and reports exactly this. With no handler the player sat
+                  // on the loading spinner indefinitely with nothing on
+                  // screen to say why — the "sometimes it just doesn't
+                  // load" case. hls.js can restart the load itself, so give
+                  // it one go before surfacing anything to the viewer.
+                  if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                    if (!networkRecoveryTriedRef.current) {
+                      networkRecoveryTriedRef.current = true;
+                      console.warn('[VideoPlayer] Fatal HLS network error, retrying', data);
+                      hls.startLoad();
+                      return;
+                    }
+                    setIsLoading(false);
+                    setLoadError(
+                      'Der Stream konnte nicht geladen werden. Die Umwandlung dauert ' +
+                        'möglicherweise noch an.',
+                    );
+                    return;
+                  }
+
+                  console.error('[VideoPlayer] Unrecoverable HLS error', data);
+                  hls.destroy();
+                  hlsRef.current = null;
+                  setIsLoading(false);
+                  setLoadError('Die Wiedergabe ist fehlgeschlagen.');
                 });
 
                 hls.loadSource(streamUrl);
@@ -411,15 +462,8 @@ export function VideoPlayer({
               return;
             }
 
-            // ── Audio-remux path (only audio incompatible) ──────────────────
-            // Server returns /api/video/stream/audio/…  — copies video, AAC audio.
-            // Always stream from start=0 so timestamps begin at 0 (browser
-            // rejects fragmented MP4 when timestamps start mid-stream).
-            // onLoaded will seek to savedPosition via video.currentTime once
-            // the browser has buffered enough data.
-            audioRemuxBaseUrlRef.current = streamUrl;
-            streamOffsetRef.current = 0;
-            console.log('[VideoPlayer] audio remux stream (start=0)', streamUrl);
+            // Anything else the server hands back that isn't a playlist is
+            // a plain progressive source — load it directly.
             video.src = streamUrl;
             video.load();
             playWithMuteFallback();
@@ -437,10 +481,12 @@ export function VideoPlayer({
         })
         .catch((err) => {
           if (err.name === 'AbortError') return;
+          console.warn('[VideoPlayer] Stream negotiation failed, trying the raw source', err);
           // Info request failed — fall back to playing `src` directly rather
           // than leaving the player stuck with no source at all.
           isDirectPlayRef.current = true;
           video.src = src;
+          video.load();
           playWithMuteFallback();
         });
     };
@@ -450,11 +496,6 @@ export function VideoPlayer({
 
     return () => {
       controller.abort();
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-        audioRef.current = null;
-      }
     };
   }, [mediaType, mediaId, src]);
 
@@ -542,26 +583,63 @@ export function VideoPlayer({
       const rawDur = isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
       const dur = propDuration || (rawDur > 0 ? rawDur : 0);
       if (dur > 0) setDuration(dur);
-      setIsLoading(false);
 
-      if (isSwitchingAudio.current) {
-        isSwitchingAudio.current = false;
+      // A deliberate reload (audio-track switch, transcode fallback) parks
+      // the position it interrupted here, and it wins over savedPosition —
+      // resuming a switch at where the film was 40 minutes ago would be
+      // worse than not offering the switch at all.
+      const resumeAt = pendingSeekRef.current;
+      if (resumeAt != null) {
+        pendingSeekRef.current = null;
+        if (resumeAt > 0 && (dur === 0 || resumeAt < dur - 1)) video.currentTime = resumeAt;
         video.play().catch(() => {});
         return;
       }
-      if (savedPosition > 0 && savedPosition < dur - 5) {
-        video.currentTime = savedPosition;
+
+      // Only ever restore the saved position for a fresh source. Guarding
+      // with a ref matters because this effect re-runs whenever its props
+      // change, and re-running it while a film is playing would otherwise
+      // yank playback back to wherever the viewer had got to last session.
+      if (!hasRestoredPositionRef.current) {
+        hasRestoredPositionRef.current = true;
+        if (savedPosition > 0 && savedPosition < dur - 5) {
+          video.currentTime = savedPosition;
+        }
       }
     };
 
+    // Metadata means "we know how long it is", not "there is a picture".
+    // Clearing the spinner there left it disappearing well before anything
+    // was actually on screen; `canplay`/`playing` are the events that mean
+    // the browser has decodable data.
+    const onPlayable = () => {
+      isReloadingRef.current = false;
+      setIsLoading(false);
+      setIsBuffering(false);
+      setLoadError(null);
+    };
+    // The browser ran out of data mid-playback. This is the case that
+    // previously showed nothing at all — the picture simply froze.
+    const onWaiting = () => {
+      if (!video.ended) setIsBuffering(true);
+    };
+
     video.addEventListener('loadedmetadata', onLoaded);
+    video.addEventListener('canplay', onPlayable);
+    video.addEventListener('playing', onPlayable);
+    video.addEventListener('waiting', onWaiting);
+    video.addEventListener('stalled', onWaiting);
 
     if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
       onLoaded();
     }
 
     const onError = () => {
+      // Mid-swap errors belong to the source being torn down, not the one
+      // being loaded — let the incoming load report its own outcome.
+      if (isReloadingRef.current && !isDirectPlayRef.current) return;
       setIsLoading(false);
+      setIsBuffering(false);
 
       // A genuine decode/format failure while attempting direct play means
       // canPlayType() (used client-side to decide what to report as
@@ -582,7 +660,10 @@ export function VideoPlayer({
           '[VideoPlayer] Direct play reported a decode error, falling back to transcode',
           err,
         );
+        pendingSeekRef.current = video.currentTime || null;
         loadStreamRef.current({ forceTranscode: true });
+      } else if (isDecodeFailure) {
+        setLoadError('Dieses Video kann nicht wiedergegeben werden.');
       }
     };
     video.addEventListener('error', onError);
@@ -591,16 +672,20 @@ export function VideoPlayer({
     video.volume = volume;
 
     // Playback itself is started by the info-fetch effect above, once it
-    // knows the actual URL to use (direct play, HLS, or audio-remux) — not
-    // here. This effect used to call video.play() unconditionally on mount,
-    // racing against that effect's later video.src/load() reassignment:
-    // whichever `play()` promise was still pending when the source got
-    // swapped rejected with "The fetching process for the media resource
-    // was aborted by the user agent at the user's request", and the video
-    // would visibly stall/restart once the correct source finally loaded.
+    // knows the actual URL to use (direct play or HLS) — not here. This
+    // effect used to call video.play() unconditionally on mount, racing
+    // against that effect's later video.src/load() reassignment: whichever
+    // `play()` promise was still pending when the source got swapped
+    // rejected with "The fetching process for the media resource was
+    // aborted by the user agent at the user's request", and the video would
+    // visibly stall/restart once the correct source finally loaded.
 
     return () => {
       video.removeEventListener('loadedmetadata', onLoaded);
+      video.removeEventListener('canplay', onPlayable);
+      video.removeEventListener('playing', onPlayable);
+      video.removeEventListener('waiting', onWaiting);
+      video.removeEventListener('stalled', onWaiting);
       video.removeEventListener('error', onError);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -613,7 +698,7 @@ export function VideoPlayer({
     if (!video) return;
 
     const onTime = () => {
-      const realTime = video.currentTime + streamOffsetRef.current;
+      const realTime = video.currentTime;
       setSeek(realTime);
 
       // `timeupdate` fires roughly 4x a second. Reporting progress on every
@@ -653,17 +738,12 @@ export function VideoPlayer({
     const onPlay = () => {
       setIsPlaying(true);
       resetHideTimer();
-      // Only call play() if the audio element is actually paused — calling
-      // play() on an already-loading element causes the first promise to abort.
-      const ael = audioRef.current;
-      if (ael && ael.paused && usesSeparateAudio.current) ael.play().catch(() => {});
     };
     const onPause = () => {
       setIsPlaying(false);
       setShowControls(true);
-      audioRef.current?.pause();
       // Flush the exact position — onTime only reports on an interval.
-      const realTime = video.currentTime + streamOffsetRef.current;
+      const realTime = video.currentTime;
       lastProgressReportRef.current = realTime;
       onProgressRef.current?.(Math.floor(realTime));
     };
@@ -691,10 +771,6 @@ export function VideoPlayer({
   useEffect(
     () => () => {
       hlsRef.current?.destroy();
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-      }
       // Covers the ways playback ends without the stop button: navigating
       // away, closing the detail view, the component being unmounted.
       notifyPlaybackStopped(mediaTypeRef.current, mediaIdRef.current);
@@ -702,109 +778,67 @@ export function VideoPlayer({
     [],
   );
 
-  // ─── Reload separate audio element at a new position ──────────────────────
-
-  const resyncAudio = useCallback((posSeconds: number) => {
-    const ael = audioRef.current;
-    if (!ael || !usesSeparateAudio.current) return;
-    ael.pause();
-    ael.src = `/api/video/stream/audio-only/${mediaTypeRef.current}/${mediaIdRef.current}?track=${selectedAudioRef.current ?? 0}&start=${Math.floor(posSeconds)}`;
-    if (videoRef.current && !videoRef.current.paused) ael.play().catch(() => {});
-  }, []);
-
-  // ─── Reload audio-remux video stream at a new position ─────────────────────
-  // Used when seeking in a remux stream (server streams from a new offset).
-
-  const resyncVideo = useCallback((posSeconds: number) => {
-    const baseUrl = audioRemuxBaseUrlRef.current;
-    const video = videoRef.current;
-    if (!baseUrl || !video) return;
-    const startPos = Math.max(0, Math.floor(posSeconds));
-    streamOffsetRef.current = startPos;
-    isSwitchingAudio.current = true; // skip seek in onLoaded
-    const wasPlaying = !video.paused;
-    video.pause();
-    video.src = startPos > 0 ? `${baseUrl}&start=${startPos}` : baseUrl;
-    video.load();
-    if (wasPlaying) video.play().catch(() => {});
-  }, []);
-
   // ─── Controls ──────────────────────────────────────────────────────────────
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) {
       video.play().catch(() => {});
-      audioRef.current?.play().catch(() => {});
     } else {
       video.pause();
-      audioRef.current?.pause();
     }
     resetHideTimer();
-  };
+  }, [resetHideTimer]);
 
   const handleSeek = useCallback(
     (seconds: number) => {
       const video = videoRef.current;
       if (!video) return;
-      if (audioRemuxBaseUrlRef.current) {
-        // Remux stream: reload ffmpeg from the seek position.
-        resyncVideo(seconds);
-      } else {
-        video.currentTime = Math.max(0, seconds - streamOffsetRef.current);
-      }
-      setSeek(seconds);
-      resyncAudio(seconds);
+      const target = Math.max(0, Math.min(durationRef.current || Infinity, seconds));
+      video.currentTime = target;
+      setSeek(target);
       resetHideTimer();
     },
-    [resyncAudio, resyncVideo, resetHideTimer],
+    [resetHideTimer],
   );
 
-  const skip = (delta: number) => {
-    const video = videoRef.current;
-    if (!video) return;
-    const realTime = video.currentTime + streamOffsetRef.current;
-    const newTime = Math.max(0, Math.min(durationRef.current || Infinity, realTime + delta));
-    if (audioRemuxBaseUrlRef.current) {
-      resyncVideo(newTime);
-    } else {
-      video.currentTime = Math.max(0, newTime - streamOffsetRef.current);
-    }
-    setSeek(newTime);
-    resyncAudio(newTime);
-    resetHideTimer();
-  };
+  const skip = useCallback(
+    (delta: number) => {
+      const video = videoRef.current;
+      if (!video) return;
+      handleSeek(video.currentTime + delta);
+    },
+    [handleSeek],
+  );
 
-  const toggleMute = () => {
+  const toggleMute = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    const newMuted = !isMuted;
-    if (usesSeparateAudio.current && audioRef.current) {
-      audioRef.current.muted = newMuted;
-    } else {
-      video.muted = newMuted;
-    }
+    // Read the element rather than component state: this is also driven
+    // from the keyboard handler, whose listener is registered once, so a
+    // captured `isMuted` would be frozen at its mount value and 'm' would
+    // only ever mute, never unmute.
+    const newMuted = !video.muted;
+    video.muted = newMuted;
     setIsMuted(newMuted);
     resetHideTimer();
-  };
+  }, [resetHideTimer]);
 
-  const handleVolume = (v: number) => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (usesSeparateAudio.current && audioRef.current) {
-      audioRef.current.volume = v;
-      audioRef.current.muted = v === 0;
-    } else {
+  const handleVolume = useCallback(
+    (v: number) => {
+      const video = videoRef.current;
+      if (!video) return;
       video.volume = v;
       video.muted = v === 0;
-    }
-    setVolume(v);
-    setIsMuted(v === 0);
-    resetHideTimer();
-  };
+      setVolume(v);
+      setIsMuted(v === 0);
+      resetHideTimer();
+    },
+    [resetHideTimer],
+  );
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
     if (!document.fullscreenElement) {
@@ -812,7 +846,7 @@ export function VideoPlayer({
     } else {
       document.exitFullscreen().catch(() => {});
     }
-  };
+  }, []);
 
   const handleStop = useCallback(() => {
     const video = videoRef.current;
@@ -822,13 +856,6 @@ export function VideoPlayer({
     }
     hlsRef.current?.destroy();
     hlsRef.current = null;
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = '';
-      audioRef.current = null;
-    }
-    usesSeparateAudio.current = false;
-    streamOffsetRef.current = 0;
     // Release the server-side transcode straight away — otherwise it keeps
     // encoding (and burning CPU) for a film nobody is watching any more.
     notifyPlaybackStopped(mediaTypeRef.current, mediaIdRef.current);
@@ -845,51 +872,50 @@ export function VideoPlayer({
 
   // ─── Audio track selection ─────────────────────────────────────────────────
 
-  const selectAudioTrack = (idx: number) => {
-    if (!mediaType || !mediaId) return;
+  /**
+   * Switch audio track by asking the server for a stream muxed with that
+   * track, then resuming at the current position.
+   *
+   * This used to be attempted purely client-side: mute the <video> and lay a
+   * second <audio> element carrying an ffmpeg-transcoded audio-only stream
+   * over the top. It could not work. The two elements have independent
+   * clocks, so they drift immediately and neither seeking nor pausing keeps
+   * them together — and worse, once that path was taken it was never left
+   * again: switching *back* to the original track hit the "already on the
+   * separate-audio path" branch, so the video stayed muted forever and the
+   * film played with no sound at all whichever track was chosen.
+   *
+   * Picking the track server-side is what Plex and Jellyfin do, and for the
+   * same reason: an HLS stream carries the one audio track it was muxed
+   * with, so the only honest way to change it is to produce a different
+   * stream.
+   */
+  const selectAudioTrack = useCallback((idx: number) => {
     const video = videoRef.current;
     if (!video) return;
-
-    selectedAudioRef.current = idx;
-    setSelectedAudio(idx);
-    setShowAudioMenu(false);
-
-    const currentPos = video.currentTime + streamOffsetRef.current;
-
-    if (usesSeparateAudio.current && audioRef.current) {
-      // Already on separate-audio path — just reload the audio-only stream
-      audioRef.current.pause();
-      audioRef.current.src = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${idx}&start=${Math.floor(currentPos)}`;
-      if (!video.paused) audioRef.current.play().catch(() => {});
+    if (selectedAudioRef.current === idx) {
+      setShowAudioMenu(false);
       return;
     }
 
-    // Not yet on separate-audio path (track was native) — switch now
-    const newTrack = audioTracks[idx];
-    if (newTrack && !NATIVE_AUDIO.has(newTrack.codec.toLowerCase())) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-      }
-      const ael = new Audio();
-      ael.volume = isMuted ? 0 : volume;
-      ael.muted = isMuted;
-      ael.src = `/api/video/stream/audio-only/${mediaType}/${mediaId}?track=${idx}&start=${Math.floor(currentPos)}`;
-      if (!video.paused) ael.play().catch(() => {});
-      audioRef.current = ael;
-      usesSeparateAudio.current = true;
-      video.muted = true;
-    } else {
-      // Switching to a native audio track — disable separate audio
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-        audioRef.current = null;
-      }
-      usesSeparateAudio.current = false;
-      video.muted = false;
-    }
-  };
+    setShowAudioMenu(false);
+    setSelectedAudio(idx);
+    selectedAudioRef.current = idx;
+
+    // Resume where the switch interrupted, and let the transcode fallback
+    // logic start fresh: a decode failure on the new stream deserves its
+    // own retry rather than being suppressed by an earlier one.
+    pendingSeekRef.current = video.currentTime;
+    hasFallenBackToTranscodeRef.current = false;
+    mediaRecoveryTriedRef.current = false;
+    networkRecoveryTriedRef.current = false;
+
+    hlsRef.current?.destroy();
+    hlsRef.current = null;
+    video.pause();
+
+    loadStreamRef.current({ audioTrack: idx });
+  }, []);
 
   // ─── Subtitle track selection ──────────────────────────────────────────────
 
@@ -949,14 +975,42 @@ export function VideoPlayer({
           toggleMute();
           break;
         case 'Escape':
-          handleStop();
+          // In fullscreen the browser handles Escape itself, and stopping
+          // as well meant one press both left fullscreen and ended the
+          // film. Let it just leave fullscreen; a second press stops.
+          if (!document.fullscreenElement) handleStop();
           break;
       }
       resetHideTimer();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [resetHideTimer, handleStop]);
+  }, [resetHideTimer, handleStop, togglePlay, skip, toggleMute, toggleFullscreen]);
+
+  // ─── Track fullscreen state ────────────────────────────────────────────────
+  // Fullscreen can also be left with Escape or the browser's own UI, which
+  // never routes through toggleFullscreen() — so the button's icon has to
+  // follow the document, not our own last action.
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  // ─── Slow-load hint ────────────────────────────────────────────────────────
+  // Only after a few seconds: a stream that starts promptly shouldn't flash
+  // an explanation for a wait that never happened.
+
+  const [showSlowLoadHint, setShowSlowLoadHint] = useState(false);
+  useEffect(() => {
+    if (!isLoading) {
+      setShowSlowLoadHint(false);
+      return;
+    }
+    const t = setTimeout(() => setShowSlowLoadHint(true), 4000);
+    return () => clearTimeout(t);
+  }, [isLoading]);
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -993,9 +1047,9 @@ export function VideoPlayer({
 
         {/*
           No `src` here on purpose — it's assigned imperatively once the
-          info-fetch effect knows the right URL (direct play / HLS /
-          audio-remux). Setting it here too used to race that effect's
-          later video.src reassignment.
+          info-fetch effect knows the right URL (direct play or HLS).
+          Setting it here too used to race that effect's later video.src
+          reassignment.
         */}
         <video
           ref={videoRef}
@@ -1003,10 +1057,41 @@ export function VideoPlayer({
           playsInline
         />
 
-        {/* Loading */}
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+        {/*
+          Loading. Two variants share one spinner: the initial negotiation
+          dims the backdrop behind it and explains itself (starting a
+          transcode can take tens of seconds, and silence for that long
+          reads as "it's broken"), while a mid-playback buffer runs the
+          spinner alone over the frozen frame.
+        */}
+        {(isLoading || isBuffering) && !loadError && (
+          <div
+            className={`absolute inset-0 flex flex-col items-center justify-center gap-4 pointer-events-none ${
+              isLoading ? 'bg-black/50' : ''
+            }`}
+          >
             <div className="h-12 w-12 rounded-full border-4 border-white/20 border-t-red-600 animate-spin" />
+            {isLoading && showSlowLoadHint && (
+              <p className="text-sm text-white/70 max-w-md text-center px-6">
+                Der Stream wird vorbereitet – das kann bei diesem Film einen Moment dauern.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Load failure — better than a spinner that never stops. */}
+        {loadError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/70 px-6 text-center">
+            <p className="text-white">{loadError}</p>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                loadStreamRef.current();
+              }}
+              className="px-5 py-2 rounded-lg bg-white text-black font-medium hover:bg-white/90"
+            >
+              Erneut versuchen
+            </button>
           </div>
         )}
 
@@ -1038,7 +1123,10 @@ export function VideoPlayer({
 
         {/* Next Episode */}
         {showNextEpisode && nextEpisode && (
-          <div className="absolute bottom-28 right-8 bg-black/90 rounded-lg p-4">
+          <div
+            className="absolute bottom-28 right-8 bg-black/90 rounded-lg p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <p className="text-xs text-white/70 mb-2">Nächste in {countdown}s</p>
             <p className="text-sm text-white mb-3">{nextEpisode.title}</p>
             <button
@@ -1050,9 +1138,19 @@ export function VideoPlayer({
           </div>
         )}
 
-        {/* Top Bar */}
+        {/*
+          Top Bar. stopPropagation is load-bearing: this sits inside the
+          click-to-play surface, so without it every press of Minimieren or
+          Vollbild also toggled playback — the film paused itself on the way
+          into fullscreen.
+
+          It's also removed from the layer entirely while hidden rather than
+          just made transparent, so an invisible bar can't swallow clicks
+          meant for the picture.
+        */}
         <div
-          className={`absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/80 to-transparent transition-opacity ${showControls ? 'opacity-100' : 'opacity-0'}`}
+          className={`absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/80 to-transparent transition-opacity ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          onClick={(e) => e.stopPropagation()}
         >
           <button
             onClick={minimize}
@@ -1064,9 +1162,9 @@ export function VideoPlayer({
           <button
             onClick={toggleFullscreen}
             className="text-white/80 hover:text-white p-2"
-            title="Vollbild"
+            title={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
           >
-            <Maximize className="h-6 w-6" />
+            {isFullscreen ? <Minimize className="h-6 w-6" /> : <Maximize className="h-6 w-6" />}
           </button>
         </div>
       </div>
@@ -1086,19 +1184,25 @@ export function VideoPlayer({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="liquid-glass rounded-2xl h-[72px] relative shadow-[0_8px_32px_0_rgba(0,0,0,0.8)]">
-          {/* Progress Bar */}
+          {/*
+            Progress Bar. The visible line is 4px, but the clickable element
+            is 16px tall and pulled above the bar's top edge — a 4px target
+            is close to unhittable with a mouse and impossible on a
+            touchscreen, and missing it landed the click on the picture
+            behind, which pauses the film.
+          */}
           <div
-            className="absolute top-0 left-0 right-0 h-1 bg-white/20 cursor-pointer group rounded-t-2xl overflow-hidden"
+            className="absolute -top-2 left-0 right-0 h-4 flex items-start cursor-pointer group"
             onClick={(e) => {
+              if (!duration) return;
               const rect = e.currentTarget.getBoundingClientRect();
               const percent = (e.clientX - rect.left) / rect.width;
-              handleSeek(percent * duration);
+              handleSeek(Math.min(1, Math.max(0, percent)) * duration);
             }}
           >
-            <div
-              className="h-full bg-red-600 transition-all group-hover:h-1.5"
-              style={{ width: `${progressPercent}%` }}
-            />
+            <div className="w-full mt-2 h-1 bg-white/20 rounded-t-2xl overflow-hidden transition-all group-hover:h-1.5">
+              <div className="h-full bg-red-600" style={{ width: `${progressPercent}%` }} />
+            </div>
           </div>
 
           {/* Controls Row */}
@@ -1260,11 +1364,18 @@ export function VideoPlayer({
                 <button onClick={toggleMute} className="text-white/80 hover:text-white p-2">
                   <VolumeIcon className="h-5 w-5" />
                 </button>
-                <div className="relative w-24 h-1 bg-white/30 rounded overflow-hidden">
-                  <div
-                    className="absolute h-full bg-red-600"
-                    style={{ width: `${isMuted ? 0 : volume * 100}%` }}
-                  />
+                {/*
+                  Same reasoning as the progress bar: the visible track is
+                  4px but the <input> spans a 16px row, matching the music
+                  PlayerBar's volume control.
+                */}
+                <div className="relative w-24 h-4 flex items-center">
+                  <div className="absolute left-0 right-0 h-1 bg-white/30 rounded overflow-hidden pointer-events-none">
+                    <div
+                      className="h-full bg-red-600"
+                      style={{ width: `${isMuted ? 0 : volume * 100}%` }}
+                    />
+                  </div>
                   <input
                     type="range"
                     min="0"

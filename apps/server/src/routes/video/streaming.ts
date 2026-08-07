@@ -4,6 +4,7 @@ import {
   probeMedia,
   parseClientCapabilities,
   canDirectPlay,
+  resolveAudioTrack,
 } from '../../services/streaming/mediaInfo.service.js';
 import {
   checkTranscodeNeeded,
@@ -76,9 +77,18 @@ router.get('/info/:type/:id', async (req, res, next) => {
     // decode it), so this reactive fallback is the actual safety net, not
     // the upfront capability check.
     const forceTranscode = req.query.forceTranscode === '1';
+
+    // Which audio track the viewer wants. Absent on the first load (the
+    // file's default is used); set when they pick another one from the
+    // player's track menu, which reloads the stream through here.
+    const requestedAudio =
+      typeof req.query.audioTrack === 'string' ? parseInt(req.query.audioTrack, 10) : NaN;
+    const audioTrack = Number.isInteger(requestedAudio) ? requestedAudio : undefined;
+    const resolvedAudioTrack = resolveAudioTrack(probeResult, audioTrack);
+
     const directPlayCheck = forceTranscode
       ? { playable: false, reason: 'Forced transcode after a direct-play decode failure' }
-      : canDirectPlay(probeResult, clientCaps);
+      : canDirectPlay(probeResult, clientCaps, audioTrack);
 
     // Determine optimal stream URL
     let streamUrl: string;
@@ -110,8 +120,14 @@ router.get('/info/:type/:id', async (req, res, next) => {
       // the X-Client-Capabilities header, so the same detected
       // capabilities are embedded as a query param — see
       // parseClientCapabilities() for why.
+      //
+      // The audio track goes in the *path*, not the query string: hls.js
+      // resolves the segment names listed in the playlist relative to the
+      // playlist's own URL, so anything in the path is inherited by every
+      // segment request automatically, while a query param would be dropped
+      // and the segment route would have no idea which job to serve from.
       const capsParam = encodeURIComponent(JSON.stringify(clientCaps));
-      streamUrl = `/api/video/stream/hls/${type}/${id}/playlist.m3u8?caps=${capsParam}`;
+      streamUrl = `/api/video/stream/hls/${type}/${id}/a${resolvedAudioTrack}/playlist.m3u8?caps=${capsParam}`;
     }
 
     res.json({
@@ -121,6 +137,9 @@ router.get('/info/:type/:id', async (req, res, next) => {
         streamUrl,
         directPlay: directPlayCheck.playable,
         directPlayReason: directPlayCheck.reason,
+        // Which audio track this stream actually carries, so the player can
+        // show the right entry as selected rather than guessing.
+        audioTrack: resolvedAudioTrack,
         mediaInfo: {
           container: probeResult.container,
           duration: probeResult.duration,
@@ -149,12 +168,25 @@ router.get('/info/:type/:id', async (req, res, next) => {
 });
 
 /**
- * GET /api/video/stream/hls/:type/:id/playlist.m3u8
- * Get HLS playlist for transcoded stream
+ * Parse the `aN` audio-track path segment used by the HLS routes.
+ * Returns undefined for anything malformed, which falls back to the file's
+ * default track rather than failing the request.
  */
-router.get('/hls/:type/:id/playlist.m3u8', async (req, res, next) => {
+function parseAudioTrackParam(value: string): number | undefined {
+  const match = /^a(\d+)$/.exec(value);
+  return match ? parseInt(match[1], 10) : undefined;
+}
+
+/**
+ * GET /api/video/stream/hls/:type/:id/:track/playlist.m3u8
+ * Get HLS playlist for transcoded stream. `:track` is `a<index>`, naming the
+ * audio track the stream carries — see the /info route for why it lives in
+ * the path.
+ */
+router.get('/hls/:type/:id/:track/playlist.m3u8', async (req, res, next) => {
   try {
     const { type, id } = req.params;
+    const audioTrack = parseAudioTrackParam(req.params.track);
     const clientCaps = parseClientCapabilities(req);
 
     let filePath: string | null = null;
@@ -184,6 +216,7 @@ router.get('/hls/:type/:id/playlist.m3u8', async (req, res, next) => {
       type as 'movie' | 'episode',
       filePath,
       clientCaps,
+      audioTrack,
     );
 
     if (transcodeCheck.directPlay) {
@@ -251,16 +284,17 @@ router.get('/hls/:type/:id/playlist.m3u8', async (req, res, next) => {
 });
 
 /**
- * GET /api/video/stream/hls/:type/:id/:file
+ * GET /api/video/stream/hls/:type/:id/:track/:file
  * Serve HLS media files: MPEG-TS segments, fMP4 segments, and the fMP4
  * init segment. (HEVC has to be delivered as fMP4, so a single route
  * covering all three is simpler than one per container.)
  */
 const HLS_FILE_RE = /^(?:init\.mp4|segment_\d+\.(?:ts|m4s))$/;
 
-router.get('/hls/:type/:id/:file', async (req, res, next) => {
+router.get('/hls/:type/:id/:track/:file', async (req, res, next) => {
   try {
     const { id, file } = req.params;
+    const audioTrack = parseAudioTrackParam(req.params.track);
 
     // Strict allowlist — `file` lands in a filesystem path below, so it must
     // never be able to escape the job's output directory.
@@ -272,7 +306,10 @@ router.get('/hls/:type/:id/:file', async (req, res, next) => {
     // Look the job up directly instead of re-scanning the whole transcode
     // directory with readdir() on every single segment request (this used
     // to happen once per segment for the entire playback session).
-    const job = findJobForMedia(id);
+    // Matching on the audio track matters as soon as the viewer switches
+    // one: two jobs then exist for the same media, and serving segments
+    // from the wrong one would deliver the wrong soundtrack.
+    const job = findJobForMedia(id, audioTrack);
 
     if (!job) {
       res.status(404).json({ error: 'Transcode job not found' });
@@ -283,7 +320,7 @@ router.get('/hls/:type/:id/:file', async (req, res, next) => {
     // can be paused/resumed instead of racing to convert the whole file.
     const segMatch = /^segment_(\d+)\./.exec(file);
     if (segMatch) {
-      noteSegmentRequested(id, parseInt(segMatch[1], 10));
+      noteSegmentRequested(id, parseInt(segMatch[1], 10), audioTrack);
     }
 
     const segmentFile = join(job.outputDir, file);
